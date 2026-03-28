@@ -54,6 +54,19 @@ export function usePanoramaAudio(pages: string[], currentPage: number, onPageCha
                     const tempDiv = document.createElement("div");
                     tempDiv.innerHTML = line.replace(/__CONTINUATION_MARKER__/g, '. ').replace(/<br>/g, '. ');
                     let clean = tempDiv.textContent || tempDiv.innerText || "";
+                    
+                    // Limpar tags customizadas antes de dividir em sentenças para evitar que pontos internos quebrem a frase
+                    // {{Autor | Referência | Comando Oculto}} -> "Autor, Referência"
+                    clean = clean.replace(/\{\{(.*?)\}\}/g, (match, inner) => {
+                        const parts = inner.split('|');
+                        if (parts.length >= 2) {
+                            return `${parts[0].trim()}, ${parts[1].trim()}`;
+                        }
+                        return parts[0].trim();
+                    });
+                    // [[Termo | Explicação]] -> "Termo"
+                    clean = clean.replace(/\[\[(.*?)\|.*?\]\]/g, (match, term) => term.trim());
+
                     clean = clean.replace(/\*\*/g, '').replace(/\*/g, '').replace(/#/g, '').trim();
                     if (!clean) return;
                     const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
