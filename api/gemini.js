@@ -203,9 +203,9 @@ export default async function handler(request, response) {
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial.";
+                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial. Cada explicação deve ser densa e informativa.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do tema. Não resuma nada.";
+                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do tema. Não resuma nada. Cada tópico deve ter no mínimo 300 palavras de explicação.";
                 }
 
                 systemInstruction = `
@@ -240,8 +240,10 @@ export default async function handler(request, response) {
 
                     --- MANDATO DE VOLUME (CRÍTICO - NÃO ACEITO MENOS DE ${wordCountTarget.split(' ')[0]} PALAVRAS) ---
                     1. META OBRIGATÓRIA: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS.
-                    2. PROIBIDO RESUMIR: Se o assunto acabar, aprofunde-se na etimologia, no contexto histórico, nas divergências teológicas (refutando-as) e na aplicação prática.
-                    3. DENSIDADE: Cada subtópico deve ser um "mini-livro". Não escreva parágrafos curtos. Escreva tratados. Explique o "porquê", o "como" e o "para que".
+                    2. ALVO DE PÁGINAS: O usuário solicitou ${targetPages} páginas. Você DEVE gerar conteúdo suficiente para preencher esse volume. Não pare de escrever até atingir a meta de palavras.
+                    3. PROIBIDO RESUMIR: Se o assunto acabar, aprofunde-se na etimologia, no contexto histórico, nas divergências teológicas (refutando-as) e na aplicação prática.
+                    4. DENSIDADE: Cada subtópico deve ser um "mini-livro". Não escreva parágrafos curtos. Escreva tratados. Explique o "porquê", o "como" e o "para que".
+                    5. EXPLICAÇÕES ROBUSTAS: Cada ponto deve ter uma explicação detalhada. Evite frases curtas. Use parágrafos longos e bem fundamentados.
 
                     --- DIRETRIZES DE LINGUAGEM E TOM (CRÍTICO v117.0 - CLAREZA TOTAL) ---
                     1. PROIBIÇÃO DE ARCAÍSMOS E PALAVRAS DIFÍCEIS: É ESTRITAMENTE PROIBIDO usar palavras antigas, pouco usuais, jargões acadêmicos desnecessários ou frases cerimoniais. Nossos alunos são humildes e precisam de clareza absoluta.
@@ -313,15 +315,15 @@ export default async function handler(request, response) {
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os versículos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada grupo de versículos. Não seja superficial.";
+                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada grupo de versículos. Não seja superficial. Cada explicação deve ser densa e informativa.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM versículo ou grupo de versículos deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do texto. Não resuma nada.";
+                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM versículo ou grupo de versículos deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do texto. Não resuma nada. Cada explicação de versículo deve ter no mínimo 200 palavras.";
                 }
 
                 // --- LÓGICA DE INTRODUÇÃO SELETIVA (100% FIEL AO PEDIDO DO ADMIN) ---
                 const introInstruction = (chapter === 1) 
-                    ? "2. INTRODUÇÃO GERAL:\n           Texto rico contextualizando O LIVRO (autor, data, propósito) e o cenário deste primeiro capítulo."
-                    : `2. INTRODUÇÃO DO CAPÍTULO:\n           FOCAR EXCLUSIVAMENTE no contexto imediato do capítulo ${chapter}. NÃO repita a introdução geral do livro de ${book} (autoria, data, etc), pois já foi dado nos capítulos anteriores. Vá direto ao ponto do enredo atual.`;
+                    ? "2. INTRODUÇÃO GERAL:\n           Texto rico contextualizando O LIVRO (autor, data, propósito) e o cenário deste primeiro capítulo. Mínimo 400 palavras."
+                    : `2. INTRODUÇÃO DO CAPÍTULO:\n           FOCAR EXCLUSIVAMENTE no contexto imediato do capítulo ${chapter}. NÃO repita a introdução geral do livro de ${book} (autoria, data, etc), pois já foi dado nos capítulos anteriores. Vá direto ao ponto do enredo atual. Mínimo 300 palavras.`;
 
                 // --- WRITING STYLE PROFESSOR MICHEL FELIX (ESTRUTURA SUPREMA ADMA v81.0 + v82.0 / v113.0 INJECTION) ---
                 const WRITING_STYLE = `
@@ -347,7 +349,9 @@ export default async function handler(request, response) {
         8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
 
         --- MANDATO DE VOLUME EXAUSTIVO (v113.0 - META ${wordCountTarget.split(' ')[0]} PALAVRAS) ---
-        1. PROIBIÇÃO DE RESUMOS: É estritamente proibido resumir versículos ou capítulos. O aluno ADMA exige densidade máxima.
+        1. PROIBIÇÃO DE RESUMOS: É estritamente proibido resumir versículos ou capítulos. O aluno ADMA exige densidade máxima. Se o texto estiver ficando curto, expanda os detalhes históricos e etimológicos.
+        2. ALVO DE PÁGINAS: O usuário solicitou ${targetPages} páginas. Você DEVE gerar conteúdo suficiente para preencher esse volume. Não pare de escrever até atingir a meta de palavras.
+        3. EXPLICAÇÕES ROBUSTAS: Cada versículo ou grupo de versículos deve ter uma explicação detalhada. Evite frases curtas. Use parágrafos longos e bem fundamentados.
         2. ESTRATÉGIA DE EXPANSÃO: Se o capítulo bíblico for curto, você DEVE expandir a aula focando em:
            - Etimologia profunda de cada nome e lugar citado.
            - Análise sintática e morfológica dos verbos no original.
@@ -450,6 +454,10 @@ export default async function handler(request, response) {
             } else if (taskType === 'assistente_chat') {
                 // BUSCA NÃO USA THINKING PARA SER INSTANTÂNEA
                 config.maxOutputTokens = 2048;
+            } else if (taskType === 'ebd' || taskType === 'thematic_ebd' || taskType === 'teacher_ebd') {
+                // Aumentar o limite de tokens para permitir aulas longas (8+ páginas)
+                config.maxOutputTokens = 16384;
+                config.thinkingConfig = { thinkingBudget: 16000 };
             } else {
                 config.thinkingConfig = { thinkingBudget: 16000 };
             }
