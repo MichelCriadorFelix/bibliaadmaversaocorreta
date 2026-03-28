@@ -66,7 +66,7 @@ export default async function handler(request, response) {
         }
     }
 
-    const { prompt, schema, taskType, book, chapter } = body || {};
+    const { prompt, schema, taskType, book, chapter, depthLevel, targetPages } = body || {};
     if (!prompt) return response.status(400).json({ error: 'O Prompt é obrigatório.' });
 
     let lastError = null;
@@ -110,9 +110,21 @@ export default async function handler(request, response) {
             }
             // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR (NOVO v104) ---
             if (taskType === 'teacher_ebd') {
-                systemInstruction = "ATUE COMO: Professor Michel Felix (Assistente Pedagógico). Você é um especialista em Didática Bíblica e Andragogia Cristã. SEU OBJETIVO É CRIAR UM MANUAL DE AULA PARA O PROFESSOR, E NÃO UM ESTUDO PARA O ALUNO.";
+                let depthInstruction = "";
+                let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 2500;
+                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 500}`;
+                
+                if (depthLevel === 'padrao') {
+                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
+                } else if (depthLevel === 'estendido') {
+                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial.";
+                } else if (depthLevel === 'profundo') {
+                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o professor compreenda a profundidade do tema. Não resuma nada.";
+                }
+
+                systemInstruction = `ATUE COMO: Professor Michel Felix (Assistente Pedagógico). Você é um especialista em Didática Bíblica e Andragogia Cristã. SEU OBJETIVO É CRIAR UM MANUAL DE AULA PARA O PROFESSOR, E NÃO UM ESTUDO PARA O ALUNO.\n\nINSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}\n\nMANDATO DE VOLUME: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS.`;
                 // Não injetamos a estrutura do aluno aqui. Deixamos o prompt do frontend guiar a estrutura do Manual.
-                enhancedPrompt = `[MODO ASSISTENTE PEDAGÓGICO ATIVO]: Gere um guia de aula prático e profundo conforme solicitado. Use formatação rica (Markdown). \n\n${prompt}`;
+                enhancedPrompt = `[MODO ASSISTENTE PEDAGÓGICO ATIVO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS]: Gere um guia de aula prático e profundo conforme solicitado. Use formatação rica (Markdown). \n\n${prompt}`;
             }
             // --- LÓGICA DE QUIZ (NOVO v105 - BLINDAGEM ANTI-ALUCINAÇÃO) ---
             else if (taskType === 'quiz_gen') {
@@ -184,12 +196,26 @@ export default async function handler(request, response) {
             }
             // --- LÓGICA DE EBD TEMÁTICA (SÉRIE OURO - APOSTILA DIDÁTICA PREMIUM v117.0 PhD IMPLÍCITO) ---
             else if (taskType === 'thematic_ebd') {
+                let depthInstruction = "";
+                let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 3500;
+                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 500}`;
+                
+                if (depthLevel === 'padrao') {
+                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
+                } else if (depthLevel === 'estendido') {
+                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial.";
+                } else if (depthLevel === 'profundo') {
+                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do tema. Não resuma nada.";
+                }
+
                 systemInstruction = `
                     ATUE COMO: Um PhD em Teologia, História Eclesiástica e Educação Cristã (Nível Professor Michel Felix).
                     ESTILO DE ATUAÇÃO: O conhecimento, a erudição e a didática do Professor devem ser aplicados de forma TOTALMENTE IMPLÍCITA. Você não é o sujeito da aula, o conteúdo é.
                     
                     OBJETIVO: Escrever uma APOSTILA DIDÁTICA "SÉRIE OURO" (Extensa, Profunda, Clara e Magistral).
                     
+                    INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
+
                     --- DIRETRIZ DE LINGUAGEM E CLAREZA (MUITO IMPORTANTE) ---
                     1. PÚBLICO-ALVO: Alunos leigos com pouca base teológica e dificuldades com português complexo.
                     2. DIDÁTICA: Use linguagem CLARA, SIMPLES e ACESSÍVEL. Explique conceitos complexos usando analogias do dia a dia.
@@ -212,8 +238,8 @@ export default async function handler(request, response) {
                     6. RIGOR HISTÓRICO E HONESTIDADE INTELECTUAL (CRÍTICO): Use as fontes primárias APENAS para elucidar o contexto histórico, cultural ou linguístico. É ESTRITAMENTE PROIBIDO forçar a fonte a endossar a sua teologia ou usar anacronismos (ex: dizer que Josefo refutava o gnosticismo). Deixe a fonte falar por si mesma, mesmo que a visão dela seja diferente da nossa. A Pérola de Ouro serve para trazer robustez histórica, não para validar forçadamente o seu argumento.
                     7. MENÇÕES SEM CITAÇÃO: Se você for APENAS MENCIONAR um autor ou obra, sem fazer uma citação específica de um texto, NÃO use o formato {{ }}. Em vez disso, use o formato de Glossário: [[Flávio Josefo | Historiador judeu do século I...]].
 
-                    --- MANDATO DE VOLUME (CRÍTICO - NÃO ACEITO MENOS DE 3500 PALAVRAS) ---
-                    1. META OBRIGATÓRIA: O texto FINAL deve ter ENTRE 3500 e 4000 PALAVRAS.
+                    --- MANDATO DE VOLUME (CRÍTICO - NÃO ACEITO MENOS DE ${wordCountTarget.split(' ')[0]} PALAVRAS) ---
+                    1. META OBRIGATÓRIA: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS.
                     2. PROIBIDO RESUMIR: Se o assunto acabar, aprofunde-se na etimologia, no contexto histórico, nas divergências teológicas (refutando-as) e na aplicação prática.
                     3. DENSIDADE: Cada subtópico deve ser um "mini-livro". Não escreva parágrafos curtos. Escreva tratados. Explique o "porquê", o "como" e o "para que".
 
@@ -243,19 +269,19 @@ export default async function handler(request, response) {
                        - Evite o academicismo estéril. O objetivo é a compreensão total.
 
                     --- DIRETRIZES DE COMANDO DO USUÁRIO (O QUE ENSINAR) ---
-                    O prompt do usuário contém a EMENTA OBRIGATÓRIA. Siga rigorosamente os pontos pedidos, mas expandindo-os ao máximo para atingir o volume de 3500 palavras.
+                    O prompt do usuário contém a EMENTA OBRIGATÓRIA. Siga rigorosamente os pontos pedidos, mas expandindo-os ao máximo para atingir o volume de ${wordCountTarget.split(' ')[0]} palavras.
 
                     --- REGRA DE OURO DE ENUMERAÇÃO (CRÍTICO) ---
                     JAMAIS faça listas em linha (ex: "A, B e C"). 
                     Crie listas numeradas (1., 2., 3...) com parágrafos explicativos robustos para cada item.
 
-                    --- ESTRUTURA PADRONIZADA (PARA ATINGIR 3500 PALAVRAS) ---
+                    --- ESTRUTURA PADRONIZADA (PARA ATINGIR ${wordCountTarget.split(' ')[0]} PALAVRAS) ---
                     
                     1. TÍTULO DO TEMA (Use # TÍTULO em Maiúsculo).
                     
                     2. INTRODUÇÃO (Mínimo 400 palavras - Contextualize o problema histórico, a relevância atual, a etimologia principal e a tese central).
                     
-                    3. DESENVOLVIMENTO (O Coração da Aula - Mínimo 2500 palavras):
+                    3. DESENVOLVIMENTO (O Coração da Aula - Mínimo ${depthLevel === 'padrao' ? '1200' : depthLevel === 'estendido' ? '2000' : '3000'} palavras):
                        - Use ## TÍTULO DO TÓPICO
                        - Dentro dos tópicos, use ### SUBTÓPICOS para as listas enumeradas explicativas.
                        - CADA item de uma lista deve ter uma explicação robusta de pelo menos 150 palavras.
@@ -266,7 +292,7 @@ export default async function handler(request, response) {
                     5. CONCLUSÃO (Solene, Apelativa e Resumitiva, focada na glória de Deus e na prática).
                 `;
                 
-                enhancedPrompt = `[GERAR APOSTILA DIDÁTICA SÉRIE OURO - ALVO RÍGIDO: 3500 A 4000 PALAVRAS - LINGUAGEM CLARA E PhD IMPLÍCITO]:
+                enhancedPrompt = `[GERAR APOSTILA DIDÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS - LINGUAGEM CLARA E PhD IMPLÍCITO]:
                     
                     EMENTA/TÓPICOS OBRIGATÓRIOS DEFINIDOS PELO RESPONSÁVEL:
                     "${prompt}"
@@ -276,10 +302,22 @@ export default async function handler(request, response) {
                     - Siga rigorosamente a ementa acima, expandindo cada ponto em uma aula completa de nível PhD.
                     - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
                     - CITE A BÍBLIA CONSTANTEMENTE.
-                    - SE O TEXTO FICAR CURTO, VOCÊ FALHOU. EXPANDA AS EXPLICAÇÕES HISTÓRICAS E ETIMOLÓGICAS ATÉ ATINGIR 3500 PALAVRAS.`;
+                    - SE O TEXTO FICAR CURTO, VOCÊ FALHOU. EXPANDA AS EXPLICAÇÕES HISTÓRICAS E ETIMOLÓGICAS ATÉ ATINGIR ${wordCountTarget.split(' ')[0]} PALAVRAS.`;
             }
             // --- LÓGICA PARA CONTEÚDO DO ALUNO (PADRÃO - EBD PANORAMA) ---
             else if (taskType === 'ebd') {
+                let depthInstruction = "";
+                let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 2500;
+                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 500}`;
+                
+                if (depthLevel === 'padrao') {
+                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os versículos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
+                } else if (depthLevel === 'estendido') {
+                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada grupo de versículos. Não seja superficial.";
+                } else if (depthLevel === 'profundo') {
+                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM versículo ou grupo de versículos deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do texto. Não resuma nada.";
+                }
+
                 // --- LÓGICA DE INTRODUÇÃO SELETIVA (100% FIEL AO PEDIDO DO ADMIN) ---
                 const introInstruction = (chapter === 1) 
                     ? "2. INTRODUÇÃO GERAL:\n           Texto rico contextualizando O LIVRO (autor, data, propósito) e o cenário deste primeiro capítulo."
@@ -289,6 +327,8 @@ export default async function handler(request, response) {
                 const WRITING_STYLE = `
         ATUE COMO: Professor Michel Felix.
         PERFIL: Teólogo Erudito, Acadêmico, Profundo e Conservador.
+        
+        INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
 
                     --- PROTOCOLO PÉROLA DE OURO (v113.0 ATUALIZADO - IMPERIAL GOLD) ---
                     1. DENSIDADE MULTIDIMENSIONAL: Traga a interpretação com contexto histórico, cultural, explicações de expressões, linguística, tipologia textual, geográfico, tradição judaica (Torá SheBeal Pe, Midrash, Talmud, e outros), documentos históricos contemporâneos, medidas e moedas. Se houver paralelos detalhados com essas interpretações, traga-os de forma elencada.
@@ -306,14 +346,14 @@ export default async function handler(request, response) {
         7. SELAGEM FINAL: As seções "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA" são o encerramento absoluto. Nada deve ser escrito após elas.
         8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
 
-        --- MANDATO DE VOLUME EXAUSTIVO (v113.0 - META 3000 PALAVRAS) ---
+        --- MANDATO DE VOLUME EXAUSTIVO (v113.0 - META ${wordCountTarget.split(' ')[0]} PALAVRAS) ---
         1. PROIBIÇÃO DE RESUMOS: É estritamente proibido resumir versículos ou capítulos. O aluno ADMA exige densidade máxima.
         2. ESTRATÉGIA DE EXPANSÃO: Se o capítulo bíblico for curto, você DEVE expandir a aula focando em:
            - Etimologia profunda de cada nome e lugar citado.
            - Análise sintática e morfológica dos verbos no original.
            - Descrição detalhada da fauna, flora e geografia mencionada.
            - Conexões tipológicas exaustivas com o Tabernáculo, Sacrifícios e o Messias.
-        3. QUOTA MÍNIMA: O texto final deve ter entre 2700 e 3000 palavras. Menos que isso será considerado falha operacional.
+        3. QUOTA MÍNIMA: O texto final deve ter entre ${wordCountTarget} palavras. Menos que isso será considerado falha operacional.
 
         --- BLINDAGEM ANTI-HERESIA SUPREMA (100% OBRIGATÓRIO) ---
         - 1 SAMUEL 28 (NECROMANCIA): Samuel NÃO voltou pelo poder da médium. Ensine que ou foi uma personificação demoníaca permitida por Deus ou uma intervenção soberana direta para juízo, NUNCA validando a consulta aos mortos.

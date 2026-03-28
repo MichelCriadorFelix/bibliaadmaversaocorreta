@@ -10,6 +10,10 @@ interface PanoramaAdminPanelProps {
     validationLog: string[];
     customInstructions: string;
     setCustomInstructions: (val: string) => void;
+    depthLevel: string;
+    setDepthLevel: (val: string) => void;
+    targetPages: number;
+    setTargetPages: (val: number) => void;
     showInstructions: boolean;
     setShowInstructions: (val: boolean) => void;
     handleGenerate: () => void;
@@ -34,6 +38,10 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
     validationLog,
     customInstructions,
     setCustomInstructions,
+    depthLevel,
+    setDepthLevel,
+    targetPages,
+    setTargetPages,
     showInstructions,
     setShowInstructions,
     handleGenerate,
@@ -108,6 +116,66 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
 
                         {/* Motor de Geração */}
                         <div className="bg-gray-50 dark:bg-black/20 p-6 rounded-3xl border-2 border-dashed border-[#C5A059]/30">
+                            <div className="flex flex-col gap-6 mb-6">
+                                <div>
+                                    <label className="text-[10px] font-black text-[#8B0000] uppercase tracking-widest flex items-center gap-2 mb-2">
+                                        <Zap className="w-3 h-3" /> Nível de Profundidade
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setDepthLevel('padrao')}
+                                            className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${depthLevel === 'padrao' ? 'bg-[#C5A059] text-black shadow-md' : 'bg-white dark:bg-black/40 text-gray-500 border border-gray-200 dark:border-gray-800 hover:border-[#C5A059]'}`}
+                                        >
+                                            Padrão
+                                        </button>
+                                        <button
+                                            onClick={() => setDepthLevel('estendido')}
+                                            className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${depthLevel === 'estendido' ? 'bg-[#C5A059] text-black shadow-md' : 'bg-white dark:bg-black/40 text-gray-500 border border-gray-200 dark:border-gray-800 hover:border-[#C5A059]'}`}
+                                        >
+                                            Estendido
+                                        </button>
+                                        <button
+                                            onClick={() => setDepthLevel('profundo')}
+                                            className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${depthLevel === 'profundo' ? 'bg-[#C5A059] text-black shadow-md' : 'bg-white dark:bg-black/40 text-gray-500 border border-gray-200 dark:border-gray-800 hover:border-[#C5A059]'}`}
+                                        >
+                                            Profundo
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-2">
+                                        {depthLevel === 'padrao' && 'Foco no essencial, direto ao ponto. Ideal para aulas rápidas.'}
+                                        {depthLevel === 'estendido' && 'Mais contexto histórico, referências e explicações detalhadas.'}
+                                        {depthLevel === 'profundo' && 'Análise exaustiva. Explora teorias, idiomas originais e debates teológicos. Ideal para capítulos complexos.'}
+                                    </p>
+                                </div>
+                                
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="text-[10px] font-black text-[#8B0000] uppercase tracking-widest flex items-center gap-2">
+                                            <FileText className="w-3 h-3" /> Tamanho da Aula (Páginas)
+                                        </label>
+                                        <span className="text-xs font-bold text-[#C5A059] bg-[#C5A059]/10 px-2 py-1 rounded-md">
+                                            Aprox. {targetPages} {targetPages === 1 ? 'página' : 'páginas'}
+                                        </span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="2" 
+                                        max="10" 
+                                        step="1"
+                                        value={targetPages} 
+                                        onChange={(e) => setTargetPages(parseInt(e.target.value))}
+                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-[#C5A059]"
+                                    />
+                                    <div className="flex justify-between text-[10px] text-gray-400 mt-1 font-bold">
+                                        <span>2</span>
+                                        <span>5</span>
+                                        <span>10</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-2">
+                                        A IA tentará gerar conteúdo suficiente para preencher aproximadamente {targetPages} páginas ({targetPages * 500} palavras).
+                                    </p>
+                                </div>
+                            </div>
                             <div className="flex flex-col md:flex-row gap-6 items-center">
                                 <div className="flex-1 w-full">
                                     <div className="flex justify-between items-end mb-4">

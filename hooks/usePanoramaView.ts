@@ -29,6 +29,8 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     const [adminPanelExpanded, setAdminPanelExpanded] = useState(false);
     const [showInstructions, setShowInstructions] = useState(false);
     const [customInstructions, setCustomInstructions] = useState('');
+    const [depthLevel, setDepthLevel] = useState('padrao');
+    const [targetPages, setTargetPages] = useState(5); // Default 5 pages
     const [generationTime, setGenerationTime] = useState(0);
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [stats, setStats] = useState({ wordCount: 0, charCount: 0, estimatedPages: 0 });
@@ -273,11 +275,11 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         if (!activeLesson) return;
         setIsGenerating(true);
         setValidationPhase('structural');
-        setValidationLog(["🚀 Iniciando motor Temático Série Ouro v114...", "📐 Target: 3.000 words (Mandato de Volume)"]);
+        setValidationLog(["🚀 Iniciando motor Temático Série Ouro v114...", `📐 Target: ${targetPages * 500} words (Mandato de Volume)`]);
 
         try {
             const userPrompt = customInstructions ? customInstructions : activeLesson.title;
-            const res = await generateContent(userPrompt, null, true, 'thematic_ebd');
+            const res = await generateContent(userPrompt, null, true, 'thematic_ebd', { depthLevel, targetPages: targetPages.toString() });
             if (!res || res.length < 1000) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
 
             setValidationPhase('theological');
@@ -312,6 +314,8 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         adminPanelExpanded, setAdminPanelExpanded,
         showInstructions, setShowInstructions,
         customInstructions, setCustomInstructions,
+        depthLevel, setDepthLevel,
+        targetPages, setTargetPages,
         generationTime, setGenerationTime,
         currentStatusIndex, setCurrentStatusIndex,
         stats,

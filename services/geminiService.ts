@@ -12,7 +12,7 @@ export const generateContent = async (
   jsonSchema?: any,
   isLongOutput: boolean = false,
   taskType: TaskType = 'general',
-  context?: { book?: string; chapter?: number } // Novo parâmetro opcional
+  context?: { book?: string; chapter?: number; depthLevel?: string; targetPages?: string } // Novo parâmetro opcional
 ) => {
     try {
         // Envia a requisição para o endpoint local da Vercel
@@ -26,7 +26,9 @@ export const generateContent = async (
                 schema: jsonSchema,
                 taskType,
                 book: context?.book,      // Envia o livro
-                chapter: context?.chapter // Envia o capítulo
+                chapter: context?.chapter, // Envia o capítulo
+                depthLevel: context?.depthLevel, // Envia o nível de profundidade
+                targetPages: context?.targetPages // Envia o número de páginas
             })
         });
 

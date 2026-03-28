@@ -160,6 +160,8 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgres
         adminPanelExpanded, setAdminPanelExpanded,
         showInstructions, setShowInstructions,
         customInstructions, setCustomInstructions,
+        depthLevel, setDepthLevel,
+        targetPages, setTargetPages,
         generationTime, setGenerationTime,
         currentStatusIndex, setCurrentStatusIndex,
         stats,
@@ -545,9 +547,13 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgres
                         validationLog={validationLog}
                         customInstructions={customInstructions}
                         setCustomInstructions={setCustomInstructions}
+                        depthLevel={depthLevel}
+                        setDepthLevel={setDepthLevel}
+                        targetPages={targetPages}
+                        setTargetPages={setTargetPages}
                         showInstructions={showInstructions}
                         setShowInstructions={setShowInstructions}
-                        handleGenerate={activeTab === 'thematic' ? handleGenerateThematic : () => generateEbd(book, chapter, customInstructions, theologicalDensity, activeTab as 'student' | 'teacher')}
+                        handleGenerate={activeTab === 'thematic' ? handleGenerateThematic : () => generateEbd(book, chapter, customInstructions, theologicalDensity, activeTab as 'student' | 'teacher', depthLevel, targetPages)}
                         adminPanelExpanded={adminPanelExpanded}
                         setAdminPanelExpanded={setAdminPanelExpanded}
                         isEditing={isEditing}

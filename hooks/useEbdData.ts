@@ -31,16 +31,16 @@ export function useEbdData(onShowToast: (msg: string, type: 'success' | 'error' 
         }
     }, [onShowToast]);
 
-    const handleGenerate = useCallback(async (book: string, chapter: number, customInstructions: string, theologicalDensity: number, activeTab: 'student' | 'teacher') => {
+    const handleGenerate = useCallback(async (book: string, chapter: number, customInstructions: string, theologicalDensity: number, activeTab: 'student' | 'teacher', depthLevel: string = 'padrao', targetPages: number = 5) => {
         setIsGenerating(true);
         setValidationPhase('structural');
-        setValidationLog(["🚀 Iniciando motor Magnum Opus v116...", `📐 Target: 3.000 words (${activeTab === 'student' ? 'Manuscrito Aluno' : 'Guia do Mestre'})`]);
+        setValidationLog(["🚀 Iniciando motor Magnum Opus v116...", `📐 Target: ${targetPages * 500} words (${activeTab === 'student' ? 'Manuscrito Aluno' : 'Guia do Mestre'})`]);
         commitLockRef.current = false;
 
         try {
             const taskType = activeTab === 'teacher' ? 'teacher_ebd' : 'ebd';
             const prompt = customInstructions ? `${book} ${chapter}\n\nInstruções Adicionais: ${customInstructions}` : `${book} ${chapter}`;
-            const res = await generateContent(prompt, null, true, taskType, { book, chapter });
+            const res = await generateContent(prompt, null, true, taskType, { book, chapter, depthLevel, targetPages: targetPages.toString() });
             if (!res || res.length < 1000) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
 
             setValidationPhase('theological');
