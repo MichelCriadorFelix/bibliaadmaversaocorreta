@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fundo: Quadrado Arredondado Vermelho Escuro (Cor da Marca) -->
+  <rect width="512" height="512" rx="120" ry="120" fill="#8B0000"/>
+  
+  <!-- Ícone do Livro: Traço Branco, Centralizado e Espesso -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Página Esquerda -->
+    <path d="M256 140c-50 0-110 20-130 40v200c20-20 80-40 130-40"/>
+    <!-- Página Direita -->
+    <path d="M256 140c50 0 110 20 130 40v200c-20-20-80-40-130-40"/>
+    <!-- Lombada Central -->
+    <path d="M256 140v200"/>
+  </g>
+</svg>

@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Bíblia ADMA - Prof. Michel Felix",
+  "description": "App de Estudos Bíblicos Avançados com IA (Editor Chefe), Dicionário Exegético e Panorama EBD para Assembleia de Deus Ministério Ágape.",
+  "requestFramePermissions": [
+    "microphone",
+    "screen-wake-lock"
+  ]
+}

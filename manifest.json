@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "Bíblia ADMA - Prof. Michel Felix",
+  "short_name": "Bíblia ADMA",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F5F5DC",
+  "theme_color": "#8B0000",
+  "description": "App de Estudos Bíblicos Avançados",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
