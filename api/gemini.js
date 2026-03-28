@@ -109,7 +109,7 @@ export default async function handler(request, response) {
                 enhancedPrompt = `[BUSCA DE FONTE PRIMÁRIA]: Forneça o texto da seguinte referência: "${prompt}"`;
             }
             // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR (NOVO v104) ---
-            if (taskType === 'teacher_ebd') {
+            else if (taskType === 'teacher_ebd') {
                 let depthInstruction = "";
                 let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 2500;
                 let wordCountTarget = `${baseWordCount} a ${baseWordCount + 500}`;
@@ -119,11 +119,10 @@ export default async function handler(request, response) {
                 } else if (depthLevel === 'estendido') {
                     depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o professor compreenda a profundidade do tema. Não resuma nada.";
+                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas lines. Cada ponto deve ser dissecado exaustivamente para garantir que o professor compreenda a profundidade do tema. Não resuma nada.";
                 }
 
                 systemInstruction = `ATUE COMO: Professor Michel Felix (Assistente Pedagógico). Você é um especialista em Didática Bíblica e Andragogia Cristã. SEU OBJETIVO É CRIAR UM MANUAL DE AULA PARA O PROFESSOR, E NÃO UM ESTUDO PARA O ALUNO.\n\nINSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}\n\nMANDATO DE VOLUME: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS.`;
-                // Não injetamos a estrutura do aluno aqui. Deixamos o prompt do frontend guiar a estrutura do Manual.
                 enhancedPrompt = `[MODO ASSISTENTE PEDAGÓGICO ATIVO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS]: Gere um guia de aula prático e profundo conforme solicitado. Use formatação rica (Markdown). \n\n${prompt}`;
             }
             // --- LÓGICA DE QUIZ (NOVO v105 - BLINDAGEM ANTI-ALUCINAÇÃO) ---
@@ -181,31 +180,25 @@ export default async function handler(request, response) {
                     5. Se houver discrepância entre a tradução em português e o original, DÊ PREFERÊNCIA À ANÁLISE DO ORIGINAL e explique a nuance.
 
                     DIRETRIZ DE EXEGESE CONTEXTUAL (RESOLUÇÃO DE POLISSEMIA):
-                    1. Não seja apenas um Léxico que lista significados genéricos.
-                    2. Você DEVE explicar qual o significado exato da palavra *neste versículo específico*.
-                    3. Explique por que o autor escolheu esta palavra e não um sinônimo (nuance teológica).
-
-                    DIRETRIZ DE LINGUAGEM E CLAREZA (OBRIGATÓRIO):
+                    1. DIRETRIZ DE LINGUAGEM E CLAREZA (OBRIGATÓRIO):
                     1. Use a linguagem mais CLARA, SIMPLES e ACESSÍVEL possível. O alvo é um aluno leigo.
                     2. EVITE "TEOLOGÊS" desnecessário.
-                    3. Se for EXTREMAMENTE necessário usar um termo técnico (ex: "Hipóstase", "Teofania", "Hapax Legomenon"), VOCÊ DEVE OBRIGATORIAMENTE explicar o significado entre parênteses ou aspas imediatamente após a palavra.
-                       - Exemplo Correto: "...isso configura uma Teofania (uma aparição visível de Deus)..."
-                       - Exemplo Errado: "...isso configura uma Teofania no texto."
+                    3. Se for EXTREMAMENTE necessário usar um termo técnico (ex: "Hipóstase", "Teofania", "Hapax Legomenon"), VOCÊ DEVE OBRIGATORIAMENTE explicar o significado entre parênteses ou aspas imediatamente.
                 `;
                 enhancedPrompt = prompt;
             }
             // --- LÓGICA DE EBD TEMÁTICA (SÉRIE OURO - APOSTILA DIDÁTICA PREMIUM v117.0 PhD IMPLÍCITO) ---
             else if (taskType === 'thematic_ebd') {
                 let depthInstruction = "";
-                let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 3500;
-                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 500}`;
+                let baseWordCount = targetPages ? parseInt(targetPages) * 800 : 4500;
+                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 1000}`;
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
                 } else if (depthLevel === 'estendido') {
                     depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial. Cada explicação deve ser densa e informativa.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do tema. Não resuma nada. Cada tópico deve ter no mínimo 300 palavras de explicação.";
+                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do tema. Não resuma nada. Cada tópico deve ter no mínimo 600 palavras de explicação.";
                 }
 
                 systemInstruction = `
@@ -238,12 +231,13 @@ export default async function handler(request, response) {
                     6. RIGOR HISTÓRICO E HONESTIDADE INTELECTUAL (CRÍTICO): Use as fontes primárias APENAS para elucidar o contexto histórico, cultural ou linguístico. É ESTRITAMENTE PROIBIDO forçar a fonte a endossar a sua teologia ou usar anacronismos (ex: dizer que Josefo refutava o gnosticismo). Deixe a fonte falar por si mesma, mesmo que a visão dela seja diferente da nossa. A Pérola de Ouro serve para trazer robustez histórica, não para validar forçadamente o seu argumento.
                     7. MENÇÕES SEM CITAÇÃO: Se você for APENAS MENCIONAR um autor ou obra, sem fazer uma citação específica de um texto, NÃO use o formato {{ }}. Em vez disso, use o formato de Glossário: [[Flávio Josefo | Historiador judeu do século I...]].
 
-                    --- MANDATO DE VOLUME (CRÍTICO - NÃO ACEITO MENOS DE ${wordCountTarget.split(' ')[0]} PALAVRAS) ---
-                    1. META OBRIGATÓRIA: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS.
-                    2. ALVO DE PÁGINAS: O usuário solicitou ${targetPages} páginas. Você DEVE gerar conteúdo suficiente para preencher esse volume. Não pare de escrever até atingir a meta de palavras.
+                    --- MANDATO DE VOLUME (CRÍTICO - ALVO EXATO: ${targetPages} PÁGINAS) ---
+                    1. META OBRIGATÓRIA: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS para preencher EXATAMENTE as ${targetPages} páginas solicitadas.
+                    2. ALVO DE PÁGINAS: O usuário selecionou ${targetPages} páginas. Você DEVE gerar conteúdo suficiente para preencher esse volume exato. Não pare de escrever até atingir a meta de palavras. Se você gerar menos, o sistema de paginação falhará em mostrar o que o usuário pediu.
                     3. PROIBIDO RESUMIR: Se o assunto acabar, aprofunde-se na etimologia, no contexto histórico, nas divergências teológicas (refutando-as) e na aplicação prática.
                     4. DENSIDADE: Cada subtópico deve ser um "mini-livro". Não escreva parágrafos curtos. Escreva tratados. Explique o "porquê", o "como" e o "para que".
                     5. EXPLICAÇÕES ROBUSTAS: Cada ponto deve ter uma explicação detalhada. Evite frases curtas. Use parágrafos longos e bem fundamentados.
+                    6. OBEDIÊNCIA: Se o usuário pediu ${targetPages} páginas, entregue conteúdo para ${targetPages} páginas. Nem 1 a menos.
 
                     --- DIRETRIZES DE LINGUAGEM E TOM (CRÍTICO v117.0 - CLAREZA TOTAL) ---
                     1. PROIBIÇÃO DE ARCAÍSMOS E PALAVRAS DIFÍCEIS: É ESTRITAMENTE PROIBIDO usar palavras antigas, pouco usuais, jargões acadêmicos desnecessários ou frases cerimoniais. Nossos alunos são humildes e precisam de clareza absoluta.
@@ -261,32 +255,32 @@ export default async function handler(request, response) {
 
                     4. IDENTIDADE TEOLÓGICA IMPLÍCITA (CÉREBRO PhD PENTECOSTAL): 
                        - Pense, estruture e argumente como um Pentecostal Clássico e Arminiano Erudito (PhD).
-                       - MAS JAMAIS escreva "Nós pentecostais", "Como arminianos", "Nossa denominação", "Nossa teologia", "Como PhD", "Minha tese" ou use esses rótulos explicitamente. 
+                       - MAS JAMAIS escreva "Nós pentecostais", "Como arminianos", "Nossa denominação", "Nossa teologia", "Como PhD", "Minha tese" or use esses rótulos explicitamente. 
                        - A teologia deve ser a base invisível e natural do argumento, percebida pela força da exposição bíblica (Sola Scriptura).
                        - O aluno deve sentir a firmeza doutrinária sem precisar ler o rótulo da doutrina.
 
-                    5. CLAREZA COM PROFUNDIDADE (EFEITO "AH! ENTENDI!"): 
+                    5. CLAREZA WITH PROFUNDIDADE (EFEITO "AH! ENTENDI!"): 
                        - O texto deve ser denso e detalhado (nível doutorado).
                        - MAS explicado de forma que qualquer aluno (do jovem ao idoso) entenda perfeitamente. 
                        - Evite o academicismo estéril. O objetivo é a compreensão total.
 
                     --- DIRETRIZES DE COMANDO DO USUÁRIO (O QUE ENSINAR) ---
-                    O prompt do usuário contém a EMENTA OBRIGATÓRIA. Siga rigorosamente os pontos pedidos, mas expandindo-os ao máximo para atingir o volume de ${wordCountTarget.split(' ')[0]} palavras.
+                    O prompt do usuário contém a EMENTA OBRIGATÓRIA. Siga rigorosamente os pontos pedidos, mas expandindo-os ao máximo para atingir o volume de ${baseWordCount} palavras.
 
                     --- REGRA DE OURO DE ENUMERAÇÃO (CRÍTICO) ---
                     JAMAIS faça listas em linha (ex: "A, B e C"). 
                     Crie listas numeradas (1., 2., 3...) com parágrafos explicativos robustos para cada item.
 
-                    --- ESTRUTURA PADRONIZADA (PARA ATINGIR ${wordCountTarget.split(' ')[0]} PALAVRAS) ---
+                    --- ESTRUTURA PADRONIZADA (PARA ATINGIR ${baseWordCount} PALAVRAS) ---
                     
                     1. TÍTULO DO TEMA (Use # TÍTULO em Maiúsculo).
                     
                     2. INTRODUÇÃO (Mínimo 400 palavras - Contextualize o problema histórico, a relevância atual, a etimologia principal e a tese central).
                     
-                    3. DESENVOLVIMENTO (O Coração da Aula - Mínimo ${depthLevel === 'padrao' ? '1200' : depthLevel === 'estendido' ? '2000' : '3000'} palavras):
+                    3. DESENVOLVIMENTO (O Coração da Aula - Mínimo ${depthLevel === 'padrao' ? '1500' : depthLevel === 'estendido' ? '2500' : '4000'} palavras):
                        - Use ## TÍTULO DO TÓPICO
                        - Dentro dos tópicos, use ### SUBTÓPICOS para as listas enumeradas explicativas.
-                       - CADA item de uma lista deve ter uma explicação robusta de pelo menos 150 palavras.
+                       - CADA item de uma lista deve ter uma explicação robusta de pelo menos 200 palavras.
                     
                     4. APLICAÇÃO PRÁTICA (COMO VIVER ISSO?):
                        - Passos práticos enumerados e claros.
@@ -304,20 +298,20 @@ export default async function handler(request, response) {
                     - Siga rigorosamente a ementa acima, expandindo cada ponto em uma aula completa de nível PhD.
                     - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
                     - CITE A BÍBLIA CONSTANTEMENTE.
-                    - SE O TEXTO FICAR CURTO, VOCÊ FALHOU. EXPANDA AS EXPLICAÇÕES HISTÓRICAS E ETIMOLÓGICAS ATÉ ATINGIR ${wordCountTarget.split(' ')[0]} PALAVRAS.`;
+                    - SE O TEXTO FICAR CURTO, VOCÊ FALHOU. EXPANDA AS EXPLICAÇÕES HISTÓRICAS E ETIMOLÓGICAS ATÉ ATINGIR ${baseWordCount} PALAVRAS.`;
             }
             // --- LÓGICA PARA CONTEÚDO DO ALUNO (PADRÃO - EBD PANORAMA) ---
             else if (taskType === 'ebd') {
                 let depthInstruction = "";
-                let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 2500;
-                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 500}`;
+                let baseWordCount = targetPages ? parseInt(targetPages) * 800 : 4000;
+                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 1000}`;
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os versículos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
                 } else if (depthLevel === 'estendido') {
                     depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada grupo de versículos. Não seja superficial. Cada explicação deve ser densa e informativa.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM versículo ou grupo de versículos deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do texto. Não resuma nada. Cada explicação de versículo deve ter no mínimo 200 palavras.";
+                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM versículo ou grupo de versículos deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do texto. Não resuma nada. Cada explicação de versículo deve ter no mínimo 350 palavras.";
                 }
 
                 // --- LÓGICA DE INTRODUÇÃO SELETIVA (100% FIEL AO PEDIDO DO ADMIN) ---
@@ -348,9 +342,9 @@ export default async function handler(request, response) {
         7. SELAGEM FINAL: As seções "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA" são o encerramento absoluto. Nada deve ser escrito após elas.
         8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
 
-        --- MANDATO DE VOLUME EXAUSTIVO (v113.0 - META ${wordCountTarget.split(' ')[0]} PALAVRAS) ---
+        --- MANDATO DE VOLUME EXAUSTIVO (v113.0 - ALVO EXATO: ${targetPages} PÁGINAS) ---
         1. PROIBIÇÃO DE RESUMOS: É estritamente proibido resumir versículos ou capítulos. O aluno ADMA exige densidade máxima. Se o texto estiver ficando curto, expanda os detalhes históricos e etimológicos.
-        2. ALVO DE PÁGINAS: O usuário solicitou ${targetPages} páginas. Você DEVE gerar conteúdo suficiente para preencher esse volume. Não pare de escrever até atingir a meta de palavras.
+        2. ALVO DE PÁGINAS: O usuário selecionou ${targetPages} páginas. Você DEVE gerar conteúdo suficiente para preencher esse volume. Não pare de escrever até atingir a meta de palavras.
         3. EXPLICAÇÕES ROBUSTAS: Cada versículo ou grupo de versículos deve ter uma explicação detalhada. Evite frases curtas. Use parágrafos longos e bem fundamentados.
         2. ESTRATÉGIA DE EXPANSÃO: Se o capítulo bíblico for curto, você DEVE expandir a aula focando em:
            - Etimologia profunda de cada nome e lugar citado.
@@ -412,20 +406,20 @@ export default async function handler(request, response) {
            (OBRIGATÓRIO: Liste todos os itens de forma numerada 1., 2., 3., etc).
 
         --- INSTRUÇÕES DE PAGINAÇÃO ---
-        1. Texto de TAMANHO EXAUSTIVO (Meta: 3000 palavras).
-        2. Insira <hr class="page-break"> entre os tópicos principais para dividing as páginas.
+        1. Texto de TAMANHO EXAUSTIVO (Meta: ${baseWordCount} palavras).
+        2. Insira <hr class="page-break"> entre os tópicos principais para dividir as páginas.
         `;
                 systemInstruction = WRITING_STYLE;
-                enhancedPrompt = `[PROTOCOLO CORAÇÃO DA IA v113.0 - MANDATO 3000 PALAVRAS]: 
+                enhancedPrompt = `[PROTOCOLO CORAÇÃO DA IA v115.0 - MANDATO RÍGIDO: ${baseWordCount} PALAVRAS]: 
                    Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
-                   1. O volume total alcançou 3000 palavras? (Se estiver curto, use a estratégia de expansão linguística e tipológica exaustiva em cada parágrafo).
+                   1. O volume total alcançou ${baseWordCount} palavras? (Se estiver curto, você DEVE expandir cada tópico com análises linguísticas e históricas adicionais até atingir a meta).
                    2. Cobri 100% dos versículos do capítulo com exegese microscópica?
                    3. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
                    4. Injetou E CITOU POR EXTENSO (ex: Jo 1:1, Sl 23:1) referências bíblicas conexas em cada parágrafo?
                    5. As curiosidades estão numeradas?
                    6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
                    
-                   NÃO ACEITO RESPOSTAS CURTAS. SEJA EXAUSTIVO, MAGISTRAL E DENSO.\n\n${prompt}`;
+                   NÃO ACEITO RESPOSTAS CURTAS. SEJA EXAUSTIVO, MAGISTRAL E DENSO. O USUÁRIO EXIGE EXATAMENTE ${targetPages} PÁGINAS DE CONTEÚDO. SEJA OBEDIENTE A ESTA QUANTIDADE.\n\n${prompt}`;
             }
 
             // Seleção de Modelo: Tanto o EBD (Aluno), Manual (Professor), Quiz, Dicionário e EBD Temática usam o modelo inteligente.
@@ -454,10 +448,6 @@ export default async function handler(request, response) {
             } else if (taskType === 'assistente_chat') {
                 // BUSCA NÃO USA THINKING PARA SER INSTANTÂNEA
                 config.maxOutputTokens = 2048;
-            } else if (taskType === 'ebd' || taskType === 'thematic_ebd' || taskType === 'teacher_ebd') {
-                // Aumentar o limite de tokens para permitir aulas longas (8+ páginas)
-                config.maxOutputTokens = 16384;
-                config.thinkingConfig = { thinkingBudget: 16000 };
             } else {
                 config.thinkingConfig = { thinkingBudget: 16000 };
             }
