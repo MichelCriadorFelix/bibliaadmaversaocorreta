@@ -166,13 +166,13 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                         onChange={(e) => setTargetPages(parseInt(e.target.value))}
                                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-[#C5A059]"
                                     />
-                                    <div className="flex justify-between text-[10px] text-gray-400 mt-1 font-bold">
-                                        <span>2</span>
-                                        <span>5</span>
-                                        <span>10</span>
+                                    <div className="relative h-6 mt-1">
+                                        <div className="absolute left-0 text-[10px] text-gray-400 font-bold">2</div>
+                                        <div className="absolute left-[37.5%] -translate-x-1/2 text-[10px] text-gray-400 font-bold">5</div>
+                                        <div className="absolute right-0 text-[10px] text-gray-400 font-bold">10</div>
                                     </div>
                                     <p className="text-[10px] text-gray-500 mt-2">
-                                        A IA tentará gerar conteúdo suficiente para preencher aproximadamente {targetPages} páginas ({targetPages * 500} palavras).
+                                        A IA tentará gerar conteúdo suficiente para preencher aproximadamente {targetPages} páginas ({targetPages * 800} palavras).
                                     </p>
                                 </div>
                             </div>

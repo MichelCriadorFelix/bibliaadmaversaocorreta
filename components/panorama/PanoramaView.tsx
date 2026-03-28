@@ -111,7 +111,7 @@ const loadingStatusMessages = [
     "Analizando contexto exegético do capítulo bíblico...",
     "Consultando manuscritos e linguagens originais...",
     "Fracionando exegese in porções microscópicas...",
-    "Redigindo apostila exaustiva (Meta: 3000 palavras)...",
+    "Redigindo apostila exaustiva (Meta: Alta Densidade)...",
     "Injetando Pérolas de Ouro via API v116...",
     "Integrando Contexto Judaico, Talmud e Midrash...",
     "Analisando documentos históricos contemporâneos...",
