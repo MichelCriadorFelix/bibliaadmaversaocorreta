@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Sparkles } from 'lucide-react';
 
 interface EbdContentRendererProps {
     pages: string[];
@@ -81,6 +82,22 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 const isH3 = tr.startsWith('###');
                 if (isH3) {
                     const title = tr.replace(/###/g, '').trim();
+                    const isPremium = title.toUpperCase().includes('TIPOLOGIA') || 
+                                     title.toUpperCase().includes('CURIOSIDADES') || 
+                                     title.toUpperCase().includes('ARQUEOLOGIA');
+                    
+                    if (isPremium) {
+                        return (
+                            <div key={idx} id={`read-block-${idx}`} className={`mt-10 mb-6 ${activeClass}`}>
+                                <div className="w-full bg-gradient-to-br from-[#C5A059] to-[#9e8045] px-6 py-3 rounded-lg shadow-md">
+                                    <h3 className="font-cinzel font-black text-base md:text-lg text-[#1a1a1a] uppercase tracking-[0.15em] leading-tight">
+                                        {parseInline(title)}
+                                    </h3>
+                                </div>
+                            </div>
+                        );
+                    }
+
                     return (
                         <div key={idx} id={`read-block-${idx}`} className={`mt-16 mb-8 text-center relative ${activeClass}`}>
                             <div className="absolute top-1/2 left-0 w-full h-[1px] bg-[#C5A059]/30 -z-10"></div>
