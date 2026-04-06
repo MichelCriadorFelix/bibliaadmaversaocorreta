@@ -1,5 +1,5 @@
-// Service Worker Vercel Friendly - v10 (Cache Busting Update)
-const CACHE_NAME = 'adma-bible-v10';
+// Service Worker Vercel Friendly - v12 (Cache Busting Update)
+const CACHE_NAME = 'adma-bible-v12';
 
 // Assets críticos que devem estar sempre disponíveis offline
 const PRECACHE_ASSETS = [
@@ -15,8 +15,10 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Tenta cachear, mas não falha se algum recurso externo falhar
-      return cache.addAll(PRECACHE_ASSETS).catch(err => console.warn('Precache warning', err));
+      // Tenta cachear individualmente para que um erro não quebre todo o cache
+      return Promise.allSettled(
+        PRECACHE_ASSETS.map(asset => cache.add(asset).catch(err => console.warn(`Failed to cache ${asset}:`, err)))
+      );
     })
   );
 });

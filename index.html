@@ -97,28 +97,6 @@
       }
     </style>
     
-    <script>
-      (function() {
-        function setIcon(url) {
-            var links = document.querySelectorAll("link[rel='icon'], link[rel='shortcut icon']");
-            links.forEach(l => l.parentNode.removeChild(l));
-            var link = document.createElement('link');
-            link.type = 'image/png'; link.rel = 'icon'; link.href = url;
-            document.head.appendChild(link);
-        }
-        var iconCanvas = document.createElement('canvas');
-        iconCanvas.width = 512; iconCanvas.height = 512;
-        var ctx = iconCanvas.getContext('2d');
-        var img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.src = '/icon.svg'; 
-        img.onload = function() {
-            ctx.fillStyle = '#8B0000'; ctx.fillRect(0, 0, 512, 512);
-            ctx.drawImage(img, 0, 0, 512, 512);
-            setIcon(iconCanvas.toDataURL('image/png'));
-        };
-      })();
-    </script>
     <script type="importmap">
 {
   "imports": {
