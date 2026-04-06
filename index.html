@@ -17,7 +17,7 @@
 
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
-    <link rel="manifest" href="/manifest.json?v=8" />
+    <link rel="manifest" href="/manifest.json" />
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -100,7 +100,7 @@
     <script>
       (function() {
         function setIcon(url) {
-            var links = document.querySelectorAll("link[rel*='icon']");
+            var links = document.querySelectorAll("link[rel='icon'], link[rel='shortcut icon']");
             links.forEach(l => l.parentNode.removeChild(l));
             var link = document.createElement('link');
             link.type = 'image/png'; link.rel = 'icon'; link.href = url;

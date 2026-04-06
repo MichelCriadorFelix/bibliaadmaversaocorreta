@@ -1,5 +1,5 @@
-// Service Worker Vercel Friendly - v8 (Cache Busting Update)
-const CACHE_NAME = 'adma-bible-v8';
+// Service Worker Vercel Friendly - v10 (Cache Busting Update)
+const CACHE_NAME = 'adma-bible-v10';
 
 // Assets críticos que devem estar sempre disponíveis offline
 const PRECACHE_ASSETS = [
@@ -7,6 +7,7 @@ const PRECACHE_ASSETS = [
   '/index.html',
   '/icon.svg',
   '/icon-192.png',
+  '/icon-512.png',
   '/manifest.json'
 ];
 
@@ -66,8 +67,18 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate' || url.origin === self.location.origin) {
     event.respondWith(
       fetch(event.request)
+        .then(response => {
+          // Clona a resposta e salva no cache para uso offline
+          if (response && response.status === 200 && response.type === 'basic') {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
         .catch(() => {
-          return caches.match(event.request).then(response => {
+          return caches.match(event.request, { ignoreSearch: true }).then(response => {
               // Se achou, retorna. Se for navegação e não achou, retorna index.html (SPA)
               if (response) return response;
               if (event.request.mode === 'navigate') return caches.match('/index.html');
