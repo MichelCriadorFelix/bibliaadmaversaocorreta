@@ -32,8 +32,18 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
 
     useEffect(() => {
         const loadAnnotations = async () => {
-            const all = await db.entities.Commentary.list();
-            setAnnotations(all.filter((a: any) => a.study_key === studyKey && a.type === 'annotation'));
+            console.log("Loading annotations for:", studyKey);
+            try {
+                // Use filter instead of list for better performance and to avoid 1000 items limit issues
+                const filtered = await db.entities.Commentary.filter({ 
+                    study_key: studyKey, 
+                    type: 'annotation' 
+                });
+                console.log("Loaded annotations:", filtered);
+                setAnnotations(filtered);
+            } catch (error) {
+                console.error("Error loading annotations:", error);
+            }
         };
         loadAnnotations();
     }, [studyKey]);
@@ -41,31 +51,33 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     const handleSaveAnnotation = async (content: string) => {
         if (activeParagraph === null) return;
         
-        const userEmail = 'michel.felix@adma.local'; // Force admin email
-        console.log("Saving annotation for admin:", { studyKey, activeParagraph, content, userEmail });
+        const userEmail = 'michel.felix@adma.local';
+        // Deterministic ID to ensure upsert works correctly even if list/filter fails initially
+        const annotationId = `annotation_${studyKey}_${activeParagraph}`;
         
-        const existing = annotations.find(a => a.paragraph_index === activeParagraph);
+        console.log("Saving annotation:", { annotationId, studyKey, activeParagraph, content });
+        
         try {
-            if (existing) {
-                console.log("Updating existing annotation:", existing.id);
-                await db.entities.Commentary.update(existing.id, { content, user_email: userEmail });
-            } else {
-                console.log("Creating new annotation");
-                await db.entities.Commentary.create({ 
-                    study_key: studyKey, 
-                    paragraph_index: activeParagraph, 
-                    content, 
-                    type: 'annotation',
-                    user_email: userEmail
-                });
-            }
+            // We use save() which handles upsert with the provided ID
+            await db.entities.Commentary.save({ 
+                id: annotationId,
+                study_key: studyKey, 
+                paragraph_index: activeParagraph, 
+                content, 
+                type: 'annotation',
+                user_email: userEmail,
+                updated_at: new Date().toISOString()
+            });
             
-            // Force reload from DB to ensure sync
-            const all = await db.entities.Commentary.list();
-            console.log("Annotations after save (synced):", all);
-            setAnnotations(all.filter((a: any) => a.study_key === studyKey && a.type === 'annotation'));
+            console.log("Annotation saved successfully");
             
-            // Optional: Add a small delay or UI notification if needed
+            // Refresh local state
+            const filtered = await db.entities.Commentary.filter({ 
+                study_key: studyKey, 
+                type: 'annotation' 
+            });
+            setAnnotations(filtered);
+            setModalOpen(false);
         } catch (error) {
             console.error("Error saving annotation to Supabase:", error);
         }

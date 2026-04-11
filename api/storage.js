@@ -44,7 +44,8 @@ export default async function handler(request, response) {
 
     // 3. Ações
     if (action === 'filter') {
-        let query = supabase.from('adma_content').select('data').eq('collection', collection);
+        console.log(`[Storage] Filtering ${collection} with criteria:`, criteria);
+        let query = supabase.from('adma_content').select('id, data').eq('collection', collection);
         if (criteria) {
             Object.entries(criteria).forEach(([key, value]) => {
                 if (key === 'user_email' && typeof value === 'string') {
@@ -55,7 +56,11 @@ export default async function handler(request, response) {
             });
         }
         const { data, error } = await query;
-        if (error) throw error;
+        if (error) {
+            console.error(`[Storage] Filter error for ${collection}:`, error);
+            throw error;
+        }
+        console.log(`[Storage] Filter result for ${collection}: ${data?.length || 0} items`);
         // Retorna mapeado com ID para garantir integridade
         return response.status(200).json(data ? data.map(row => ({...row.data, id: row.id || row.data.id})) : []);
     }
