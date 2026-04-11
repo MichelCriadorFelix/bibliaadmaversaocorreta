@@ -726,6 +726,8 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgres
                                     currentGlobalIndex={currentGlobalIndex}
                                     globalSentences={globalSentences}
                                     parseInline={parseInline}
+                                    isAdmin={isAdmin}
+                                    studyKey={studyKey}
                                 />
                             ) : (
                                 <div className="text-center py-40">

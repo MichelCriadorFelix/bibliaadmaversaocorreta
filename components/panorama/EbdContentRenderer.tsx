@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Sparkles, Plus, Edit } from 'lucide-react';
+import { db } from '../../services/database';
+import { AnnotationModal } from './AnnotationModal';
 
 interface EbdContentRendererProps {
     pages: string[];
@@ -9,6 +11,8 @@ interface EbdContentRendererProps {
     currentGlobalIndex: number;
     globalSentences: any[];
     parseInline: (t: string) => React.ReactNode;
+    isAdmin: boolean;
+    studyKey: string;
 }
 
 export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
@@ -18,8 +22,41 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     isPlaying,
     currentGlobalIndex,
     globalSentences,
-    parseInline
+    parseInline,
+    isAdmin,
+    studyKey
 }) => {
+    const [annotations, setAnnotations] = useState<any[]>([]);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [activeParagraph, setActiveParagraph] = useState<number | null>(null);
+
+    useEffect(() => {
+        const loadAnnotations = async () => {
+            const all = await db.entities.Commentary.list();
+            setAnnotations(all.filter((a: any) => a.study_key === studyKey && a.type === 'annotation'));
+        };
+        loadAnnotations();
+    }, [studyKey]);
+
+    const handleSaveAnnotation = async (content: string) => {
+        if (activeParagraph === null) return;
+        
+        const existing = annotations.find(a => a.paragraph_index === activeParagraph);
+        if (existing) {
+            await db.entities.Commentary.update(existing.id, { content });
+        } else {
+            await db.entities.Commentary.create({ 
+                study_key: studyKey, 
+                paragraph_index: activeParagraph, 
+                content, 
+                type: 'annotation' 
+            });
+        }
+        
+        const all = await db.entities.Commentary.list();
+        setAnnotations(all.filter((a: any) => a.study_key === studyKey && a.type === 'annotation'));
+    };
+
     // Identifica o bloco ativo para highlight
     const activeBlockIndex = isPlaying && globalSentences[currentGlobalIndex]?.pageIndex === currentPage 
         ? globalSentences[currentGlobalIndex]?.blockIndex 
@@ -43,10 +80,34 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     
     return (
         <div className="space-y-8 md:space-y-12 animate-in fade-in duration-1000">
+            <AnnotationModal 
+                isOpen={modalOpen} 
+                onClose={() => setModalOpen(false)} 
+                onSave={handleSaveAnnotation} 
+                initialContent={annotations.find(a => a.paragraph_index === activeParagraph)?.content || ''}
+            />
             {lines.map((line, idx) => {
                 const tr = line.trim();
                 const isBlockActive = idx === activeBlockIndex;
                 const activeClass = isBlockActive ? "bg-yellow-100/50 dark:bg-yellow-900/20 rounded-xl px-2 -mx-2 transition-colors duration-300 shadow-[0_0_15px_rgba(197,160,89,0.1)]" : "transition-colors duration-300";
+
+                const annotation = annotations.find(a => a.paragraph_index === idx);
+
+                const renderAnnotationButton = () => {
+                    if (!isAdmin) return null;
+                    return (
+                        <button 
+                            onClick={() => { setActiveParagraph(idx); setModalOpen(true); }}
+                            className={`ml-2 p-1 rounded-full transition-all ${annotation ? 'bg-[#C5A059] text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 hover:bg-[#8B0000] hover:text-white'}`}
+                            title={annotation ? "Editar Anotação" : "Adicionar Anotação"}
+                        >
+                            {annotation ? <Edit className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                        </button>
+                    );
+                };
+
+                // ... (rest of the rendering logic, adding renderAnnotationButton() where appropriate)
+                // I will need to update the rendering logic to include the button.
 
                 if (tr === '__CONTINUATION_MARKER__') return <div key={idx} id={`read-block-${idx}`} className="my-12 border-b border-[#C5A059]/20" />;
                 
@@ -158,6 +219,7 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
 
                 return (
                     <div key={idx} id={`read-block-${idx}`} className={`font-cormorant text-xl md:text-2xl leading-loose text-gray-950 dark:text-gray-50 text-justify indent-6 md:indent-12 mb-8 tracking-wide font-medium ${activeClass}`} style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
+                        {renderAnnotationButton()}
                         {parseInline(tr)}
                     </div>
                 );
