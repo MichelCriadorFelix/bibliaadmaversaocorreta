@@ -52,30 +52,31 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
         if (activeParagraph === null) return;
         
         const userEmail = 'michel.felix@adma.local';
-        // Deterministic ID to ensure upsert works correctly even if list/filter fails initially
+        // Deterministic ID to ensure upsert works correctly
         const annotationId = `annotation_${studyKey}_${activeParagraph}`;
         
         console.log("Saving annotation:", { annotationId, studyKey, activeParagraph, content });
         
         try {
             // We use save() which handles upsert with the provided ID
-            await db.entities.Commentary.save({ 
+            const result = await db.entities.Commentary.save({ 
                 id: annotationId,
                 study_key: studyKey, 
-                paragraph_index: activeParagraph, 
+                paragraph_index: Number(activeParagraph), // Ensure it's a number
                 content, 
                 type: 'annotation',
                 user_email: userEmail,
                 updated_at: new Date().toISOString()
             });
             
-            console.log("Annotation saved successfully");
+            console.log("Annotation saved result:", result);
             
-            // Refresh local state
+            // Refresh local state immediately
             const filtered = await db.entities.Commentary.filter({ 
                 study_key: studyKey, 
                 type: 'annotation' 
             });
+            console.log("Refreshed annotations after save:", filtered);
             setAnnotations(filtered);
             setModalOpen(false);
         } catch (error) {
@@ -110,7 +111,8 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 isOpen={modalOpen} 
                 onClose={() => setModalOpen(false)} 
                 onSave={handleSaveAnnotation} 
-                initialContent={annotations.find(a => a.paragraph_index === activeParagraph)?.content || ''}
+                initialContent={annotations.find(a => Number(a.paragraph_index) === activeParagraph)?.content || ''}
+                key={`modal-${activeParagraph}-${annotations.length}`}
             />
             {lines.map((line, idx) => {
                 const tr = line.trim();
