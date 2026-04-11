@@ -41,28 +41,33 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     const handleSaveAnnotation = async (content: string) => {
         if (activeParagraph === null) return;
         
-        console.log("Saving annotation:", { studyKey, activeParagraph, content });
+        const userEmail = 'michel.felix@adma.local'; // Force admin email
+        console.log("Saving annotation for admin:", { studyKey, activeParagraph, content, userEmail });
         
         const existing = annotations.find(a => a.paragraph_index === activeParagraph);
         try {
             if (existing) {
                 console.log("Updating existing annotation:", existing.id);
-                await db.entities.Commentary.update(existing.id, { content });
+                await db.entities.Commentary.update(existing.id, { content, user_email: userEmail });
             } else {
                 console.log("Creating new annotation");
                 await db.entities.Commentary.create({ 
                     study_key: studyKey, 
                     paragraph_index: activeParagraph, 
                     content, 
-                    type: 'annotation' 
+                    type: 'annotation',
+                    user_email: userEmail
                 });
             }
             
+            // Force reload from DB to ensure sync
             const all = await db.entities.Commentary.list();
-            console.log("Annotations after save:", all);
+            console.log("Annotations after save (synced):", all);
             setAnnotations(all.filter((a: any) => a.study_key === studyKey && a.type === 'annotation'));
+            
+            // Optional: Add a small delay or UI notification if needed
         } catch (error) {
-            console.error("Error saving annotation:", error);
+            console.error("Error saving annotation to Supabase:", error);
         }
     };
 
