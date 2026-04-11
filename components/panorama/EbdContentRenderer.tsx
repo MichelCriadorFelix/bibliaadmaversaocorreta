@@ -41,20 +41,29 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     const handleSaveAnnotation = async (content: string) => {
         if (activeParagraph === null) return;
         
-        const existing = annotations.find(a => a.paragraph_index === activeParagraph);
-        if (existing) {
-            await db.entities.Commentary.update(existing.id, { content });
-        } else {
-            await db.entities.Commentary.create({ 
-                study_key: studyKey, 
-                paragraph_index: activeParagraph, 
-                content, 
-                type: 'annotation' 
-            });
-        }
+        console.log("Saving annotation:", { studyKey, activeParagraph, content });
         
-        const all = await db.entities.Commentary.list();
-        setAnnotations(all.filter((a: any) => a.study_key === studyKey && a.type === 'annotation'));
+        const existing = annotations.find(a => a.paragraph_index === activeParagraph);
+        try {
+            if (existing) {
+                console.log("Updating existing annotation:", existing.id);
+                await db.entities.Commentary.update(existing.id, { content });
+            } else {
+                console.log("Creating new annotation");
+                await db.entities.Commentary.create({ 
+                    study_key: studyKey, 
+                    paragraph_index: activeParagraph, 
+                    content, 
+                    type: 'annotation' 
+                });
+            }
+            
+            const all = await db.entities.Commentary.list();
+            console.log("Annotations after save:", all);
+            setAnnotations(all.filter((a: any) => a.study_key === studyKey && a.type === 'annotation'));
+        } catch (error) {
+            console.error("Error saving annotation:", error);
+        }
     };
 
     // Identifica o bloco ativo para highlight
