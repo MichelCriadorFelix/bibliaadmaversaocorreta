@@ -59,6 +59,11 @@ export default function App() {
         setUser(u);
         setIsAuthenticated(true);
         loadProgress(u.user_email, u.user_name);
+        
+        // Auto-admin for Michel
+        if (u.user_email === 'michel.felix@adma.local') {
+            setIsAdmin(true);
+        }
     }
     
     const isDark = localStorage.getItem('adma_dark_mode') === 'true' || 
