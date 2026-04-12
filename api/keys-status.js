@@ -57,13 +57,7 @@ export default async function handler(request, response) {
             try {
                 result = await performCall("gemini-3-flash-preview");
             } catch (errPrimary) {
-                const msg = errPrimary.message || JSON.stringify(errPrimary);
-                if (msg.includes("404") || msg.includes("not found")) {
-                    usedModel = "gemini-flash-lite-latest";
-                    result = await performCall("gemini-flash-lite-latest");
-                } else {
-                    throw errPrimary;
-                }
+                throw errPrimary;
             }
 
             const textOutput = result?.text;

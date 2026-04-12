@@ -32,14 +32,12 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
 
     useEffect(() => {
         const loadAnnotations = async () => {
-            console.log("Loading annotations for:", studyKey);
             try {
                 // Use filter instead of list for better performance and to avoid 1000 items limit issues
                 const filtered = await db.entities.Commentary.filter({ 
                     study_key: studyKey, 
                     type: 'annotation' 
                 });
-                console.log("Loaded annotations:", filtered);
                 setAnnotations(filtered);
             } catch (error) {
                 console.error("Error loading annotations:", error);
@@ -55,11 +53,9 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
         // Deterministic ID to ensure upsert works correctly
         const annotationId = `annotation_${studyKey}_${activeParagraph}`;
         
-        console.log("Saving annotation:", { annotationId, studyKey, activeParagraph, content });
-        
         try {
             // We use save() which handles upsert with the provided ID
-            const result = await db.entities.Commentary.save({ 
+            await db.entities.Commentary.save({ 
                 id: annotationId,
                 study_key: studyKey, 
                 paragraph_index: Number(activeParagraph), // Ensure it's a number
@@ -69,14 +65,11 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 updated_at: new Date().toISOString()
             });
             
-            console.log("Annotation saved result:", result);
-            
             // Refresh local state immediately
             const filtered = await db.entities.Commentary.filter({ 
                 study_key: studyKey, 
                 type: 'annotation' 
             });
-            console.log("Refreshed annotations after save:", filtered);
             setAnnotations(filtered);
             setModalOpen(false);
         } catch (error) {

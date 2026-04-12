@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 /**
  * CONFIGURAÇÃO PARA VERCEL SERVERLESS FUNCTIONS - v118.0 LOAD BALANCER EDITION
- * Motor calibrado para Gemini 2.5 Flash (via gemini-3-flash-preview) com Thinking Budget máximo (24k).
+ * Motor calibrado para Gemini 3 Flash Preview com Thinking Budget máximo (24k).
  * Versão v118.0: Implementação de Rotação Aleatória (Shuffle) para suporte a múltiplas abas simultâneas.
  */
 export const config = {
@@ -422,8 +422,8 @@ export default async function handler(request, response) {
                    NÃO ACEITO RESPOSTAS CURTAS. SEJA EXAUSTIVO, MAGISTRAL E DENSO. O USUÁRIO EXIGE EXATAMENTE ${targetPages} PÁGINAS DE CONTEÚDO. SEJA OBEDIENTE A ESTA QUANTIDADE.\n\n${prompt}`;
             }
 
-            // Seleção de Modelo: Tanto o EBD (Aluno), Manual (Professor), Quiz, Dicionário e EBD Temática usam o modelo inteligente.
-            const modelToUse = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'dictionary' || taskType === 'assistente_chat' || taskType === 'fetch_primary_source') ? 'gemini-3-flash-preview' : 'gemini-flash-lite-latest';
+            // Seleção de Modelo: Todas as tarefas agora utilizam o modelo Gemini 3 Flash Preview conforme solicitado.
+            const modelToUse = 'gemini-3-flash-preview';
 
             const config = {
                 temperature: 0.3, // Menor temperatura para buscas mais precisas e rápidas
