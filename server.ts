@@ -19,8 +19,8 @@ async function startServer() {
 
   // Middlewares básicos
   app.use(cors());
-  app.use(bodyParser.json());
-  app.use(bodyParser.urlencoded({ extended: true }));
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
   // --- ROTAS DE API (Emulando Vercel Serverless Functions) ---
   

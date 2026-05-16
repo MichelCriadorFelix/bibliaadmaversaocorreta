@@ -33,8 +33,17 @@ export const generateContent = async (
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || "Erro na comunicação com o servidor de IA.");
+            const contentType = response.headers.get("content-type");
+            let errorMessage = "Erro na comunicação com o servidor de IA. Status: " + response.status;
+            if (contentType && contentType.includes("application/json")) {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorMessage;
+            } else {
+                const textError = await response.text();
+                // We substring to avoid dumping massive HTML in the console
+                console.error("Non-JSON error response from proxy:", textError.substring(0, 500));
+            }
+            throw new Error(errorMessage);
         }
 
         const data = await response.json();
