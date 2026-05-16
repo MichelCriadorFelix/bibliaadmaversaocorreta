@@ -665,166 +665,169 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       }
 
       let processed = 0;
-      const c = batchStartChapter; 
 
       try {
-          const chapKey = `bible_acf_${bookMeta.abbrev}_${c}`;
-          let verses = (await bibleStorage.get(chapKey)) as any[]; 
-          if (!verses || verses.length === 0) {
-              verses = (await db.entities.BibleChapter.getCloud(chapKey)) as any[];
-          }
+          for (let c = batchStartChapter; c <= bookMeta.chapters; c++) {
+              if (stopBatchRef.current) break;
 
-          if (!verses || verses.length === 0) {
-              addLog(`❌ Erro: Texto bíblico de ${bookMeta.name} ${c} não encontrado.`);
-              onShowToast(`Texto de ${bookMeta.name} ${c} não encontrado.`, "error");
-              setIsGeneratingBatch(false);
-              return;
-          }
-
-          addLog(`🚀 Iniciando lote para ${bookMeta.name} ${c} (${verses.length} versículos)...`);
-
-          for (let i = 0; i < verses.length; i++) {
-              if (stopBatchRef.current) { 
-                  addLog("🛑 Processo interrompido pelo usuário."); 
-                  break; 
+              const chapKey = `bible_acf_${bookMeta.abbrev}_${c}`;
+              let verses = (await bibleStorage.get(chapKey)) as any[]; 
+              if (!verses || verses.length === 0) {
+                  verses = (await db.entities.BibleChapter.getCloud(chapKey)) as any[];
               }
 
-              const verseNum = i + 1;
-              const verseText = verses[i];
-              const verseKey = generateVerseKey(bookMeta.name, c, verseNum);
+              if (!verses || verses.length === 0) {
+                  addLog(`❌ Erro: Texto bíblico de ${bookMeta.name} ${c} não encontrado.`);
+                  continue; // Pular para o próximo capítulo
+              }
 
-              // --- SMART SKIP (NOVO) ---
-              // Verifica se já existe conteúdo antes de gastar cota
-              try {
-                  let exists = false;
-                  if (type === 'commentary') {
-                      const check = await db.entities.Commentary.filter({ verse_key: verseKey });
-                      exists = check.length > 0;
-                  } else {
-                      const check = await db.entities.Dictionary.filter({ verse_key: verseKey });
-                      exists = check.length > 0;
+              addLog(`🚀 Iniciando lote para ${bookMeta.name} ${c} (${verses.length} versículos)...`);
+
+              for (let i = 0; i < verses.length; i++) {
+                  if (stopBatchRef.current) { 
+                      addLog("🛑 Processo interrompido pelo usuário."); 
+                      break; 
                   }
 
-                  if (exists) {
-                      addLog(`⏭️ Pulando ${verseKey} (Já existe)`);
-                      continue;
-                  }
-              } catch(e) {}
-              // -------------------------
+                  const verseNum = i + 1;
+                  const verseText = verses[i];
+                  const verseKey = generateVerseKey(bookMeta.name, c, verseNum);
 
-              addLog(`Processando ${bookMeta.name} ${c}:${verseNum}...`);
+                  // --- SMART SKIP (NOVO) ---
+                  // Verifica se já existe conteúdo antes de gastar cota
+                  try {
+                      let exists = false;
+                      if (type === 'commentary') {
+                          const check = await db.entities.Commentary.filter({ verse_key: verseKey });
+                          exists = check.length > 0;
+                      } else {
+                          const check = await db.entities.Dictionary.filter({ verse_key: verseKey });
+                          exists = check.length > 0;
+                      }
 
-              try {
-                  if (type === 'commentary') {
-                        const prompt = `
-                            ATUE COMO: Professor Michel Felix.
-                            TAREFA: Escrever um comentário EXEGÉTICO para um aluno estudioso da Bíblia.
-                            TEXTO BÍBLICO: "${verseText}"
+                      if (exists) {
+                          addLog(`⏭️ Pulando ${verseKey} (Já existe)`);
+                          continue;
+                      }
+                  } catch(e) {}
+                  // -------------------------
 
-                            --- REGRAS DE INÍCIO (RIGOROSO) ---
-                            1. INÍCIO OBRIGATÓRIO: Todo comentário DEVE começar EXATAMENTE com a frase: "Este versículo revela...".
-                            2. ZERO SAUDAÇÕES: É PROIBIDO começar com "Olá", "Queridos alunos", "Paz do Senhor" ou qualquer introdução social.
+                  addLog(`Processando ${bookMeta.name} ${c}:${verseNum}...`);
 
-                            --- OBJETIVO SUPREMO: O EFEITO "AH! ENTENDI!" (CLAREZA TOTAL) ---
-                            1. O aluno deve terminar a leitura e pensar: "Ah! Agora tudo faz sentido!".
-                            2. VOCABULÁRIO ACESSÍVEL:
-                               - EVITE palavras arcaicas, difíceis ou pouco usuais. Se houver um sinônimo comum, USE O SINÔNIMO. O texto deve ser compreendido instantaneamente.
-                               - TERMOS TÉCNICOS (Ex: Teofania, Antropopatismo, Soteriologia) são permitidos, mas OBRIGATORIAMENTE devem vir seguidos de sua definição simples entre parênteses. Ex: "Vemos aqui uma Teofania (uma aparição visível de Deus)..." ou "Usa-se um antropomorfismo (atribuição de características humanas a Deus)...".
-                            3. NÃO seja genérico. Traga DETALHES que iluminam o texto (costumes da época, geografia, ou o sentido exato de uma palavra original que muda tudo).
-                            4. Explique de forma INDUBITÁVEL. Descomplique o difícil.
+                  try {
+                      if (type === 'commentary') {
+                            const prompt = `
+                                ATUE COMO: Professor Michel Felix.
+                                TAREFA: Escrever um comentário EXEGÉTICO para um aluno estudioso da Bíblia.
+                                TEXTO BÍBLICO: "${verseText}"
 
-                            --- PROTOCOLO DE SEGURANÇA HERMENÊUTICA (PRIORIDADE TOTAL - USO IMPLÍCITO) ---
-                            1. A BÍBLIA EXPLICA A BÍBLIA: Antes de formular o comentário, verifique MENTALMENTE e RIGOROSAMENTE o CONTEXTO IMEDIATO e o CONTEXTO REMOTO para garantir a coerência.
-                            2. PRECISÃO CRONOLÓGICA: Se o texto envolve reis, profecias ou genealogias, assegure-se de que a explicação não contenha anacronismos (Ex: Manassés nascendo antes da hora, Jefté em época errada). A resposta deve ser cronologicamente perfeita.
-                            3. ZERO POLÊMICAS/ESPECULAÇÕES: Rejeite interpretações baseadas em livros apócrifos, mitologia (ex: anjos coabitando com humanos) ou cultura judaica extra-bíblica. 
-                            4. ORTODOXIA: Em textos difíceis (ex: Gn 6:2), opte SEMPRE pela linha teológica mais conservadora e segura (ex: Linhagem de Sete x Caim), evitando sensacionalismo.
-                            5. FOCO NA INTENÇÃO ORIGINAL: O que o autor sagrado quis ensinar sobre Deus e o homem? Fique nisso.
-                            6. IMPORTANTE: Não escreva "Segundo a hermenêutica" or "Analisando o contexto". Apenas aplique essas regras para chegar à conclusão correta.
+                                --- REGRAS DE INÍCIO (RIGOROSO) ---
+                                1. INÍCIO OBRIGATÓRIO: Todo comentário DEVE começar EXATAMENTE com a frase: "Este versículo revela...".
+                                2. ZERO SAUDAÇÕES: É PROIBIDO começar com "Olá", "Queridos alunos", "Paz do Senhor" ou qualquer introdução social.
 
-                            --- LINGUAGEM E TOM ---
-                            1. PÚBLICO: Alunos de 16 a 76 anos, escolaridade média.
-                            2. CLAREZA: Profundo, mas simples e didático. Sem "teologês" solto. O texto deve ser fluído e natural.
-                            3. IMPLICITAMENTE PENTECOSTAL: Ensine a doutrina correta sem usar rótulos ("Arminiano", "Dispensacionalista"). Deixe a teologia fluir naturalmente no texto.
+                                --- OBJETIVO SUPREMO: O EFEITO "AH! ENTENDI!" (CLAREZA TOTAL) ---
+                                1. O aluno deve terminar a leitura e pensar: "Ah! Agora tudo faz sentido!".
+                                2. VOCABULÁRIO ACESSÍVEL:
+                                   - EVITE palavras arcaicas, difíceis ou pouco usuais. Se houver um sinônimo comum, USE O SINÔNIMO. O texto deve ser compreendido instantaneamente.
+                                   - TERMOS TÉCNICOS (Ex: Teofania, Antropopatismo, Soteriologia) são permitidos, mas OBRIGATORIAMENTE devem vir seguidos de sua definição simples entre parênteses. Ex: "Vemos aqui uma Teofania (uma aparição visível de Deus)..." ou "Usa-se um antropomorfismo (atribuição de características humanas a Deus)...".
+                                3. NÃO seja genérico. Traga DETALHES que iluminam o texto (costumes da época, geografia, ou o sentido exato de uma palavra original que muda tudo).
+                                4. Explique de forma INDUBITÁVEL. Descomplique o difícil.
 
-                            --- EMBASAMENTO BÍBLICO (NOVO v102.0) ---
-                            1. REFERÊNCIAS: Inclua obrigatoriamente de 1 a 3 referências bíblicas conexas (textos paralelos ou complementares) para fundamentar a interpretação e garantir a segurança doutrinária contra heresias.
-                            2. SEGURANÇA: Utilize essas referências para mostrar que a Bíblia explica a própria Bíblia, evitando interpretações isoladas.
+                                --- PROTOCOLO DE SEGURANÇA HERMENÊUTICA (PRIORIDADE TOTAL - USO IMPLÍCITO) ---
+                                1. A BÍBLIA EXPLICA A BÍBLIA: Antes de formular o comentário, verifique MENTALMENTE e RIGOROSAMENTE o CONTEXTO IMEDIATO e o CONTEXTO REMOTO para garantir a coerência.
+                                2. PRECISÃO CRONOLÓGICA: Se o texto envolve reis, profecias ou genealogias, assegure-se de que a explicação não contenha anacronismos (Ex: Manassés nascendo antes da hora, Jefté em época errada). A resposta deve ser cronologicamente perfeita.
+                                3. ZERO POLÊMICAS/ESPECULAÇÕES: Rejeite interpretações baseadas em livros apócrifos, mitologia (ex: anjos coabitando com humanos) ou cultura judaica extra-bíblica. 
+                                4. ORTODOXIA: Em textos difíceis (ex: Gn 6:2), opte SEMPRE pela linha teológica mais conservadora e segura (ex: Linhagem de Sete x Caim), evitando sensacionalismo.
+                                5. FOCO NA INTENÇÃO ORIGINAL: O que o autor sagrado quis ensinar sobre Deus e o homem? Fique nisso.
+                                6. IMPORTANTE: Não escreva "Segundo a hermenêutica" or "Analisando o contexto". Apenas aplique essas regras para chegar à conclusão correta.
 
-                            --- USO DOS ORIGINAIS (EXPANDIDO v99.0) ---
-                            1. QUANTIDADE: Identifique e cite ATÉ 5 palavras-chave fundamentais em Hebraico (AT) ou Grego (NT) para este versículo.
-                            2. FOCO: Escolha as palavras que, ao serem explicadas no original, tragam o real sentido que o autor quis passar e gerem o sentimento de compreensão indubitável do sentido original.
-                            3. FORMATO: Cite o termo transliterado de forma natural no texto (ex: "O termo original *palavra* sugere...").
+                                --- LINGUAGEM E TOM ---
+                                1. PÚBLICO: Alunos de 16 a 76 anos, escolaridade média.
+                                2. CLAREZA: Profundo, mas simples e didático. Sem "teologês" solto. O texto deve ser fluído e natural.
+                                3. IMPLICITAMENTE PENTECOSTAL: Ensine a doutrina correta sem usar rótulos ("Arminiano", "Dispensacionalista"). Deixe a teologia fluir naturalmente no texto.
 
-                            --- ESTRUTURA BLINDADA (3 PARÁGRAFOS - Max 250 Palavras) ---
-                            
-                            1. PARÁGRAFO 1 (O DESVENDAR DO TEXTO E INTENÇÃO AUTORAL): 
-                               - Explique o que está acontecendo com clareza cristalina, focando PRIMORDIALMENTE na real intenção do autor original ao escrever este versículo específico e no sentido original do texto dentro de seu contexto histórico-redacional. Responda: Qual era o propósito do autor sagrado? O que ele quis comunicar de fato aos seus primeiros destinatários? Traga aquele detalhe histórico ou linguístico que faz a diferença.
+                                --- EMBASAMENTO BÍBLICO (NOVO v102.0) ---
+                                1. REFERÊNCIAS: Inclua obrigatoriamente de 1 a 3 referências bíblicas conexas (textos paralelos ou complementares) para fundamentar a interpretação e garantir a segurança doutrinária contra heresias.
+                                2. SEGURANÇA: Utilize essas referências para mostrar que a Bíblia explica a própria Bíblia, evitando interpretações isoladas.
 
-                            2. PARÁGRAFO 2 (A CONEXÃO TEOLÓGICA E EMBASAMENTO): 
-                               - Aprofunde o ensino. Conecte com outros textos bíblicos (Analogia da Fé - Uso Implícito) para confirmar a interpretação correta. VOCÊ DEVE CITAR AS REFERÊNCIAS BÍBLICAS CONEXAS POR EXTENSO (ex: Jo 1:1, Ef 2:8) para embasar o conteúdo e mostrar como isso se encaixa no plano de Deus. Isso serve como escudo contra heresias e contradições.
+                                --- USO DOS ORIGINAIS (EXPANDIDO v99.0) ---
+                                1. QUANTIDADE: Identifique e cite ATÉ 5 palavras-chave fundamentais em Hebraico (AT) ou Grego (NT) para este versículo.
+                                2. FOCO: Escolha as palavras que, ao serem explicadas no original, tragam o real sentido que o autor quis passar e gerem o sentimento de compreensão indubitável do sentido original.
+                                3. FORMATO: Cite o termo transliterado de forma natural no texto (ex: "O termo original *palavra* sugere...").
 
-                            3. PARÁGRAFO 3 (APLICAÇÃO): 
-                               - Curto e prático. Como essa verdade bíblica transforma a vida do aluno hoje? (Max 15% do texto).
+                                --- ESTRUTURA BLINDADA (3 PARÁGRAFOS - Max 250 Palavras) ---
+                                
+                                1. PARÁGRAFO 1 (O DESVENDAR DO TEXTO E INTENÇÃO AUTORAL): 
+                                   - Explique o que está acontecendo com clareza cristalina, focando PRIMORDIALMENTE na real intenção do autor original ao escrever este versículo específico e no sentido original do texto dentro de seu contexto histórico-redacional. Responda: Qual era o propósito do autor sagrado? O que ele quis comunicar de fato aos seus primeiros destinatários? Traga aquele detalhe histórico ou linguístico que faz a diferença.
 
-                            --- ESTILO VISUAL ---
-                            Texto corrido, elegante, inspirador e fácil de ler.
-                        `;
-                        const text = await generateContent(prompt, undefined, true, 'commentary');
-                        await db.entities.Commentary.create({
-                            book: bookMeta.name, chapter: c, verse: verseNum, verse_key: verseKey, commentary_text: text
-                        });
-                  } else {
-                        const prompt = `
-                            Você é um HEBRAÍSTA e HELENISTA SÊNIOR.
-                            TAREFA: Análise lexical COMPLETA de ${bookMeta.name} ${c}:${verseNum}
-                            Texto em português: "${verseText}"
-                            Idioma original: ${bookMeta.testament === 'old' ? 'HEBRAICO' : 'GREGO'}
-                            Analise TODAS as palavras principais.
-                            
-                            --- CAMADA DE INTELIGÊNCIA EXEGÉTICA ---
-                            Para cada palavra analisada, adicione dois campos cruciais:
-                            1. "contextual_meaning": Qual dos significados possíveis (da polissemia) é o utilizado NESTE versículo específico? Explique brevemente.
-                            2. "exegetical_note": Por que o autor usou esta palavra e não um sinônimo? Qual a profundidade teológica?
-                            
-                            Retorne APENAS um JSON válido.
-                        `;
-                        const schema = {
-                            type: GenType.OBJECT,
-                            properties: {
-                                hebrewGreekText: { type: GenType.STRING },
-                                phoneticText: { type: GenType.STRING },
-                                words: {
-                                    type: GenType.ARRAY,
-                                    items: {
-                                        type: GenType.OBJECT,
-                                        properties: {
-                                            original: { type: GenType.STRING },
-                                            transliteration: { type: GenType.STRING },
-                                            portuguese: { type: GenType.STRING },
-                                            polysemy: { type: GenType.STRING },
-                                            etymology: { type: GenType.STRING },
-                                            grammar: { type: GenType.STRING },
-                                            contextual_meaning: { type: GenType.STRING },
-                                            exegetical_note: { type: GenType.STRING }
-                                        },
-                                        required: ["original", "transliteration", "portuguese", "polysemy", "etymology", "grammar", "contextual_meaning", "exegetical_note"]
+                                2. PARÁGRAFO 2 (A CONEXÃO TEOLÓGICA E EMBASAMENTO): 
+                                   - Aprofunde o ensino. Conecte com outros textos bíblicos (Analogia da Fé - Uso Implícito) para confirmar a interpretação correta. VOCÊ DEVE CITAR AS REFERÊNCIAS BÍBLICAS CONEXAS POR EXTENSO (ex: Jo 1:1, Ef 2:8) para embasar o conteúdo e mostrar como isso se encaixa no plano de Deus. Isso serve como escudo contra heresias e contradições.
+
+                                3. PARÁGRAFO 3 (APLICAÇÃO): 
+                                   - Curto e prático. Como essa verdade bíblica transforma a vida do aluno hoje? (Max 15% do texto).
+
+                                --- ESTILO VISUAL ---
+                                Texto corrido, elegante, inspirador e fácil de ler.
+                            `;
+                            const text = await generateContent(prompt, undefined, true, 'commentary');
+                            await db.entities.Commentary.create({
+                                book: bookMeta.name, chapter: c, verse: verseNum, verse_key: verseKey, commentary_text: text
+                            });
+                      } else {
+                            const prompt = `
+                                Você é um HEBRAÍSTA e HELENISTA SÊNIOR.
+                                TAREFA: Análise lexical COMPLETA de ${bookMeta.name} ${c}:${verseNum}
+                                Texto em português: "${verseText}"
+                                Idioma original: ${bookMeta.testament === 'old' ? 'HEBRAICO' : 'GREGO'}
+                                Analise TODAS as palavras principais.
+                                
+                                --- CAMADA DE INTELIGÊNCIA EXEGÉTICA ---
+                                Para cada palavra analisada, adicione dois campos cruciais:
+                                1. "contextual_meaning": Qual dos significados possíveis (da polissemia) é o utilizado NESTE versículo específico? Explique brevemente.
+                                2. "exegetical_note": Por que o autor usou esta palavra e não um sinônimo? Qual a profundidade teológica?
+                                
+                                Retorne APENAS um JSON válido.
+                            `;
+                            const schema = {
+                                type: GenType.OBJECT,
+                                properties: {
+                                    hebrewGreekText: { type: GenType.STRING },
+                                    phoneticText: { type: GenType.STRING },
+                                    words: {
+                                        type: GenType.ARRAY,
+                                        items: {
+                                            type: GenType.OBJECT,
+                                            properties: {
+                                                original: { type: GenType.STRING },
+                                                transliteration: { type: GenType.STRING },
+                                                portuguese: { type: GenType.STRING },
+                                                polysemy: { type: GenType.STRING },
+                                                etymology: { type: GenType.STRING },
+                                                grammar: { type: GenType.STRING },
+                                                contextual_meaning: { type: GenType.STRING },
+                                                exegetical_note: { type: GenType.STRING }
+                                            },
+                                            required: ["original", "transliteration", "portuguese", "polysemy", "etymology", "grammar", "contextual_meaning", "exegetical_note"]
+                                        }
                                     }
-                                }
-                            },
-                            required: ["hebrewGreekText", "phoneticText", "words"]
-                        };
-                        const res = await generateContent(prompt, schema, false, 'dictionary');
-                        await db.entities.Dictionary.create({
-                            book: bookMeta.name, chapter: c, verse: verseNum, verse_key: verseKey,
-                            original_text: res.hebrewGreekText, transliteration: res.phoneticText, key_words: res.words
-                        });
-                  }
-                  processed++;
-                  // INTERVALO REDUZIDO PARA ALTA VELOCIDADE (USANDO 41 CHAVES ROUND-ROBIN)
-                  await new Promise(r => setTimeout(r, 1000)); 
+                                },
+                                required: ["hebrewGreekText", "phoneticText", "words"]
+                            };
+                            const res = await generateContent(prompt, schema, false, 'dictionary');
+                            await db.entities.Dictionary.create({
+                                book: bookMeta.name, chapter: c, verse: verseNum, verse_key: verseKey,
+                                original_text: res.hebrewGreekText, transliteration: res.phoneticText, key_words: res.words
+                            });
+                      }
+                      processed++;
+                      // INTERVALO REDUZIDO PARA ALTA VELOCIDADE (USANDO 41 CHAVES ROUND-ROBIN)
+                      await new Promise(r => setTimeout(r, 1000)); 
 
-              } catch (err: any) {
-                  addLog(`⚠️ Falha em ${c}:${verseNum}: ${err.message}`);
+                  } catch (err: any) {
+                      addLog(`⚠️ Falha em ${c}:${verseNum}: ${err.message}`);
+                      // Vamos forçar um pequeno delay para a API respirar caso a falha tenha sido de rate limit total
+                      await new Promise(r => setTimeout(r, 2000));
+                  }
               }
           }
 
@@ -833,7 +836,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       }
 
       setIsGeneratingBatch(false);
-      onShowToast(`Processo finalizado. ${processed} itens gerados em ${bookMeta.name} ${c}.`, 'success');
+      onShowToast(`Processo finalizado. ${processed} itens gerados em ${bookMeta.name}.`, 'success');
   };
 
   const handleGenerateDevotional = async () => {
