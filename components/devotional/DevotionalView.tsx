@@ -3,8 +3,9 @@ import {
   ChevronLeft, Calendar, Loader2, Volume2, VolumeX, Edit3, Settings, 
   RefreshCw, Command, ChevronRight, Lock, AlertCircle, FastForward, 
   Type as TypeIcon, Trash2, Flame, Share2, Bookmark, BookOpen, 
-  Sparkles, BookMarked, Info, Download, Instagram 
+  Sparkles, BookMarked, Info, Download, Instagram, Image as ImageIcon
 } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { generateContent } from '../../services/geminiService';
 import { db } from '../../services/database';
 import { Devotional } from '../../types';
@@ -17,6 +18,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigate }: any) {
   const [devotional, setDevotional] = useState<Devotional | null>(null);
+  const cardRef = useRef<HTMLElement>(null);
+  const [sharingImage, setSharingImage] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Carregando...');
@@ -320,6 +323,45 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
     }
   };
 
+  const handleShareImage = async () => {
+    if (!devotional || !cardRef.current) return;
+    setSharingImage(true);
+    onShowToast('Gerando imagem para compartilhar...', 'info');
+
+    try {
+      // Ensure specific styles for capture if needed
+      const dataUrl = await toPng(cardRef.current, { 
+        cacheBust: true,
+        quality: 0.95,
+        backgroundColor: '#1a0f0f' // Match theme
+      });
+
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`, { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "Devocional Diário - Bíblia ADMA",
+          text: `*${CHURCH_NAME}*\n\n"${devotional.verse_text.trim()}"\n\n*${devotional.reference}*\n\nSiga-nos: ${CHURCH_INSTAGRAM}`,
+        });
+      } else {
+        // Fallback to download if sharing image is not supported
+        const link = document.createElement('a');
+        link.download = `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`;
+        link.href = dataUrl;
+        link.click();
+        onShowToast('Imagem baixada! Compartilhe-a manualmente.', 'success');
+      }
+    } catch (err) {
+      console.error('Error sharing image:', err);
+      onShowToast('Erro ao gerar imagem. Compartilhando texto...', 'error');
+      handleShare(); // Fallback to text
+    } finally {
+      setSharingImage(false);
+    }
+  };
+
   const handleShare = async () => {
     if (!devotional) return;
     const shareText = `*${CHURCH_NAME}*\n\n"${devotional.verse_text.trim()}"\n\n*${devotional.reference}*\n\nSiga-nos no Instagram: ${CHURCH_INSTAGRAM}\nLeia o devocional completo no App Bíblia ADMA.`;
@@ -563,7 +605,10 @@ Gerado pelo app Bíblia ADMA.
         ) : devotional ? (
             <div className="pt-8 animate-in slide-in-from-bottom-6 duration-700">
                 {/* Verse of the Day Hero Section - REDESIGNED */}
-                <section className="relative w-full rounded-[40px] overflow-hidden bg-primary-deep shadow-2xl border border-outline-variant/30 mb-8 aspect-[4/5] md:aspect-[3/4]">
+                <section 
+                  ref={cardRef}
+                  className="relative w-full rounded-[40px] overflow-hidden bg-primary-deep shadow-2xl border border-outline-variant/30 mb-8 aspect-[4/5] md:aspect-[3/4]"
+                >
                     <img 
                       className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-30" 
                       alt="Antique Bible Background"
@@ -617,11 +662,19 @@ Gerado pelo app Bíblia ADMA.
                 {/* Actions Cluster - Cleaned UP */}
                 <div className="flex flex-col gap-4 mb-12">
                     <button 
-                      onClick={handleShare}
-                      className="flex items-center justify-center gap-4 bg-primary-deep py-5 rounded-[32px] text-white font-montserrat text-[11px] font-black tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95"
+                      onClick={handleShareImage}
+                      disabled={sharingImage}
+                      className="flex items-center justify-center gap-4 bg-primary-deep py-5 rounded-[32px] text-white font-montserrat text-[11px] font-black tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50"
                     >
-                        <Share2 className="w-5 h-5 text-secondary" />
-                        COMPARTILHAR NO WHATSAPP
+                        {sharingImage ? <Loader2 className="w-5 h-5 animate-spin text-secondary" /> : <ImageIcon className="w-5 h-5 text-secondary" />}
+                        COMPARTILHAR IMAGEM
+                    </button>
+                    <button 
+                      onClick={handleShare}
+                      className="flex items-center justify-center gap-4 bg-white dark:bg-white/5 border border-outline-variant/30 py-4 rounded-[28px] text-primary font-montserrat text-[10px] font-black tracking-[0.2em] shadow-lg hover:bg-gray-50 dark:hover:bg-white/10 transition-all active:scale-95"
+                    >
+                        <Share2 className="w-4 h-4 text-primary opacity-60" />
+                        COMPARTILHAR TEXTO (WHATSAPP)
                     </button>
                     <p className="text-[9px] text-gray-400 text-center font-black uppercase tracking-widest opacity-60">Espalhe a palavra com seus irmãos</p>
                 </div>
