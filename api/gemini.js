@@ -386,15 +386,15 @@ export default async function handler(request, response) {
         1. PALAVRAS-CHAVE: Cite os termos originais (Hebraico no AT / Grego no NT) transliterados.
         2. SIGNIFICADOS DE NOMES: Sempre traga o significado etimológico de nomes de pessoas e lugares.
 
-        --- ESTRUTURA VISUAL OBRIGATÓRIA (BASEADA NO MODELO ADMA) ---
-        1. TÍTULO PRINCIPAL:
-           PANORÂMA BÍBLICO - ${book ? book.toUpperCase() : 'BÍBLIA'} ${chapter || ''} (PROF. MICHEL FELIX)
+        --- ESTRUTURA VISUAL OBRIGATÓRIA (BASEADA NO MODELO ADMA VIA MARKDOWN) ---
+        1. TÍTULO PRINCIPAL (OBRIGATÓRIO O USO DE HEADER NÍVEL 1 '# '):
+           # PANORÂMA BÍBLICO - ${book ? book.toUpperCase() : 'BÍBLIA'} ${chapter || ''} (PROF. MICHEL FELIX)
 
         ${introInstruction}
 
-        3. TÓPICOS DO ESTUDO (Use Numeração 1., 2., 3...):
+        3. TÓPICOS DO ESTUDO (OBRIGATÓRIO USO DE Numeração 1., 2., 3... E HEADER NÍVEL 2 '## '):
            Exemplo:
-           1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: Gn X:Y-Z)
+           ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: Gn X:Y-Z)
            (Aqui entra a explicação detalhada, versículo por versículo, sem pressa. NÃO COPIE O TEXTO BÍBLICO, APENAS EXPLIQUE).
            (INTEGRE AQUI A **PÉROLA DE OURO:** PARA ESTE TRECHO - PROTOCOLO v113.0 INTEGRADO CONTEXTUALMENTE WITH FONTES RASTREÁVEIS).
 

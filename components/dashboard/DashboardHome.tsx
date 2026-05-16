@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AppConfig, DynamicModule } from '../../types';
 import { db } from '../../services/database';
 import AttendanceManager from '../admin/AttendanceManager';
+import PrivacyPolicyModal from '../modals/PrivacyPolicyModal';
 
 interface DashboardProps {
     onNavigate: (view: string, params?: any) => void;
@@ -49,9 +50,10 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
   
   // State para o Modal de Frequência
   const [showAttendance, setShowAttendance] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
-  // Verificação de Permissão da Secretária (Nicole)
-  const isSecretary = user?.user_email?.toLowerCase() === 'nicole.santos@adma.local';
+  // Verificação de Permissão da Secretária (Nicole ou quem tiver a role)
+  const isSecretary = userProgress?.role === 'secretary' || userProgress?.role === 'admin';
   const canManageAttendance = isAdmin || isSecretary;
 
   useEffect(() => {
@@ -228,6 +230,11 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
                 onShowToast={onShowToast}
             />
         )}
+
+        <PrivacyPolicyModal 
+            isOpen={showPrivacy} 
+            onClose={() => setShowPrivacy(false)} 
+        />
 
         <div className="relative bg-[#0F0505] text-white pb-28 rounded-b-[40px] shadow-2xl overflow-hidden isolate">
              <div className="absolute inset-0 z-0" style={{ background: `linear-gradient(to bottom, ${primaryColor}, #150505)` }}></div>
@@ -408,6 +415,16 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
                     </div>
                 </button>
             )}
+
+            <motion.button 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={() => setShowPrivacy(true)} 
+                className="col-span-2 bg-white/50 dark:bg-white/5 p-4 rounded-2xl flex items-center justify-center gap-3 border border-dashed border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors group"
+            >
+                <ShieldCheck className="w-4 h-4 text-gray-400 group-hover:text-[#C5A059]" />
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest">Privacidade & Proteção de Dados (LGPD)</span>
+            </motion.button>
         </div>
     </div>
   );

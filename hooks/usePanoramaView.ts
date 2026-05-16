@@ -114,6 +114,74 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         }
     }, [isAdmin]);
 
+    const generateQuizFromContent = useCallback(async () => {
+        if (!content || !content.student_content || content.student_content.length < 50) {
+            onShowToast("O conteúdo do Panorama não está disponível ou é muito curto.", "error");
+            return;
+        }
+
+        setQuizLoading(true);
+        try {
+            const prompt = `
+                FONTE DE DADOS EXCLUSIVA (IGNORAR CONHECIMENTO PRÉVIO):
+                """
+                ${content.student_content}
+                """
+                
+                TAREFA: Gere 5 perguntas de múltipla escolha baseadas APENAS no texto acima entre aspas triplas.
+                
+                REGRAS DE BLINDAGEM (Risco de Falha Crítica):
+                1. A resposta correta DEVE estar escrita explicitamente no texto fornecido.
+                2. Não use seu conhecimento bíblico geral. Use APENAS o texto colado acima.
+                3. O campo 'proofText' deve ser uma CÓPIA IDÊNTICA da frase do texto que contém a resposta.
+                4. TENTE VARIAR A POSIÇÃO DA RESPOSTA CORRETA (A, B, C, D, E) entre as perguntas para não viciar na mesma letra.
+            `;
+
+            const schema = {
+                type: 'OBJECT',
+                properties: {
+                    questions: {
+                        type: 'ARRAY',
+                        items: {
+                            type: 'OBJECT',
+                            properties: {
+                                text: { type: 'STRING', description: "Enunciado claro" },
+                                options: { type: 'ARRAY', items: { type: 'STRING' } },
+                                correctIndex: { type: 'INTEGER' },
+                                proofText: { type: 'STRING', description: "Cópia exata do trecho do texto original que prova a resposta" }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const data = await generateContent(prompt, schema, true, 'quiz_gen');
+            
+            if (data && data.questions && Array.isArray(data.questions)) {
+                const newQuiz: Omit<Quiz, 'id'> = {
+                    title: `Avaliação do Capítulo: ${book} ${chapter}`,
+                    chapter_key: generateChapterKey(book, chapter),
+                    type: 'class',
+                    questions: data.questions,
+                    created_at: new Date().toISOString(),
+                    is_visible: false 
+                };
+
+                const savedQuiz = await db.entities.Quizzes.create(newQuiz as Quiz);
+                setActiveQuiz(savedQuiz);
+                onShowToast("Quiz gerado com sucesso! Lembre-se de revisá-lo.", "success");
+            } else {
+                 throw new Error("Formato de resposta inválido");
+            }
+
+        } catch (e: any) {
+            console.error("Erro na geração do quiz", e);
+            onShowToast("Erro ao gerar quiz: " + e.message, "error");
+        } finally {
+            setQuizLoading(false);
+        }
+    }, [content, book, chapter, onShowToast]);
+
     useEffect(() => {
         const canonicalBook = BIBLE_BOOKS.find(b => 
             b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
@@ -337,7 +405,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         newFolderTitle, setNewFolderTitle,
         newLessonTitle, setNewLessonTitle,
         handleSaveEdit, handleDelete, handleGenerateThematic,
-        loadQuiz,
+        loadQuiz, generateQuizFromContent,
         generateEbd, finalizeGeneration,
         addTheme, deleteTheme, addFolder, deleteFolder, addLesson, deleteLesson, renameLesson, moveLesson
     };

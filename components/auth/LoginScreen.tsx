@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { BookOpen, Loader2, ShieldCheck, Sparkles, User, Lock, ArrowRight, UserPlus, LogIn } from 'lucide-react';
+import { BookOpen, Loader2, ShieldCheck, Sparkles, User, Lock, ArrowRight, UserPlus, LogIn, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CHURCH_NAME, PASTOR_PRESIDENT } from '../../constants';
+import PrivacyPolicyModal from '../modals/PrivacyPolicyModal';
 
 interface LoginScreenProps {
   onLogin: (firstName: string, lastName: string, password: string, isRegister: boolean) => Promise<string | void>;
@@ -14,6 +15,8 @@ export default function LoginScreen({ onLogin, loading }: LoginScreenProps) {
   const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -21,6 +24,11 @@ export default function LoginScreen({ onLogin, loading }: LoginScreenProps) {
 
       if (!firstName.trim() || !lastName.trim() || !password.trim()) {
           setErrorMsg("Por favor, preencha todos os campos.");
+          return;
+      }
+
+      if (isRegistering && !acceptedTerms) {
+          setErrorMsg("Você precisa aceitar os termos de privacidade para continuar.");
           return;
       }
 
@@ -120,14 +128,31 @@ export default function LoginScreen({ onLogin, loading }: LoginScreenProps) {
 
               <AnimatePresence>
                 {isRegistering && (
-                    <motion.p 
-                        initial={{ opacity: 0, height: 0 }} 
-                        animate={{ opacity: 1, height: 'auto' }} 
-                        exit={{ opacity: 0, height: 0 }}
-                        className="text-[10px] text-gray-500 text-center px-4"
-                    >
-                        Ao criar conta, seus dados serão sincronizados com a nuvem da igreja para salvar seu progresso.
-                    </motion.p>
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-black/20 rounded-2xl border border-gray-100 dark:border-white/5">
+                        <label className="relative flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer"
+                              checked={acceptedTerms}
+                              onChange={(e) => setAcceptedTerms(e.target.checked)}
+                            />
+                            <div className="w-5 h-5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-md peer-checked:bg-[#8B0000] peer-checked:border-[#8B0000] transition-all flex items-center justify-center">
+                                {acceptedTerms && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                            </div>
+                        </label>
+                        <div className="flex-1">
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium leading-relaxed">
+                                Concordo em fornecer meu nome e progresso para sincronização com a nuvem ADMA, conforme a <button type="button" onClick={() => setShowPrivacy(true)} className="text-[#8B0000] dark:text-[#C5A059] font-bold underline decoration-dotted underline-offset-4 flex inline-items items-center gap-1">LGPD <ExternalLink className="w-2.5 h-2.5" /></button>
+                            </p>
+                        </div>
+                    </div>
+                  </motion.div>
                 )}
               </AnimatePresence>
 
@@ -164,11 +189,13 @@ export default function LoginScreen({ onLogin, loading }: LoginScreenProps) {
 
           <div className="mt-8 text-center border-t border-gray-200 dark:border-white/10 pt-4">
               <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest opacity-60 font-montserrat mb-2">
-                  <ShieldCheck className="w-3 h-3 text-[#C5A059]" /> Ambiente Seguro
+                  <ShieldCheck className="w-3 h-3 text-[#C5A059]" /> Ambiente Seguro | <button onClick={() => setShowPrivacy(true)} className="hover:text-[#C5A059] transition-colors">Privacidade</button>
               </div>
               <p className="text-[10px] text-gray-400 font-montserrat uppercase tracking-wider">{CHURCH_NAME}</p>
               <p className="text-[9px] text-[#8B0000] dark:text-[#C5A059] font-bold mt-1">{PASTOR_PRESIDENT}</p>
           </div>
+
+          <PrivacyPolicyModal isOpen={showPrivacy} onClose={() => setShowPrivacy(false)} />
 
         </motion.div>
       </div>

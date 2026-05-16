@@ -33,7 +33,7 @@ import {
   StretchVertical, Maximize as Fit, Minimize as Shrink, Move,
   Hand, Pointer, Mouse, Laptop, Tablet, Watch, Tv, Command as CmdIcon,
   Brain, FolderOpen, List, File, ArrowLeft, Star, ArrowUp, ArrowDown,
-  Folder, FolderPlus, Unlock
+  Folder, FolderPlus, Unlock, Wand2
 } from 'lucide-react';
 import { BIBLE_BOOKS, generateChapterKey } from '../../constants';
 import { UserProgress, ThematicTheme, ThematicLesson, BibleBook } from '../../types';
@@ -183,7 +183,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgres
         newFolderTitle, setNewFolderTitle,
         newLessonTitle, setNewLessonTitle,
         handleSaveEdit, handleDelete, handleGenerateThematic,
-        loadQuiz,
+        loadQuiz, generateQuizFromContent,
         generateEbd, finalizeGeneration,
         addTheme, deleteTheme, addFolder, deleteFolder, addLesson, deleteLesson, renameLesson, moveLesson
     } = usePanoramaView({ 
@@ -604,26 +604,44 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgres
                                 </div>
                             ) : activeQuiz ? (
                                 <>
-                                    {isAdmin && !activeQuiz.released_at && (
-                                        <button 
-                                            onClick={async () => {
-                                                try {
-                                                    await db.entities.Quizzes.update(activeQuiz.id!, { 
-                                                        released_at: new Date().toISOString(),
-                                                        is_visible: true 
-                                                    });
-                                                    onShowToast("Quiz liberado com sucesso!", "success");
-                                                    // Refresh quiz
-                                                    await loadQuiz(book, chapter);
-                                                } catch (e) {
-                                                    console.error("Erro ao liberar quiz:", e);
-                                                    onShowToast("Erro ao liberar quiz.", "error");
-                                                }
-                                            }}
-                                            className="mb-6 w-full py-4 bg-green-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-green-700 transition-all"
-                                        >
-                                            <Unlock className="w-5 h-5" /> LIBERAR QUIZ PARA ALUNOS
-                                        </button>
+                                    {isAdmin && (
+                                        <div className="flex flex-col md:flex-row gap-4 mb-6">
+                                            {!activeQuiz.released_at && (
+                                                <button 
+                                                    onClick={async () => {
+                                                        try {
+                                                            await db.entities.Quizzes.update(activeQuiz.id!, { 
+                                                                released_at: new Date().toISOString(),
+                                                                is_visible: true 
+                                                            });
+                                                            onShowToast("Quiz liberado com sucesso!", "success");
+                                                            // Refresh quiz
+                                                            await loadQuiz(book, chapter);
+                                                        } catch (e) {
+                                                            console.error("Erro ao liberar quiz:", e);
+                                                            onShowToast("Erro ao liberar quiz.", "error");
+                                                        }
+                                                    }}
+                                                    className="flex-1 py-4 bg-green-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-green-700 transition-all"
+                                                >
+                                                    <Unlock className="w-5 h-5" /> LIBERAR QUIZ PARA ALUNOS
+                                                </button>
+                                            )}
+                                            
+                                            <button
+                                                onClick={async () => {
+                                                    const confirm = window.confirm("Deseja re-gerar este quiz? Isso irá apagar o quiz atual e gerar um novo baseado no Panorama.");
+                                                    if (confirm) {
+                                                        await db.entities.Quizzes.delete(activeQuiz.id!);
+                                                        await generateQuizFromContent();
+                                                        await loadQuiz(book, chapter);
+                                                    }
+                                                }}
+                                                className="md:w-auto w-full px-6 py-4 bg-[#8B0000] text-white font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-[#6b0000] transition-all"
+                                            >
+                                                <Wand2 className="w-5 h-5" /> RE-GERAR QUIZ (IA)
+                                            </button>
+                                        </div>
                                     )}
                                     <QuizRunner 
                                         quiz={activeQuiz} 
@@ -637,6 +655,21 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgres
                                     <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-6 opacity-20" />
                                     <h3 className="font-cinzel font-black text-2xl text-gray-400 uppercase tracking-widest">Nenhum Quiz Disponível</h3>
                                     <p className="text-sm text-gray-500 mt-4">O professor ainda não liberou o quiz para este capítulo.</p>
+                                    
+                                    {isAdmin && (
+                                        <div className="mt-8 flex justify-center">
+                                            <button
+                                                onClick={async () => {
+                                                    await generateQuizFromContent();
+                                                    await loadQuiz(book, chapter);
+                                                }}
+                                                className="px-8 py-3 bg-[#8B0000] text-white flex items-center gap-2 rounded-xl font-bold uppercase text-sm font-cinzel hover:bg-[#6b0000] transition"
+                                            >
+                                                <Wand2 className="w-5 h-5" />
+                                                Gerar Quiz (IA)
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

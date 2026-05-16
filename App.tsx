@@ -59,11 +59,6 @@ export default function App() {
         setUser(u);
         setIsAuthenticated(true);
         loadProgress(u.user_email, u.user_name);
-        
-        // Auto-admin for Michel
-        if (u.user_email === 'michel.felix@adma.local') {
-            setIsAdmin(true);
-        }
     }
     
     const isDark = localStorage.getItem('adma_dark_mode') === 'true' || 
@@ -203,6 +198,11 @@ export default function App() {
             }
 
             setUserProgress(mergedProfile);
+            
+            // Ativa Admin se o perfil no banco tiver a role correspondente
+            if (mergedProfile.role === 'admin') {
+                setIsAdmin(true);
+            }
         } else {
             const displayName = nameFallback || user?.user_name || email;
             const newP = await db.entities.ReadingProgress.create({ 
@@ -273,7 +273,8 @@ export default function App() {
                 total_chapters: 0,
                 active_plans: [],
                 ebd_read: [],
-                total_ebd_read: 0
+                total_ebd_read: 0,
+                role: 'user'
             });
             setUserProgress(newUser);
         } else {
@@ -296,6 +297,9 @@ export default function App() {
             }
 
             setUserProgress(existingUser);
+            if (existingUser.role === 'admin') {
+                setIsAdmin(true);
+            }
         }
 
         const u = { user_name: fullName, user_email: email };
@@ -430,7 +434,12 @@ export default function App() {
               {renderView()}
           </div>
           
-          <AdminPasswordModal isOpen={showAdminModal} onClose={() => setShowAdminModal(false)} onSuccess={handleAdminSuccess} />
+          <AdminPasswordModal 
+            isOpen={showAdminModal} 
+            onClose={() => setShowAdminModal(false)} 
+            onSuccess={handleAdminSuccess} 
+            userRole={userProgress?.role}
+          />
           <BibleSearch isOpen={showSearch} onClose={() => setShowSearch(false)} onNavigate={handleNavigate} />
           <NetworkStatus />
           {toast.msg && <Toast message={toast.msg} type={toast.type} onClose={() => setToast({ ...toast, msg: '' })} />}
