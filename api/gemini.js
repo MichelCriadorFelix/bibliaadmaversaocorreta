@@ -47,14 +47,18 @@ export default async function handler(request, response) {
          });
     }
 
-    // --- ALGORITMO DE EMBARALHAMENTO (FISHER-YATES) ---
-    // Isso garante que cada requisição comece por uma chave diferente,
-    // permitindo que múltiplas abas usem chaves diferentes simultaneamente
-    // sem congestionar a "Chave 01".
-    const shuffledKeys = [...allKeys];
-    for (let i = shuffledKeys.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledKeys[i], shuffledKeys[j]] = [shuffledKeys[j], shuffledKeys[i]];
+    // --- ALGORITMO DE ROUND-ROBIN EM MEMÓRIA (MELHORADO) ---
+    // Isso garante uso uniforme das chaves enquanto o container estiver ativo.
+    if (global.currentKeyIndex === undefined || isNaN(global.currentKeyIndex)) {
+        global.currentKeyIndex = 0;
+    }
+    
+    let startIndex = global.currentKeyIndex;
+    global.currentKeyIndex = (global.currentKeyIndex + 1) % allKeys.length;
+
+    const orderedKeysToTry = [];
+    for (let i = 0; i < allKeys.length; i++) {
+        orderedKeysToTry.push(allKeys[(startIndex + i) % allKeys.length]);
     }
 
     let body = request.body;
@@ -72,8 +76,8 @@ export default async function handler(request, response) {
     let lastError = null;
     let successResponse = null;
 
-    // Tenta as chaves na ordem aleatória sorteada para esta requisição específica
-    for (const apiKey of shuffledKeys) {
+    // Tenta as chaves na ordem escalonada (Round-Robin) para esta requisição específica
+    for (const apiKey of orderedKeysToTry) {
         try {
             const ai = new GoogleGenAI({ apiKey: apiKey });
             
@@ -442,13 +446,14 @@ export default async function handler(request, response) {
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd') {
                 config.maxOutputTokens = 30000;
                 config.thinkingConfig = { thinkingBudget: 24576 };
-            } else if (taskType === 'dictionary') {
+            } else if (taskType === 'dictionary' || taskType === 'commentary') {
                 config.maxOutputTokens = 8192; 
-                config.thinkingConfig = { thinkingBudget: 4096 }; 
+                config.thinkingConfig = { thinkingBudget: 8192 };
             } else if (taskType === 'assistente_chat') {
                 // BUSCA NÃO USA THINKING PARA SER INSTANTÂNEA
                 config.maxOutputTokens = 2048;
             } else {
+                config.maxOutputTokens = 24000;
                 config.thinkingConfig = { thinkingBudget: 16000 };
             }
 

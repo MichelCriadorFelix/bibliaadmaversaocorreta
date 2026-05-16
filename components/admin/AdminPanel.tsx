@@ -769,7 +769,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                             --- ESTILO VISUAL ---
                             Texto corrido, elegante, inspirador e fácil de ler.
                         `;
-                        const text = await generateContent(prompt);
+                        const text = await generateContent(prompt, undefined, true, 'commentary');
                         await db.entities.Commentary.create({
                             book: bookMeta.name, chapter: c, verse: verseNum, verse_key: verseKey, commentary_text: text
                         });
@@ -813,15 +813,15 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                             },
                             required: ["hebrewGreekText", "phoneticText", "words"]
                         };
-                        const res = await generateContent(prompt, schema);
+                        const res = await generateContent(prompt, schema, false, 'dictionary');
                         await db.entities.Dictionary.create({
                             book: bookMeta.name, chapter: c, verse: verseNum, verse_key: verseKey,
                             original_text: res.hebrewGreekText, transliteration: res.phoneticText, key_words: res.words
                         });
                   }
                   processed++;
-                  // AUMENTO DE INTERVALO (FIX 429): De 1s para 8s para suportar o peso do Thinking Budget
-                  await new Promise(r => setTimeout(r, 8000)); 
+                  // INTERVALO REDUZIDO PARA ALTA VELOCIDADE (USANDO 41 CHAVES ROUND-ROBIN)
+                  await new Promise(r => setTimeout(r, 1000)); 
 
               } catch (err: any) {
                   addLog(`⚠️ Falha em ${c}:${verseNum}: ${err.message}`);
