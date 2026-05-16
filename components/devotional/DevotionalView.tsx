@@ -43,9 +43,6 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
       }
   };
   
-  // NOVA LINHA: Referência para o Fundo Musical Gospel Instrumental (Piano Suave)
-  const bgMusicRef = useRef<HTMLAudioElement | null>(null);
-
   // Settings State
   const [showSettings, setShowSettings] = useState(false);
   const [fontSize, setFontSize] = useState(18);
@@ -96,19 +93,6 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
       return chunks;
   }, [devotional]);
 
-  // Sincronização do Fundo Musical com a Narração
-  useEffect(() => {
-    if (bgMusicRef.current) {
-        if (isPlaying) {
-            bgMusicRef.current.play().catch(e => console.log("Fundo musical aguardando interação:", e));
-        } else {
-            bgMusicRef.current.pause();
-            // NÃO reseta o currentTime para zero aqui, para manter a música fluindo se pausar/continuar
-            // bgMusicRef.current.currentTime = 0; 
-        }
-    }
-  }, [isPlaying]);
-
   // Efeito de Reprodução Sequencial (Avança Chunks)
   useEffect(() => {
       if (isPlaying && audioChunks.length > 0) {
@@ -117,10 +101,6 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
           if (currentChunkIndex >= audioChunks.length) {
               setIsPlaying(false);
               setCurrentChunkIndex(0);
-              if (bgMusicRef.current) {
-                  bgMusicRef.current.pause();
-                  bgMusicRef.current.currentTime = 0;
-              }
               return;
           }
 
@@ -175,23 +155,12 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
       return () => {
           window.speechSynthesis.cancel();
           releaseWakeLock();
-          if (bgMusicRef.current) {
-              bgMusicRef.current.pause();
-              bgMusicRef.current = null;
-          }
       };
   }, []);
 
   useEffect(() => {
     loadDevotional();
     
-    // Inicialização do player de fundo musical (Instrumental Suave)
-    if (!bgMusicRef.current) {
-        bgMusicRef.current = new Audio('https://cdn.pixabay.com/audio/2022/01/18/audio_d0c6ff1bab.mp3'); // Piano suave meditativo
-        bgMusicRef.current.loop = true;
-        bgMusicRef.current.volume = 0.1; // Volume em 10%
-    }
-
     // Carregar vozes com prioridade para Humanizadas
     const loadVoices = () => {
         let available = window.speechSynthesis.getVoices().filter(v => v.lang.includes('pt'));
@@ -218,11 +187,6 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
     return () => {
         window.speechSynthesis.cancel();
         setIsPlaying(false);
-        // Limpeza do fundo musical ao desmontar
-        if (bgMusicRef.current) {
-            bgMusicRef.current.pause();
-            bgMusicRef.current = null;
-        }
     };
   }, [displayDateStr]);
 
