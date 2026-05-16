@@ -6,6 +6,7 @@ import {
   Sparkles, BookMarked, Info, Download, Instagram, Image as ImageIcon
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 import { generateContent } from '../../services/geminiService';
 import { db } from '../../services/database';
 import { Devotional } from '../../types';
@@ -325,61 +326,65 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
   };
 
   const handleShare = async (platform: 'whatsapp' | 'instagram') => {
-    if (!devotional || !devotionalContentRef.current) return;
+    if (!devotional || !cardRef.current) return;
     setSharingImage(true);
     onShowToast(`Preparando para o ${platform === 'whatsapp' ? 'WhatsApp' : 'Instagram'}...`, 'info');
 
+    const isWindows = navigator.platform.indexOf('Win') > -1 || navigator.userAgent.indexOf('Windows') > -1;
+
     try {
-      // 1. Generate High Definition Image of the CONTENT (Title + Meditation)
-      const dataUrl = await toPng(devotionalContentRef.current, { 
-        cacheBust: true,
-        pixelRatio: 3, 
-        backgroundColor: '#1a0f0f',
-        style: {
-          padding: '40px',
-          borderRadius: '0px' // Clean edges for share
-        }
-      });
-
-      const blob = await (await fetch(dataUrl)).blob();
-      const filename = `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`;
-      const file = new File([blob], filename, { type: 'image/png' });
-
-      // 2. Prepare Text based on platform
-      let shareText = '';
-      if (platform === 'whatsapp') {
-        shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n*Reflexão:*\n${devotional.body}\n\n*Oração:*\n${devotional.prayer}\n\nSiga-nos: ${CHURCH_INSTAGRAM}\nLeia no App Bíblia ADMA.`;
+      let dataUrl = '';
+      
+      if (isWindows) {
+        // Capture the HERO CARD (cardRef) for Windows
+        const canvas = await html2canvas(cardRef.current, {
+          scale: 3, 
+          useCORS: true,
+          backgroundColor: '#1a0f0f',
+          logging: false
+        });
+        dataUrl = canvas.toDataURL('image/png', 0.95);
       } else {
-        // Instagram: Keep it short and readable for captions/stories
-        shareText = `"${devotional.verse_text.trim()}"\n\n${devotional.reference}\n\n${CHURCH_NAME}\n#devocional #biblia #fe\n\n(Texto copiado para sua legenda)`;
-        
-        // PROACTIVE: Copy to clipboard immediately for Instagram because the app usually 
-        // takes ONLY the image in the first step, so the user will need the text later.
-        try {
-            await navigator.clipboard.writeText(shareText.replace('\n\n(Texto copiado para sua legenda)', ''));
-            onShowToast('Legenda copiada! Basta colar no Instagram.', 'success');
-        } catch (e) {
-            console.warn('Failed to copy text beforehand', e);
-        }
+        // Mobile flow for HERO CARD
+        dataUrl = await toPng(cardRef.current, { 
+          cacheBust: true,
+          pixelRatio: 2.5,
+          backgroundColor: '#1a0f0f'
+        });
       }
 
-      // 3. Smart Sharing Logic
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const filename = `Versiculo_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+
+      // Prepare FULL text (Title + Meditation + Prayer)
+      const fullDevotionalText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n*Reflexão:*\n${devotional.body}\n\n*Oração:*\n${devotional.prayer}\n\nSiga-nos: ${CHURCH_INSTAGRAM}\nLeia mais no App Bíblia ADMA.`;
+
+      // Copy text to clipboard immediately regardless of platform
+      try {
+          await navigator.clipboard.writeText(fullDevotionalText);
+          if (platform === 'instagram') {
+            onShowToast('Texto do devocional copiado! Basta colar na legenda.', 'success');
+          }
+      } catch (e) {
+          console.warn('Clipboard fallback');
+      }
+
       const canShareFiles = navigator.share && navigator.canShare && navigator.canShare({ files: [file] });
 
-      if (canShareFiles) {
+      if (canShareFiles && !isWindows) {
         await navigator.share({
           files: [file],
-          title: platform === 'whatsapp' ? 'Devocional Diário' : 'Post Instagram',
-          text: platform === 'whatsapp' ? shareText : '', // WhatsApp handles text+file better, Instagram prefers empty text to avoid duplication if it uses clipboard
+          title: devotional.title,
+          text: platform === 'whatsapp' ? fullDevotionalText : '',
         });
       } else {
-        // Desktop Fallback
-        await navigator.clipboard.writeText(shareText);
-        
+        // Desktop / Windows Fallback
         try {
           const item = new ClipboardItem({ [file.type]: blob });
           await navigator.clipboard.write([item]);
-          onShowToast('Tudo pronto! Imagem e texto copiados. Use Ctrl+V no seu app.', 'success');
+          onShowToast('Imagem e texto copiados! Use Ctrl+V no seu app.', 'success');
         } catch (clipboardErr) {
           const link = document.createElement('a');
           link.download = filename;
@@ -390,7 +395,9 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
       }
     } catch (err) {
       console.error('Error sharing:', err);
-      onShowToast('Erro ao processar compartilhamento.', 'error');
+      onShowToast('Erro ao processar imagem. Tentando compartilhar apenas o texto...', 'warning');
+      const shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\nSiga-nos no Instagram: ${CHURCH_INSTAGRAM}`;
+      navigator.clipboard.writeText(shareText);
     } finally {
       setSharingImage(false);
     }
