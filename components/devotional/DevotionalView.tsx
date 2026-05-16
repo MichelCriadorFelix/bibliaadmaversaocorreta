@@ -28,9 +28,30 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
   
   // Audio State
   const [isPlaying, setIsPlaying] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  
+  // NATIVA DO NAVEGADOR
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
+
+  useEffect(() => {
+    const loadVoices = () => {
+      let voices = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('pt'));
+      if(voices.length === 0) voices = window.speechSynthesis.getVoices(); // Fallback to all if no pt found yet
+      setAvailableVoices(voices);
+      if (voices.length > 0 && !selectedVoiceURI) {
+        // Tenta achar vozes com melhor pronúncia primeiro
+        const bestVoice = voices.find(v => v.name.includes('Google') || v.name.includes('Premium')) || voices[0];
+        setSelectedVoiceURI(bestVoice.voiceURI);
+      }
+    };
+    
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
   
   // NOVA LÓGICA DE ÁUDIO: Controle Indexado
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
@@ -104,8 +125,10 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
   }, [devotional]);
 
   useEffect(() => {
-      if (isPlaying && audioChunks.length > 0) {
-          window.speechSynthesis.cancel();
+      let isSubscribed = true;
+
+      const playCurrentChunk = async () => {
+          if (!isPlaying || audioChunks.length === 0) return;
           
           if (currentChunkIndex >= audioChunks.length) {
               setIsPlaying(false);
@@ -119,6 +142,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
               return;
           }
 
+          // Auto-scroll
           const activeBlock = document.getElementById(chunkObj.blockId);
           if (activeBlock) {
               const rect = activeBlock.getBoundingClientRect();
@@ -129,36 +153,53 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
               }
           }
 
-          const utter = new SpeechSynthesisUtterance(fixBiblePronunciation(chunkObj.text));
-          utter.lang = 'pt-BR';
-          utter.rate = playbackRate;
-          const v = voices.find(vo => vo.name === selectedVoice);
-          if (v) utter.voice = v;
+          window.speechSynthesis.cancel(); // Cancelar qualquer áudio tocando
 
-          utter.onend = () => {
+          const textToRead = fixBiblePronunciation(chunkObj.text);
+          const utterance = new SpeechSynthesisUtterance(textToRead);
+          utterance.lang = 'pt-BR';
+          utterance.rate = playbackRate;
+          
+          const targetVoice = availableVoices.find(v => v.voiceURI === selectedVoiceURI);
+          if (targetVoice) {
+              utterance.voice = targetVoice;
+          }
+
+          utterance.onend = () => {
+              if (!isSubscribed) return;
               if (currentChunkIndex + 1 >= audioChunks.length) {
                   releaseWakeLock();
               }
               setCurrentChunkIndex(prev => prev + 1);
           };
-          
-          utter.onerror = (e) => {
-              console.error("Erro no áudio", e);
-              setIsPlaying(false);
+
+          utterance.onerror = (e) => {
+              console.error("Erro reproduzindo Audio", e);
+              if (!isSubscribed || e.error === 'canceled' || e.error === 'interrupted') return;
+              setCurrentChunkIndex(prev => prev + 1); // Pular o falho
           };
 
-          window.speechSynthesis.speak(utter);
+          window.speechSynthesis.speak(utterance);
+      };
+
+      if (isPlaying) {
+          playCurrentChunk();
       }
-  }, [isPlaying, currentChunkIndex, audioChunks, playbackRate, selectedVoice, voices]);
+
+      return () => {
+          isSubscribed = false;
+      };
+  }, [isPlaying, currentChunkIndex, audioChunks, playbackRate, selectedVoiceURI, availableVoices]);
 
   useEffect(() => {
       setCurrentChunkIndex(0);
       setIsPlaying(false);
       window.speechSynthesis.cancel();
       releaseWakeLock();
-  }, [devotional]);
+  }, [devotional, selectedVoiceURI]);
 
   useEffect(() => {
+      // Init e Cleanup
       return () => {
           window.speechSynthesis.cancel();
           releaseWakeLock();
@@ -167,31 +208,6 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
 
   useEffect(() => {
     loadDevotional();
-    
-    const loadVoices = () => {
-        let available = window.speechSynthesis.getVoices().filter(v => v.lang.includes('pt'));
-        available.sort((a, b) => {
-            const getScore = (v: SpeechSynthesisVoice) => {
-                let score = 0;
-                if (v.name.includes('Google')) score += 5;
-                if (v.name.includes('Microsoft')) score += 4;
-                if (v.name.includes('Luciana')) score += 3; 
-                if (v.name.includes('Joana')) score += 3;
-                return score;
-            };
-            return getScore(b) - getScore(a);
-        });
-
-        setVoices(available);
-        if(available.length > 0 && !selectedVoice) setSelectedVoice(available[0].name);
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    return () => {
-        window.speechSynthesis.cancel();
-        setIsPlaying(false);
-    };
   }, [displayDateStr]);
 
   const loadDevotional = async () => {
@@ -518,12 +534,12 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
                         <label className="font-montserrat text-xs font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">Voz do Narrador:</label>
                         <select 
                           className="w-full p-4 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-white/5 rounded-2xl mt-1 dark:text-white outline-none focus:ring-2 focus:ring-primary text-sm font-medium" 
-                          value={selectedVoice} 
-                          onChange={e => setSelectedVoice(e.target.value)}
+                          value={selectedVoiceURI} 
+                          onChange={e => setSelectedVoiceURI(e.target.value)}
                         >
-                            {voices.map(v => <option key={v.name} value={v.name}>{v.name}</option>)}
+                            {availableVoices.length > 0 ? availableVoices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>) : <option>Carregando vozes...</option>}
                         </select>
-                        <p className="text-[9px] text-gray-400 mt-2 uppercase tracking-tighter">Vozes do sistema (depende do seu dispositivo)</p>
+                        <p className="text-[9px] text-gray-400 mt-2 uppercase tracking-tighter">Vozes baseadas no sistema (Grátis)</p>
                     </div>
                   </div>
               </div>
@@ -628,7 +644,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
                                 <span className="font-montserrat text-[8px] font-black tracking-widest text-[#C5A059] uppercase">VERSÍCULO CHAVE</span>
                             </motion.div>
                             
-                            <h2 id="dev-verse" className={`font-cinzel text-xl md:text-3xl text-white text-center italic mb-4 leading-tight transition-all duration-300 drop-shadow-xl ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-verse' ? 'text-secondary scale-105' : ''}`}>
+                            <h2 id="dev-verse" className={`font-cinzel text-xl md:text-3xl text-white text-center italic mb-4 leading-tight transition-all duration-300 drop-shadow-xl ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-verse' ? 'text-secondary scale-105 bg-black/40 rounded-xl px-4 py-2' : ''}`}>
                                 "{cleanTextDisplay(devotional.verse_text)}"
                             </h2>
                             
@@ -705,7 +721,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
                                 <p 
                                   key={idx} 
                                   id={`dev-body-${idx}`} 
-                                  className={`transition-all duration-500 px-6 -mx-6 py-4 rounded-3xl ${idx === 0 ? 'first-letter:text-6xl first-letter:font-cinzel first-letter:text-primary-deep first-letter:mr-4 first-letter:float-left first-letter:leading-none' : ''} ${isPlaying && audioChunks[currentChunkIndex]?.blockId === `dev-body-${idx}` ? 'bg-primary/10 dark:bg-secondary/30 text-primary-deep dark:text-white font-bold border-l-4 border-secondary shadow-lg scale-[1.02] z-20' : 'opacity-100'}`}
+                                  className={`transition-all duration-500 px-6 -mx-6 py-4 rounded-3xl ${idx === 0 ? 'first-letter:text-6xl first-letter:font-cinzel first-letter:text-primary-deep dark:first-letter:text-secondary first-letter:mr-4 first-letter:float-left first-letter:leading-none' : ''} ${isPlaying && audioChunks[currentChunkIndex]?.blockId === `dev-body-${idx}` ? 'bg-[#C5A059]/20 text-black dark:text-white font-bold border-l-4 border-secondary shadow-lg scale-[1.02] z-20' : 'opacity-100'}`}
                                 >
                                     {cleanTextDisplay(p)}
                                 </p>
@@ -718,7 +734,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
                           <Flame className="w-4 h-4 text-secondary" />
                           <h3 className="font-cinzel font-black text-sm text-primary-deep dark:text-white tracking-widest uppercase">Oração</h3>
                         </div>
-                        <p className={`font-cormorant italic leading-relaxed text-gray-700 dark:text-gray-300 transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'text-primary-deep dark:text-white font-bold scale-[1.01] origin-left' : 'opacity-80'}`}>
+                        <p className={`font-cormorant italic leading-relaxed text-gray-700 dark:text-gray-300 transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'bg-[#C5A059]/20 text-black dark:text-white font-bold p-4 -mx-4 rounded-xl scale-[1.01] origin-left border-l-4 border-secondary' : 'opacity-80'}`}>
                             "{cleanTextDisplay(devotional.prayer)}"
                         </p>
                     </div>
@@ -784,7 +800,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
               onClick={togglePlay}
               className={`w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center transition-all border-2 border-white dark:border-white/10 ${isPlaying ? 'bg-[#1a0f0f] text-[#C5A059]' : 'bg-[#C5A059] text-[#1a0f0f]'}`}
             >
-              {isPlaying ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6 animate-pulse" />}
+              {isAudioLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : isPlaying ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6 animate-pulse" />}
             </motion.button>
           </div>
       )}

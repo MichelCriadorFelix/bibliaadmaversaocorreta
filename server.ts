@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import geminiHandler from './api/gemini.js';
 import keysStatusHandler from './api/keys-status.js';
 import storageHandler from './api/storage.js';
+import ttsHandler from './api/tts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +50,16 @@ async function startServer() {
       await storageHandler(req, res);
     } catch (error) {
       console.error('Error in /api/storage:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Rota para TTS de Devocional (Google GenAI)
+  app.all('/api/narrar-biblia', async (req, res) => {
+    try {
+      await ttsHandler(req, res);
+    } catch (error) {
+      console.error('Error in /api/narrar-biblia:', error);
       res.status(500).json({ error: error.message });
     }
   });
