@@ -349,7 +349,16 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
         shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n*Reflexão:*\n${devotional.body}\n\n*Oração:*\n${devotional.prayer}\n\nSiga-nos: ${CHURCH_INSTAGRAM}\nLeia no App Bíblia ADMA.`;
       } else {
         // Instagram: Keep it short and readable for captions/stories
-        shareText = `"${devotional.verse_text.trim()}"\n\n${devotional.reference}\n\n${CHURCH_NAME}\n#devocional #biblia #fe`;
+        shareText = `"${devotional.verse_text.trim()}"\n\n${devotional.reference}\n\n${CHURCH_NAME}\n#devocional #biblia #fe\n\n(Texto copiado para sua legenda)`;
+        
+        // PROACTIVE: Copy to clipboard immediately for Instagram because the app usually 
+        // takes ONLY the image in the first step, so the user will need the text later.
+        try {
+            await navigator.clipboard.writeText(shareText.replace('\n\n(Texto copiado para sua legenda)', ''));
+            onShowToast('Legenda copiada! Basta colar no Instagram.', 'success');
+        } catch (e) {
+            console.warn('Failed to copy text beforehand', e);
+        }
       }
 
       // 3. Smart Sharing Logic
@@ -359,7 +368,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
         await navigator.share({
           files: [file],
           title: platform === 'whatsapp' ? 'Devocional Diário' : 'Post Instagram',
-          text: shareText,
+          text: platform === 'whatsapp' ? shareText : '', // WhatsApp handles text+file better, Instagram prefers empty text to avoid duplication if it uses clipboard
         });
       } else {
         // Desktop Fallback
