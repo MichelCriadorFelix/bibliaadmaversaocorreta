@@ -407,7 +407,7 @@ export default function App() {
                 initialChapter={navParams.chapter}
             />;
         case 'devotional':
-            return <DevotionalView onBack={() => setView('dashboard')} onShowToast={showToast} isAdmin={isAdmin} />;
+            return <DevotionalView onBack={() => setView('dashboard')} onNavigate={handleNavigate} onShowToast={showToast} isAdmin={isAdmin} />;
         case 'plans':
             return <PlansView 
                 onBack={() => setView('dashboard')} 

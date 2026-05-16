@@ -1,6 +1,7 @@
 import { BibleBook, ReadingPlan } from './types';
 
-export const CHURCH_NAME = "ASSEMBLEIA DE DEUS MINISTÉRIO ÁGAPE";
+export const CHURCH_NAME = "Assembleia de Deus Ministério Ágape";
+export const CHURCH_INSTAGRAM = "@adma.vilardosteles";
 export const PASTOR_PRESIDENT = "Pr. Daniel Barbosa";
 export const APP_VERSION = "v11.5 - Edição Oficial (Universal)";
 

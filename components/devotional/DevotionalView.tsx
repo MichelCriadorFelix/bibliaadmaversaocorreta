@@ -1,14 +1,21 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, Calendar, Loader2, Volume2, VolumeX, Edit3, Settings, RefreshCw, Command, ChevronRight, Lock, AlertCircle, FastForward, Type, Trash2, Flame } from 'lucide-react';
+import { 
+  ChevronLeft, Calendar, Loader2, Volume2, VolumeX, Edit3, Settings, 
+  RefreshCw, Command, ChevronRight, Lock, AlertCircle, FastForward, 
+  Type as TypeIcon, Trash2, Flame, Share2, Bookmark, BookOpen, 
+  Sparkles, BookMarked, Info, Download, Instagram 
+} from 'lucide-react';
 import { generateContent } from '../../services/geminiService';
 import { db } from '../../services/database';
 import { Devotional } from '../../types';
-import { BIBLE_BOOKS } from '../../constants';
+import { BIBLE_BOOKS, CHURCH_NAME, CHURCH_INSTAGRAM } from '../../constants';
 import { Type as GenType } from "@google/genai";
-import { format, addDays, differenceInDays, isAfter } from 'date-fns';
+import { format, addDays, differenceInDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { fixBiblePronunciation } from '../../utils/ttsHelper';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
+export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigate }: any) {
   const [devotional, setDevotional] = useState<Devotional | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
@@ -52,17 +59,15 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
   const [showAdminControls, setShowAdminControls] = useState(false);
   
   const today = new Date();
-  today.setHours(0,0,0,0); // Normaliza para meia-noite
+  today.setHours(0,0,0,0); 
   
   const displayDateStr = format(currentDate, 'yyyy-MM-dd');
   const daysDiff = differenceInDays(currentDate, today);
   
   // Regras de Data
   const isFuture = daysDiff > 0;
-  const isExpired = daysDiff < -365; // Mais antigo que 1 ano
+  const isExpired = daysDiff < -365;
 
-  // MEMOIZAÇÃO DO TEXTO DE ÁUDIO (CHUNKS)
-  // Divide o devocional em frases para permitir navegação e highlight
   const audioChunks = useMemo(() => {
       if (!devotional) return [];
       
@@ -93,7 +98,6 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
       return chunks;
   }, [devotional]);
 
-  // Efeito de Reprodução Sequencial (Avança Chunks)
   useEffect(() => {
       if (isPlaying && audioChunks.length > 0) {
           window.speechSynthesis.cancel();
@@ -110,7 +114,6 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
               return;
           }
 
-          // Rola para o bloco atual
           const activeBlock = document.getElementById(chunkObj.blockId);
           if (activeBlock) {
               const rect = activeBlock.getBoundingClientRect();
@@ -141,9 +144,8 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
 
           window.speechSynthesis.speak(utter);
       }
-  }, [isPlaying, currentChunkIndex, audioChunks, playbackRate, selectedVoice]);
+  }, [isPlaying, currentChunkIndex, audioChunks, playbackRate, selectedVoice, voices]);
 
-  // Resetar ao mudar devocional
   useEffect(() => {
       setCurrentChunkIndex(0);
       setIsPlaying(false);
@@ -161,11 +163,8 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
   useEffect(() => {
     loadDevotional();
     
-    // Carregar vozes com prioridade para Humanizadas
     const loadVoices = () => {
         let available = window.speechSynthesis.getVoices().filter(v => v.lang.includes('pt'));
-        
-        // ORDENAÇÃO DE VOZES MAIS HUMANIZADAS
         available.sort((a, b) => {
             const getScore = (v: SpeechSynthesisVoice) => {
                 let score = 0;
@@ -196,7 +195,6 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
     setCurrentChunkIndex(0);
     window.speechSynthesis.cancel();
 
-    // 1. Se for futuro, bloqueia imediatamente
     if (isFuture) {
         setLoading(false);
         return;
@@ -209,10 +207,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
         const res = await db.entities.Devotional.filter({ date: displayDateStr });
         
         if (res.length > 0) {
-            // Conteúdo encontrado!
             const foundDevotional = res[0];
-
-            // Verifica se está expirado para limpar o banco (Policy: 365 dias)
             if (isExpired) {
                 setStatusMessage('Limpando registros antigos...');
                 await db.entities.Devotional.delete(foundDevotional.id!);
@@ -221,9 +216,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
                 setDevotional(foundDevotional);
             }
         } else {
-            // Nenhum conteúdo encontrado.
             if (!isFuture && !isExpired) {
-                // Se for hoje ou passado recente (e não tiver no banco), GERA AUTOMATICAMENTE
                 await generateDevotional(); 
             } else {
                 setDevotional(null);
@@ -237,28 +230,21 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
   };
 
   const generateDevotional = async (customInstruction?: string) => {
-    // Se for comando customizado, só admin pode.
     if (customInstruction && !isAdmin) return;
 
     setStatusMessage('Explorando as Escrituras...');
     setLoading(true);
     
-    // ESTRATÉGIA "ROLETA BÍBLICA" (Anti-Repetição)
-    // Sorteia um livro e um capítulo aleatório para forçar diversidade
     let instruction = customInstruction;
-
     if (!instruction) {
         const randomBook = BIBLE_BOOKS[Math.floor(Math.random() * BIBLE_BOOKS.length)];
         const randomChapter = Math.floor(Math.random() * randomBook.chapters) + 1;
         
         instruction = `
             BASE BÍBLICA OBRIGATÓRIA (ROLETA BÍBLICA): ${randomBook.name} Capítulo ${randomChapter}.
-            
             TAREFA: Encontre uma pérola espiritual, uma lição de vida ou um princípio poderoso ESCONDIDO neste capítulo específico.
-            
             OBJETIVO: Fugir dos versículos "clichês" e repetidos. Surpreenda o leitor com uma extração profunda de um texto que talvez ele não lesse hoje.
-            
-            OBSERVAÇÃO TÉCNICA: Se o capítulo for de genealogias, medidas do templo ou leis cerimoniais, extraia o PRINCÍPIO ESPIRITUAL por trás (ex: ordem, santidade, fidelidade de Deus nas gerações).
+            OBSERVAÇÃO TÉCNICA: Se o capítulo for de genealogias, medidas do templo ou leis cerimoniais, extraia o PRINCÍPIO ESPIRITUAL por trás.
         `;
     }
     
@@ -266,20 +252,17 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
         ATUE COMO: Michel Felix, teólogo Pentecostal Clássico.
         TAREFA: Criar um devocional para ${format(currentDate, 'dd/MM/yyyy')}.
         ${instruction}
-        
         REGRAS DE FORMATAÇÃO VISUAL (CRÍTICO):
-        1. O campo 'body' DEVE conter quebras de linha duplas (\n\n) para separar os parágrafos. O texto NÃO pode ser um bloco único.
-        2. SEM MARKDOWN: Não use asteriscos (**), negrito ou caracteres especiais. Apenas texto puro.
-        3. TAMANHO: Aprox. 500 palavras no total.
-
-        ESTRUTURA OBRIGATÓRIA DO CORPO (3 PARÁGRAFOS DISTINTOS):
-        - Parágrafo 1 (O Texto): Explique o texto base, focando na intenção do autor, contexto histórico/cultural e análise das palavras originais.
-        - Parágrafo 2 (A Aplicação): Aplique essa verdade teológica à vida cotidiana do leitor hoje. Use exemplos práticos.
-        - Parágrafo 3 (A Prática): Conclusão reflexiva que leve à prática ("melhor do que ouvir é praticar"), visando o crescimento espiritual.
-
-        ORAÇÃO:
-        - Uma oração contextualizada com o ensino acima.
-
+        1. O campo 'body' DEVE conter quebras de linha duplas (\\n\\n) para separar os parágrafos.
+        2. SEM MARKDOWN: Não use asteriscos (**), negrito ou caracteres especiais.
+        3. TAMANHO: Aprox. 500 palavras no total para o 'body'.
+        ESTRUTURA OBRIGATÓRIA:
+        - summary: Um resumo do devocional entre 10 a 30 palavras para ser exibido no card principal.
+        - body (3 PARÁGRAFOS):
+          - Parágrafo 1 (O Texto): Contexto e intenção do autor.
+          - Parágrafo 2 (A Aplicação): Aplicação cotidana.
+          - Parágrafo 3 (A Prática): Conclusão reflexiva.
+        - prayer: Contextualizada.
         Retorne JSON válido.
     `;
 
@@ -289,20 +272,18 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
             title: { type: GenType.STRING },
             reference: { type: GenType.STRING },
             verse_text: { type: GenType.STRING },
-            body: { type: GenType.STRING, description: "Texto do devocional com parágrafos separados por \\n\\n" },
+            summary: { type: GenType.STRING },
+            body: { type: GenType.STRING },
             prayer: { type: GenType.STRING }
         },
-        required: ["title", "reference", "verse_text", "body", "prayer"]
+        required: ["title", "reference", "verse_text", "summary", "body", "prayer"]
     };
 
     try {
         const res = await generateContent(prompt, schema);
-        
         if (!res || !res.title) throw new Error("Falha na geração");
 
         const data: Devotional = { ...res, date: displayDateStr, is_published: true };
-        
-        // NOVA LÓGICA DE PERSISTÊNCIA: Limpeza profunda antes de salvar novo devocional
         const existingItems = await db.entities.Devotional.filter({ date: displayDateStr });
         if (existingItems.length > 0) {
             for (const item of existingItems) {
@@ -339,6 +320,60 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
     }
   };
 
+  const handleShare = async () => {
+    if (!devotional) return;
+    const shareText = `*${CHURCH_NAME}*\n\n"${devotional.verse_text.trim()}"\n\n*${devotional.reference}*\n\nSiga-nos no Instagram: ${CHURCH_INSTAGRAM}\nLeia o devocional completo no App Bíblia ADMA.`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Versículo do Dia",
+          text: shareText,
+        });
+      } catch (err) {
+        navigator.clipboard.writeText(shareText);
+        onShowToast('Copiado para área de transferência', 'success');
+      }
+    } else {
+      navigator.clipboard.writeText(shareText);
+      onShowToast('Copiado para área de transferência', 'success');
+    }
+  };
+
+  const handleDownload = () => {
+    if (!devotional) return;
+    const content = `
+DEVOCIONAL DIÁRIO - BÍBLIA ADMA
+Igreja: ${CHURCH_NAME}
+Instagram: ${CHURCH_INSTAGRAM}
+Data: ${format(currentDate, 'dd/MM/yyyy')}
+
+${devotional.title.toUpperCase()}
+${devotional.reference}
+
+"${devotional.verse_text}"
+
+MEDITAÇÃO:
+${devotional.body}
+
+ORAÇÃO:
+${devotional.prayer}
+
+Gerado pelo app Bíblia ADMA.
+    `.trim();
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    onShowToast('Arquivo baixado no dispositivo!', 'success');
+  };
+
   const handlePrevDay = () => setCurrentDate(addDays(currentDate, -1));
   const handleNextDay = () => setCurrentDate(addDays(currentDate, 1));
 
@@ -347,197 +382,354 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin }: any) {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] dark:bg-dark-bg transition-colors duration-300">
-      {/* Header com Safe Area */}
-      <div className="bg-[#8B0000] text-white p-4 pt-[calc(env(safe-area-inset-top)+1rem)] flex items-center justify-between sticky top-0 shadow-lg z-10">
-        <div className="flex items-center gap-4">
-            <button onClick={onBack}><ChevronLeft /></button>
-            <h1 className="font-cinzel font-bold">Devocional Diário</h1>
+    <div className="min-h-screen bg-surface dark:bg-dark-bg selection:bg-secondary/30 transition-colors duration-300">
+      {/* TopAppBar */}
+      <header className="fixed top-0 left-0 right-0 z-[60] bg-surface dark:bg-dark-bg/95 backdrop-blur-md border-b border-outline-variant/30">
+        <div className="flex justify-between items-center w-full px-margin-mobile max-w-2xl mx-auto h-16">
+          <button onClick={onBack} className="p-2 -ml-2 text-primary dark:text-primary-fixed hover:bg-gray-100 dark:hover:bg-white/5 rounded-full transition-all">
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <h1 className="font-cinzel text-lg font-black text-primary dark:text-primary-fixed tracking-tight uppercase">Bíblia ADMA</h1>
+          <div className="flex items-center gap-1">
+            {isAdmin && (
+              <button 
+                onClick={() => setShowAdminControls(!showAdminControls)} 
+                className={`p-2 rounded-full transition-all ${showAdminControls ? 'bg-primary text-white' : 'text-primary dark:text-primary-fixed hover:bg-gray-100 dark:hover:bg-white/5'}`}
+              >
+                <Edit3 className="w-5 h-5" />
+              </button>
+            )}
+            <button 
+              onClick={() => setShowSettings(!showSettings)} 
+              className={`p-2 rounded-full transition-all ${showSettings ? 'bg-primary text-white' : 'text-primary dark:text-primary-fixed hover:bg-gray-100 dark:hover:bg-white/5'}`}
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-            <button onClick={() => setShowSettings(!showSettings)} className={`p-2 rounded-full transition-colors ${showSettings ? 'bg-white text-[#8B0000]' : 'hover:bg-white/10'}`}><Settings className="w-5 h-5" /></button>
-            {isAdmin && <button onClick={() => setShowAdminControls(!showAdminControls)} className="p-2 hover:bg-white/10 rounded-full"><Edit3 className="w-5 h-5" /></button>}
+      </header>
+
+      {/* Date Selector */}
+      <div className="pt-16">
+        <div className="bg-[#1a0f0f] dark:bg-black text-[#C5A059] p-3 flex items-center justify-between shadow-md relative z-50">
+           <button onClick={handlePrevDay} className="p-2 hover:text-white transition active:scale-90"><ChevronLeft className="w-6 h-6" /></button>
+           <div className="flex items-center gap-2 font-montserrat font-bold uppercase tracking-wider text-[10px] md:text-xs">
+              <Calendar className="w-4 h-4" />
+              {currentDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
+           </div>
+           <button onClick={handleNextDay} className="p-2 hover:text-white transition active:scale-90"><ChevronRight className="w-6 h-6" /></button>
         </div>
       </div>
 
-      <div className="bg-[#1a0f0f] dark:bg-black text-[#C5A059] p-3 flex items-center justify-between shadow-md">
-         <button onClick={handlePrevDay} className="p-2 hover:text-white transition"><ChevronLeft /></button>
-         <div className="flex items-center gap-2 font-montserrat font-bold uppercase tracking-wider text-sm">
-            <Calendar className="w-4 h-4" />
-            {currentDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
-         </div>
-         <button onClick={handleNextDay} className="p-2 hover:text-white transition"><ChevronRight /></button>
-      </div>
+      <AnimatePresence>
+        {showSettings && (
+           <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-white dark:bg-dark-card p-6 border-b border-[#C5A059] shadow-xl z-[40] relative"
+           >
+              <div className="max-w-2xl mx-auto flex flex-col gap-6">
+                  {devotional && audioChunks.length > 0 && (
+                      <div className="bg-gray-50 dark:bg-black/40 p-4 rounded-2xl border border-gray-100 dark:border-white/5">
+                          <div className="flex justify-between items-center mb-3">
+                              <span className="text-[10px] font-black text-primary-deep dark:text-[#ff6b6b] uppercase tracking-widest flex items-center gap-2"><Volume2 className="w-4 h-4"/> PROGRESSO DA NARRAÇÃO</span>
+                              <span className="text-[10px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded-full">{currentChunkIndex + 1} / {audioChunks.length}</span>
+                          </div>
+                          <input 
+                              type="range" 
+                              min="0" 
+                              max={Math.max(0, audioChunks.length - 1)} 
+                              value={currentChunkIndex} 
+                              onChange={(e) => {
+                                  const newIndex = Number(e.target.value);
+                                  setCurrentChunkIndex(newIndex);
+                                  if(isPlaying) window.speechSynthesis.cancel();
+                              }}
+                              className="w-full accent-primary h-1.5 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <p className="text-center text-[10px] text-gray-400 mt-2 italic truncate opacity-70">
+                              {audioChunks[currentChunkIndex] ? `"${audioChunks[currentChunkIndex].text.substring(0, 40)}..."` : 'Fim da leitura'}
+                          </p>
+                      </div>
+                  )}
 
-      {showSettings && (
-         <div className="bg-white dark:bg-dark-card p-6 border-b border-[#C5A059] animate-in slide-in-from-top-2 shadow-lg z-20 relative">
-            <div className="flex flex-col gap-6">
-                
-                {/* PROGRESSO DO ÁUDIO (SCRUBBER) - NOVO */}
-                {devotional && audioChunks.length > 0 && (
-                    <div className="bg-gray-100 dark:bg-black/30 p-3 rounded-xl border border-gray-200 dark:border-gray-700">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-bold text-[#8B0000] dark:text-[#ff6b6b] uppercase tracking-widest flex items-center gap-1"><Volume2 className="w-3 h-3"/> Linha do Tempo</span>
-                            <span className="text-[10px] font-mono text-gray-500">{currentChunkIndex + 1} / {audioChunks.length}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                          <span className="font-montserrat text-xs font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
+                              <TypeIcon className="w-4 h-4" /> Fonte:
+                          </span>
+                          <div className="flex items-center gap-4 text-black dark:text-white">
+                              <button onClick={() => setFontSize(Math.max(14, fontSize - 2))} className="w-10 h-10 flex items-center justify-center border border-gray-200 dark:border-white/10 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 font-bold">-</button>
+                              <span className="font-bold w-6 text-center text-sm">{fontSize}</span>
+                              <button onClick={() => setFontSize(Math.min(32, fontSize + 2))} className="w-10 h-10 flex items-center justify-center border border-gray-200 dark:border-white/10 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 font-bold">+</button>
+                          </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <span className="font-montserrat text-xs font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
+                            <FastForward className="w-4 h-4" /> Velocidade:
+                        </span>
+                        <div className="flex gap-2">
+                            {[0.75, 1, 1.25, 1.5].map(rate => (
+                                <button 
+                                    key={rate}
+                                    onClick={() => setPlaybackRate(rate)}
+                                    className={`flex-1 py-3 text-[10px] font-black rounded-xl border transition-all ${playbackRate === rate ? 'bg-primary text-white border-primary shadow-lg scale-105' : 'bg-gray-50 dark:bg-gray-800 dark:text-gray-300 border-gray-100 dark:border-white/5 hover:bg-gray-100'}`}
+                                >
+                                    {rate}x
+                                </button>
+                            ))}
                         </div>
-                        <input 
-                            type="range" 
-                            min="0" 
-                            max={Math.max(0, audioChunks.length - 1)} 
-                            value={currentChunkIndex} 
-                            onChange={(e) => {
-                                const newIndex = Number(e.target.value);
-                                setCurrentChunkIndex(newIndex);
-                                if(isPlaying) window.speechSynthesis.cancel();
-                            }}
-                            className="w-full accent-[#8B0000] h-2 bg-gray-300 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <p className="text-center text-[10px] text-gray-400 mt-1 truncate">
-                            {audioChunks[currentChunkIndex] ? `"...${audioChunks[currentChunkIndex].text.substring(0, 30)}..."` : 'Fim'}
-                        </p>
+                      </div>
                     </div>
-                )}
 
-                {/* Fonte */}
-                <div className="flex items-center justify-between">
-                    <span className="font-montserrat text-sm font-bold text-[#1a0f0f] dark:text-gray-200 flex items-center gap-2">
-                        <Type className="w-4 h-4" /> Tamanho da Letra:
-                    </span>
-                    <div className="flex items-center gap-4 text-black dark:text-white">
-                        <button onClick={() => setFontSize(Math.max(14, fontSize - 2))} className="w-8 h-8 flex items-center justify-center border rounded hover:bg-gray-100 dark:hover:bg-gray-700 font-bold">-</button>
-                        <span className="font-bold w-6 text-center">{fontSize}</span>
-                        <button onClick={() => setFontSize(Math.min(32, fontSize + 2))} className="w-8 h-8 flex items-center justify-center border rounded hover:bg-gray-100 dark:hover:bg-gray-700 font-bold">+</button>
+                    <div className="space-y-2">
+                        <label className="font-montserrat text-xs font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">Voz do Narrador:</label>
+                        <select 
+                          className="w-full p-4 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-white/5 rounded-2xl mt-1 dark:text-white outline-none focus:ring-2 focus:ring-primary text-sm font-medium" 
+                          value={selectedVoice} 
+                          onChange={e => setSelectedVoice(e.target.value)}
+                        >
+                            {voices.map(v => <option key={v.name} value={v.name}>{v.name}</option>)}
+                        </select>
+                        <p className="text-[9px] text-gray-400 mt-2 uppercase tracking-tighter">Vozes do sistema (depende do seu dispositivo)</p>
                     </div>
-                </div>
-
-                {/* Voz */}
-                <div>
-                    <label className="text-sm font-bold text-gray-700 dark:text-gray-200">Voz de Leitura:</label>
-                    <select className="w-full p-3 border rounded-xl mt-1 dark:bg-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-[#C5A059]" value={selectedVoice} onChange={e => setSelectedVoice(e.target.value)}>
-                        {voices.map(v => <option key={v.name} value={v.name}>{v.name}</option>)}
-                    </select>
-                </div>
-                
-                {/* Velocidade */}
-                <div>
-                    <span className="font-montserrat text-sm font-bold text-[#1a0f0f] dark:text-gray-200 flex items-center gap-2 mb-2">
-                        <FastForward className="w-4 h-4" /> Velocidade:
-                    </span>
-                    <div className="flex gap-2">
-                        {[0.75, 1, 1.25, 1.5, 2].map(rate => (
-                            <button 
-                                key={rate}
-                                onClick={() => setPlaybackRate(rate)}
-                                className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all ${playbackRate === rate ? 'bg-[#8B0000] text-white border-[#8B0000] shadow-md' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 hover:bg-gray-200'}`}
-                            >
-                                {rate}x
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-         </div>
-      )}
+                  </div>
+              </div>
+           </motion.div>
+        )}
+      </AnimatePresence>
 
       {isAdmin && showAdminControls && !isFuture && !isExpired && (
-        <div className="bg-[#F5F5DC] dark:bg-gray-900 p-4 text-[#1a0f0f] dark:text-white border-b border-[#C5A059]">
-            <h3 className="font-cinzel font-bold text-sm mb-2 flex items-center gap-2"><Command className="w-4 h-4"/> Comandos Admin (Regerar)</h3>
-            <textarea 
-                value={customCommand} 
-                onChange={e => setCustomCommand(e.target.value)} 
-                placeholder="Ex: Refaça focando em escatologia..." 
-                className="w-full p-2 text-black rounded text-sm mb-2 border border-gray-300"
-            />
-            <div className="flex gap-2">
-                <button 
-                    onClick={() => generateDevotional(customCommand)} 
-                    disabled={loading}
-                    className="flex-1 bg-[#8B0000] text-white font-bold py-2 rounded text-xs flex items-center justify-center gap-2"
-                >
-                    {loading ? <Loader2 className="animate-spin w-4 h-4" /> : <RefreshCw className="w-4 h-4"/>} 
-                    {customCommand ? 'Executar Comando' : 'Regerar (Admin)'}
-                </button>
+        <div className="bg-primary/5 dark:bg-gray-900/50 p-6 border-b border-primary/20 backdrop-blur-sm">
+            <div className="max-w-2xl mx-auto">
+              <h3 className="font-cinzel font-black text-xs mb-4 flex items-center gap-2 text-primary-deep dark:text-[#ff6b6b] tracking-widest"><Command className="w-4 h-4"/> PAINEL DE COMANDO TEOLÓGICO</h3>
+              <textarea 
+                  value={customCommand} 
+                  onChange={e => setCustomCommand(e.target.value)} 
+                  placeholder="Ex: Refaça este devocional focando na esperança para aqueles que sofrem de ansiedade..." 
+                  className="w-full p-4 bg-white dark:bg-black/40 text-sm rounded-2xl mb-4 border border-primary/10 focus:ring-2 focus:ring-primary outline-none min-h-[100px] shadow-inner"
+              />
+              <button 
+                  onClick={() => generateDevotional(customCommand)} 
+                  disabled={loading}
+                  className="w-full bg-primary text-white font-cinzel font-bold py-4 rounded-2xl text-xs tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
+              >
+                  {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <RefreshCw className="w-5 h-5"/>} 
+                  {customCommand ? 'EXECUTAR COMANDO PERSONALIZADO' : 'REGERAR DEVOCIONAL'}
+              </button>
             </div>
         </div>
       )}
 
-      <div className="p-6 max-w-2xl mx-auto pb-24">
+      <main className="max-w-2xl mx-auto px-6 pb-32">
         {loading ? (
             <div className="text-center py-20 animate-in fade-in duration-700">
-                <Loader2 className="w-12 h-12 animate-spin mx-auto text-[#8B0000] dark:text-white mb-4"/>
-                <p className="font-cinzel text-lg font-bold text-gray-600 dark:text-gray-300">{statusMessage}</p>
-                <p className="text-xs text-gray-400 mt-2">Preparando o ambiente espiritual...</p>
+                <div className="relative inline-block mb-6">
+                    <Loader2 className="w-16 h-16 animate-spin text-primary dark:text-white" />
+                    <Sparkles className="w-6 h-6 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#C5A059]" />
+                </div>
+                <h2 className="font-cinzel text-xl font-black text-primary-deep dark:text-white tracking-widest">{statusMessage}</h2>
+                <p className="text-[10px] font-montserrat uppercase tracking-[0.3em] text-gray-400 mt-3 animate-pulse">Preparando o alimento diário...</p>
             </div>
         ) : isFuture ? (
-            <div className="text-center py-20 text-gray-400 border-2 border-dashed border-[#C5A059]/30 rounded-3xl bg-white/50 dark:bg-black/20">
-                <Lock className="w-20 h-20 mx-auto mb-6 text-[#C5A059]" />
-                <h2 className="font-cinzel text-3xl mb-2 font-bold text-[#8B0000] dark:text-[#ff6b6b]">Aguarde</h2>
-                <p className="font-montserrat mb-4 text-gray-600 dark:text-gray-400">Esta mensagem estará disponível em:</p>
-                <div className="bg-[#1a0f0f] text-[#C5A059] inline-block px-6 py-3 rounded-xl font-bold font-mono text-xl shadow-lg">
+            <div className="text-center py-20 pt-32">
+                <div className="w-24 h-24 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-8 border border-gray-200 dark:border-white/10">
+                    <Lock className="w-10 h-10 text-gray-300" />
+                </div>
+                <h2 className="font-cinzel text-3xl font-black text-primary-deep dark:text-[#ff6b6b] mb-4">Aguarde</h2>
+                <p className="font-montserrat text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed mb-8">Esta mensagem especial de edificação está sendo preparada e será desbloqueada em:</p>
+                <div className="bg-[#1a0f0f] text-[#C5A059] inline-block px-10 py-5 rounded-3xl font-black font-mono text-2xl shadow-2xl border border-[#C5A059]/30">
                     {format(currentDate, "dd/MM/yyyy")}
                 </div>
-                <p className="text-xs mt-6 opacity-60">Liberado automaticamente à meia-noite.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mt-10 opacity-60">Liberado automaticamente à meia-noite.</p>
             </div>
         ) : isExpired ? (
-            <div className="text-center py-20 text-gray-400">
-                <div className="relative inline-block">
-                    <Trash2 className="w-20 h-20 mx-auto mb-4 text-gray-300 dark:text-gray-700" />
-                    <AlertCircle className="w-8 h-8 absolute -bottom-2 -right-2 text-red-500" />
+            <div className="text-center py-24">
+                <div className="relative inline-block mb-8">
+                  <div className="w-24 h-24 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center">
+                      <Trash2 className="w-10 h-10 text-gray-300" />
+                  </div>
+                  <AlertCircle className="w-8 h-8 absolute -top-1 -right-1 text-red-500 bg-white dark:bg-black rounded-full" />
                 </div>
-                <h2 className="font-cinzel text-2xl mb-2 font-bold">Arquivo Expirado</h2>
-                <p className="max-w-xs mx-auto text-sm">Devocionais com mais de 365 dias são removidos automaticamente para otimizar o aplicativo.</p>
+                <h2 className="font-cinzel text-2xl font-black text-gray-800 dark:text-white mb-4">Arquivo Expirado</h2>
+                <p className="max-w-xs mx-auto text-sm text-gray-500 leading-relaxed mb-8">Devocionais com mais de 365 dias são removidos automaticamente para otimizar a experiência do aplicativo.</p>
+                <button onClick={onBack} className="font-cinzel font-bold text-primary dark:text-[#C5A059] flex items-center gap-2 mx-auto hover:underline uppercase tracking-widest text-xs">
+                    <ChevronLeft className="w-4 h-4" /> Voltar ao Início
+                </button>
             </div>
         ) : devotional ? (
-            <div className="bg-white dark:bg-dark-card p-8 rounded-2xl shadow-xl border border-[#C5A059]/30 animate-in slide-in-from-bottom-5">
-                <h2 id="dev-title" className={`font-cinzel text-3xl font-bold text-[#1a0f0f] dark:text-[#ff6b6b] mb-2 transition-colors duration-300 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-title' ? 'bg-yellow-100/50 dark:bg-yellow-900/20 rounded-lg px-2 -mx-2' : ''}`}>{cleanTextDisplay(devotional.title)}</h2>
-                <p id="dev-ref" className={`font-montserrat text-sm text-gray-500 dark:text-gray-400 mb-6 flex items-center gap-2 transition-colors duration-300 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-ref' ? 'bg-yellow-100/50 dark:bg-yellow-900/20 rounded-lg px-2 -mx-2' : ''}`}>
-                    <span className="w-2 h-2 bg-[#C5A059] rounded-full"></span> {devotional.reference}
-                </p>
-                
-                <blockquote id="dev-verse" className={`border-l-4 border-[#8B0000] pl-4 italic text-lg font-cormorant text-gray-700 dark:text-gray-300 mb-8 bg-[#F5F5DC] dark:bg-gray-800 p-4 rounded-r shadow-inner transition-colors duration-300 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-verse' ? 'ring-2 ring-yellow-400/50' : ''}`}>
-                    "{cleanTextDisplay(devotional.verse_text)}"
-                </blockquote>
+            <div className="pt-8 animate-in slide-in-from-bottom-6 duration-700">
+                {/* Verse of the Day Hero Section - REDESIGNED */}
+                <section className="relative w-full rounded-[40px] overflow-hidden bg-primary-deep shadow-2xl border border-outline-variant/30 mb-8 aspect-[4/5] md:aspect-[3/4]">
+                    <img 
+                      className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-30" 
+                      alt="Antique Bible Background"
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyqYVyFsyxwcn6fwQCjpFTs1SK1G9fL3aL4AqY0OgUnG6GwLp7oXSwuFSc6Yqedb7DtWlVWs9qK0YbH3jpZb0bBZc-KrM-m1JpBA-HXwG2ukf5_ZJns9mrlqG4FYGhbwHRsl-smKVJGHG9jK8PI6I4KUFl-QSQlfbPxTIwE2uJlQVUwjd701WwsnJUtezj8a0PH1XRaX_ToVzPjZEIv7wsgZWw0b5GRtcGylM9GEAOdYkZte2hQKBGZgfcx3s-yfIkn7Njye9XKQ" 
+                    />
+                    
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-primary-deep flex flex-col p-8 md:p-10">
+                        {/* Church Info Top */}
+                        <div className="flex flex-col items-center mb-8 text-center">
+                            <span className="text-[9px] text-white/40 font-montserrat font-black uppercase tracking-[0.3em] mb-2 px-4 py-1 border border-white/5 rounded-full bg-black/20">
+                                Devocional diário: {format(currentDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                            </span>
+                            <span className="font-cinzel text-[10px] md:text-xs font-black text-[#C5A059] tracking-[0.3em] uppercase mb-1">
+                                {CHURCH_NAME}
+                            </span>
+                            <div className="flex items-center gap-2 text-white/50 font-montserrat text-[8px] font-black tracking-widest uppercase">
+                                <Instagram className="w-3 h-3 text-[#C5A059]" />
+                                {CHURCH_INSTAGRAM}
+                            </div>
+                        </div>
 
-                <div 
-                    className="font-cormorant leading-loose text-gray-800 dark:text-gray-200 mb-8 text-justify transition-all duration-300 space-y-4"
-                    style={{ fontSize: `${fontSize}px` }}
-                >
-                    {devotional.body.split('\n').filter(p => p.trim().length > 0).map((p, idx) => (
-                        <p key={idx} id={`dev-body-${idx}`} className={`transition-colors duration-300 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === `dev-body-${idx}` ? 'bg-yellow-100/50 dark:bg-yellow-900/20 rounded-lg px-2 -mx-2' : ''}`}>
-                            {cleanTextDisplay(p)}
-                        </p>
-                    ))}
+                        {/* Verse at the Top Center */}
+                        <div className="flex-1 flex flex-col items-center justify-start pt-4">
+                            <motion.div 
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mb-6"
+                            >
+                                <BookMarked className="w-3 h-3 text-[#C5A059] mr-2" />
+                                <span className="font-montserrat text-[8px] font-black tracking-widest text-[#C5A059] uppercase">VERSÍCULO CHAVE</span>
+                            </motion.div>
+                            
+                            <h2 id="dev-verse" className={`font-cinzel text-xl md:text-3xl text-white text-center italic mb-4 leading-tight transition-all duration-300 drop-shadow-xl ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-verse' ? 'text-secondary scale-105' : ''}`}>
+                                "{cleanTextDisplay(devotional.verse_text)}"
+                            </h2>
+                            
+                            <p id="dev-ref" className={`font-montserrat text-[10px] text-primary-fixed tracking-[0.3em] font-black uppercase transition-colors duration-300 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-ref' ? 'text-secondary' : ''}`}>
+                              {devotional.reference}
+                            </p>
+                        </div>
+
+                        {/* Summary at the Bottom */}
+                        <div className="mt-auto border-t border-white/10 pt-6">
+                            <p className="font-cormorant text-sm md:text-base text-gray-300 italic text-center leading-relaxed">
+                                {devotional.summary || "Reflexão diária para fortalecer sua fé no Senhor."}
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Actions Cluster - Cleaned UP */}
+                <div className="flex flex-col gap-4 mb-12">
+                    <button 
+                      onClick={handleShare}
+                      className="flex items-center justify-center gap-4 bg-primary-deep py-5 rounded-[32px] text-white font-montserrat text-[11px] font-black tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95"
+                    >
+                        <Share2 className="w-5 h-5 text-secondary" />
+                        COMPARTILHAR NO WHATSAPP
+                    </button>
+                    <p className="text-[9px] text-gray-400 text-center font-black uppercase tracking-widest opacity-60">Espalhe a palavra com seus irmãos</p>
                 </div>
 
-                <div id="dev-prayer" className={`bg-[#1a0f0f] dark:bg-black text-white p-6 rounded-xl shadow-lg border-l-4 border-[#C5A059] transition-colors duration-300 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'ring-2 ring-yellow-400/50' : ''}`}>
-                    <h3 className="font-cinzel font-bold mb-3 text-[#C5A059] flex items-center gap-2">
-                        <Flame className="w-4 h-4"/> Oração
-                    </h3>
-                    <p className="font-cormorant italic text-lg leading-relaxed opacity-90">{cleanTextDisplay(devotional.prayer)}</p>
-                </div>
+                {/* Devotional Content */}
+                <article className="space-y-10">
+                    <div className="flex items-center gap-6">
+                        <div className="h-[1px] flex-1 bg-outline-variant/30"></div>
+                        <span className="font-cinzel font-black text-xs text-primary-deep dark:text-[#C5A059] opacity-70 tracking-[0.3em] uppercase">Meditação</span>
+                        <div className="h-[1px] flex-1 bg-outline-variant/30"></div>
+                    </div>
+
+                    <div className="space-y-8">
+                        <h2 id="dev-title" className={`font-cinzel text-3xl font-black text-primary-deep dark:text-white leading-tight transition-all duration-300 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-title' ? 'text-[#C5A059] scale-[1.02] origin-left' : ''}`}>
+                          {cleanTextDisplay(devotional.title)}
+                        </h2>
+
+                        <div 
+                          className="font-cormorant leading-relaxed text-gray-800 dark:text-gray-100 text-justify space-y-6"
+                          style={{ fontSize: `${fontSize}px` }}
+                        >
+                            {devotional.body.split('\n').filter(p => p.trim().length > 0).map((p, idx) => (
+                                <p 
+                                  key={idx} 
+                                  id={`dev-body-${idx}`} 
+                                  className={`transition-all duration-500 px-2 -mx-2 rounded-2xl ${idx === 0 ? 'first-letter:text-6xl first-letter:font-cinzel first-letter:text-primary-deep first-letter:mr-4 first-letter:float-left first-letter:leading-none' : ''} ${isPlaying && audioChunks[currentChunkIndex]?.blockId === `dev-body-${idx}` ? 'bg-primary/5 dark:bg-[#C5A059]/10 text-primary-deep font-bold border-l-4 border-secondary' : ''}`}
+                                >
+                                    {cleanTextDisplay(p)}
+                                </p>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div id="dev-prayer" className={`pt-10 space-y-6 transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'scale-[1.02]' : ''}`}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-primary-deep rounded-2xl flex items-center justify-center shadow-lg">
+                            <Flame className="w-5 h-5 text-secondary" />
+                          </div>
+                          <h3 className="font-cinzel font-black text-lg text-primary-deep dark:text-white tracking-widest uppercase">Oração de Hoje</h3>
+                        </div>
+                        
+                        <div className="relative">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-[#C5A059] rounded-full opacity-60"></div>
+                          <p className={`font-cormorant italic leading-relaxed text-gray-700 dark:text-gray-300 pl-8 py-2 min-h-[60px] transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'text-primary-deep dark:text-secondary opacity-100 font-bold' : 'opacity-80'}`}>
+                              "{cleanTextDisplay(devotional.prayer)}"
+                          </p>
+                        </div>
+                    </div>
+
+                    {/* Suggested Reading Footer Card */}
+                    <section className="mt-16 p-10 bg-tertiary-container dark:bg-black/40 rounded-[40px] border border-on-tertiary-container/10 flex flex-col items-center text-center shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                        <BookOpen className="w-12 h-12 text-on-tertiary-container mb-6 opacity-60" />
+                        <h4 className="font-cinzel font-black text-lg text-on-tertiary-container mb-3 tracking-widest uppercase">Leitura Sugerida</h4>
+                        <p className="font-cormorant text-lg text-on-tertiary-container opacity-80 mb-8 leading-relaxed max-w-xs">Aprofunde sua reflexão lendo o capítulo completo de <span className="font-bold underline decoration-dotted">{devotional.reference}</span>.</p>
+                        <button 
+                          onClick={() => {
+                            if (!devotional) return;
+                            const ref = devotional.reference;
+                            const regex = /(.+)\s(\d+)(?::(\d+))?/;
+                            const match = ref.match(regex);
+                            
+                            if (match) {
+                                const book = match[1].trim();
+                                const chapter = parseInt(match[2]);
+                                const verse = match[3] ? parseInt(match[3]) : 1;
+                                onNavigate('reader', { book, chapter, verse });
+                            } else {
+                                onShowToast('Não foi possível identificar o capítulo bíblico.', 'error');
+                            }
+                          }}
+                          className="w-full bg-on-tertiary-container text-tertiary-container font-montserrat text-[10px] font-black py-5 rounded-3xl tracking-[0.3em] uppercase hover:shadow-lg active:scale-95 transition-all shadow-md"
+                        >
+                            ABRIR CAPÍTULO COMPLETO
+                        </button>
+                    </section>
+
+                </article>
             </div>
         ) : (
             <div className="text-center py-20 text-gray-500 dark:text-gray-400">
-                <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-30 text-[#C5A059]" />
-                <p className="font-cinzel font-bold">Não foi possível carregar</p>
+                <div className="w-16 h-16 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Info className="w-8 h-8 text-gray-300" />
+                </div>
+                <h2 className="font-cinzel font-black text-lg opacity-60 uppercase tracking-widest">Alimento Não Encontrado</h2>
+                <p className="text-sm mt-2 max-w-xs mx-auto opacity-50 font-cormorant">Ocorreu uma falha na conexão espiritual. Tente buscar novamente os manuscritos.</p>
                 <button 
                     onClick={() => loadDevotional()}
-                    className="mt-4 text-sm underline text-[#8B0000] dark:text-[#ff6b6b]"
+                    className="mt-8 px-8 py-3 bg-primary text-white rounded-full font-cinzel font-bold text-[10px] tracking-widest shadow-xl active:scale-95 transition-all"
                 >
-                    Tentar Novamente
+                    BUSCAR NOVAMENTE
                 </button>
             </div>
         )}
-      </div>
+      </main>
 
+      {/* Floating Action Buttons */}
       {!isFuture && !isExpired && devotional && (
-          <button 
-            onClick={togglePlay}
-            className="fixed bottom-24 right-6 w-14 h-14 bg-[#C5A059] text-[#1a0f0f] rounded-full shadow-2xl flex items-center justify-center z-50 hover:bg-[#d4b97a] transition-all transform hover:scale-110 active:scale-95 border-2 border-white"
-            title={isPlaying ? "Parar Leitura" : "Ouvir Devocional"}
-          >
-            {isPlaying ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
-          </button>
+          <div className="fixed bottom-24 right-6 flex flex-col gap-4 z-50">
+            <motion.button 
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={togglePlay}
+              className={`w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center transition-all border-2 border-white dark:border-white/10 ${isPlaying ? 'bg-[#1a0f0f] text-[#C5A059]' : 'bg-[#C5A059] text-[#1a0f0f]'}`}
+            >
+              {isPlaying ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6 animate-pulse" />}
+            </motion.button>
+          </div>
       )}
     </div>
   );

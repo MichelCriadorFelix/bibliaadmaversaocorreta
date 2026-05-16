@@ -196,6 +196,7 @@ export interface Devotional {
   verse_text: string;
   body: string;
   prayer: string;
+  summary: string;
   is_published: boolean;
 }
 
