@@ -820,8 +820,8 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                             });
                       }
                       processed++;
-                      // INTERVALO REDUZIDO PARA ALTA VELOCIDADE (USANDO 41 CHAVES ROUND-ROBIN)
-                      await new Promise(r => setTimeout(r, 1000)); 
+                      // INTERVALO AJUSTADO (5s) PARA EVITAR RATE LIMIT GLOBAL MESMO COM MÚLTIPLAS CHAVES
+                      await new Promise(r => setTimeout(r, 5000)); 
 
                   } catch (err: any) {
                       addLog(`⚠️ Falha em ${c}:${verseNum}: ${err.message}`);
