@@ -323,77 +323,53 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
     }
   };
 
-  const handleShareCombined = async () => {
+  const handleShare = async (platform: 'whatsapp' | 'instagram') => {
     if (!devotional || !cardRef.current) return;
     setSharingImage(true);
-    onShowToast('Preparando devocional...', 'info');
-
-    const shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n*Reflexão:*\n${devotional.body}\n\n*Oração:*\n${devotional.prayer}\n\nSiga-nos no Instagram: ${CHURCH_INSTAGRAM}\nLeia mais no App Bíblia ADMA.`;
+    onShowToast(`Preparando para o ${platform === 'whatsapp' ? 'WhatsApp' : 'Instagram'}...`, 'info');
 
     try {
       // 1. Generate High Definition Image
-      // Wrapping image capture to handle CORS/Security errors gracefully
-      let dataUrl = '';
-      try {
-        dataUrl = await toPng(cardRef.current, { 
-          cacheBust: true,
-          pixelRatio: 2, // 2x is plenty for mobile sharing and more stable than 3x
-          backgroundColor: '#1a0f0f',
-          style: {
-            transform: 'scale(1)',
-          }
-        });
-      } catch (imageErr) {
-        console.error('Image capture error:', imageErr);
-        // Fallback to text only immediately if image generation fails
-        if (navigator.share) {
-          await navigator.share({
-            title: devotional.title,
-            text: shareText
-          });
-        } else {
-          await navigator.clipboard.writeText(shareText);
-          onShowToast('Copiado apenas o texto (Erro ao gerar imagem).', 'warning');
+      const dataUrl = await toPng(cardRef.current, { 
+        cacheBust: true,
+        pixelRatio: 3, 
+        style: {
+          transform: 'scale(1)',
+          borderRadius: '40px'
         }
-        return;
-      }
+      });
 
       const blob = await (await fetch(dataUrl)).blob();
       const filename = `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`;
       const file = new File([blob], filename, { type: 'image/png' });
 
-      // 2. Smart Sharing Logic
+      // 2. Prepare Text based on platform
+      let shareText = '';
+      if (platform === 'whatsapp') {
+        shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n*Reflexão:*\n${devotional.body}\n\n*Oração:*\n${devotional.prayer}\n\nSiga-nos: ${CHURCH_INSTAGRAM}\nLeia no App Bíblia ADMA.`;
+      } else {
+        // Instagram: Keep it short and readable for captions/stories
+        shareText = `"${devotional.verse_text.trim()}"\n\n${devotional.reference}\n\n${CHURCH_NAME}\n#devocional #biblia #fe`;
+      }
+
+      // 3. Smart Sharing Logic
       const canShareFiles = navigator.share && navigator.canShare && navigator.canShare({ files: [file] });
 
       if (canShareFiles) {
-        // MOBILE / SUPPORTED DESKTOP (Chrome on Windows sometimes fails here but let's try)
-        try {
-          await navigator.share({
-            files: [file],
-            title: devotional.title,
-            text: shareText,
-          });
-        } catch (shareErr: any) {
-          // If the browser UI was cancelled or failed internally
-          if (shareErr.name !== 'AbortError') {
-             throw shareErr; // Let the general catch handle it
-          }
-        }
+        await navigator.share({
+          files: [file],
+          title: platform === 'whatsapp' ? 'Devocional Diário' : 'Post Instagram',
+          text: shareText,
+        });
       } else {
-        // WINDOWS DESKTOP FALLBACK
+        // Desktop Fallback
         await navigator.clipboard.writeText(shareText);
         
-        // Attempt to copy image to clipboard (Supported in Chrome/Edge Desktop)
         try {
-          if (typeof ClipboardItem !== 'undefined') {
-            const item = new ClipboardItem({ [file.type]: blob });
-            await navigator.clipboard.write([item]);
-            onShowToast('Texto e Imagem copiados! Pressione Ctrl+V no WhatsApp.', 'success');
-          } else {
-            throw new Error('ClipboardItem not supported');
-          }
+          const item = new ClipboardItem({ [file.type]: blob });
+          await navigator.clipboard.write([item]);
+          onShowToast('Tudo pronto! Imagem e texto copiados. Use Ctrl+V no seu app.', 'success');
         } catch (clipboardErr) {
-          // Final fallback: Download image + Copy text
           const link = document.createElement('a');
           link.download = filename;
           link.href = dataUrl;
@@ -402,14 +378,8 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
         }
       }
     } catch (err) {
-      console.error('Final sharing error:', err);
-      // Absolute fallback
-      try {
-        await navigator.clipboard.writeText(shareText);
-        onShowToast('Copiado apenas o texto para o WhatsApp.', 'warning');
-      } catch (clipErr) {
-        onShowToast('Erro ao compartilhar. Tente novamente mais tarde.', 'error');
-      }
+      console.error('Error sharing:', err);
+      onShowToast('Erro ao processar compartilhamento.', 'error');
     } finally {
       setSharingImage(false);
     }
@@ -660,15 +630,25 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
 
                 {/* Actions Cluster - Unified */}
                 <div className="flex flex-col gap-4 mb-12">
-                    <button 
-                      onClick={handleShareCombined}
-                      disabled={sharingImage}
-                      className="flex items-center justify-center gap-4 bg-primary-deep py-6 rounded-[32px] text-white font-montserrat text-[12px] font-black tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {sharingImage ? <Loader2 className="w-5 h-5 animate-spin text-secondary" /> : <Share2 className="w-5 h-5 text-secondary" />}
-                        COMPARTILHAR NO WHATSAPP
-                    </button>
-                    <p className="text-[9px] text-gray-400 text-center font-black uppercase tracking-widest opacity-60">Envia imagem e texto completo do devocional</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button 
+                          onClick={() => handleShare('whatsapp')}
+                          disabled={sharingImage}
+                          className="flex items-center justify-center gap-4 bg-primary-deep py-5 rounded-[32px] text-white font-montserrat text-[11px] font-black tracking-[0.2em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {sharingImage ? <Loader2 className="w-5 h-5 animate-spin text-secondary" /> : <Share2 className="w-5 h-5 text-secondary" />}
+                            WHATSAPP
+                        </button>
+                        <button 
+                          onClick={() => handleShare('instagram')}
+                          disabled={sharingImage}
+                          className="flex items-center justify-center gap-4 bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] py-5 rounded-[32px] text-white font-montserrat text-[11px] font-black tracking-[0.2em] shadow-2xl hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {sharingImage ? <Loader2 className="w-5 h-5 animate-spin text-white" /> : <Instagram className="w-5 h-5 text-white" />}
+                            INSTAGRAM
+                        </button>
+                    </div>
+                    <p className="text-[9px] text-gray-400 text-center font-black uppercase tracking-widest opacity-60">Envia imagem e texto formatado</p>
                 </div>
 
                 {/* Devotional Content */}
