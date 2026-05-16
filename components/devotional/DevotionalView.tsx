@@ -705,7 +705,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
                                 <p 
                                   key={idx} 
                                   id={`dev-body-${idx}`} 
-                                  className={`transition-all duration-500 px-2 -mx-2 rounded-2xl ${idx === 0 ? 'first-letter:text-6xl first-letter:font-cinzel first-letter:text-primary-deep first-letter:mr-4 first-letter:float-left first-letter:leading-none' : ''} ${isPlaying && audioChunks[currentChunkIndex]?.blockId === `dev-body-${idx}` ? 'bg-primary/5 dark:bg-[#C5A059]/10 text-primary-deep font-bold border-l-4 border-secondary' : ''}`}
+                                  className={`transition-all duration-500 px-6 -mx-6 py-4 rounded-3xl ${idx === 0 ? 'first-letter:text-6xl first-letter:font-cinzel first-letter:text-primary-deep first-letter:mr-4 first-letter:float-left first-letter:leading-none' : ''} ${isPlaying && audioChunks[currentChunkIndex]?.blockId === `dev-body-${idx}` ? 'bg-primary/10 dark:bg-secondary/30 text-primary-deep dark:text-white font-bold border-l-4 border-secondary shadow-lg scale-[1.02] z-20' : 'opacity-100'}`}
                                 >
                                     {cleanTextDisplay(p)}
                                 </p>
@@ -718,7 +718,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
                           <Flame className="w-4 h-4 text-secondary" />
                           <h3 className="font-cinzel font-black text-sm text-primary-deep dark:text-white tracking-widest uppercase">Oração</h3>
                         </div>
-                        <p className={`font-cormorant italic leading-relaxed text-gray-700 dark:text-gray-300 transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'text-primary-deep dark:text-secondary font-bold' : 'opacity-80'}`}>
+                        <p className={`font-cormorant italic leading-relaxed text-gray-700 dark:text-gray-300 transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'text-primary-deep dark:text-white font-bold scale-[1.01] origin-left' : 'opacity-80'}`}>
                             "{cleanTextDisplay(devotional.prayer)}"
                         </p>
                     </div>
