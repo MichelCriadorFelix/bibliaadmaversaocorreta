@@ -328,56 +328,88 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
     setSharingImage(true);
     onShowToast('Preparando devocional...', 'info');
 
+    const shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n*Reflexão:*\n${devotional.body}\n\n*Oração:*\n${devotional.prayer}\n\nSiga-nos no Instagram: ${CHURCH_INSTAGRAM}\nLeia mais no App Bíblia ADMA.`;
+
     try {
       // 1. Generate High Definition Image
-      const dataUrl = await toPng(cardRef.current, { 
-        cacheBust: true,
-        pixelRatio: 3, // Higher density for Desktop/HD screens
-        style: {
-          transform: 'scale(1)',
-          borderRadius: '40px'
+      // Wrapping image capture to handle CORS/Security errors gracefully
+      let dataUrl = '';
+      try {
+        dataUrl = await toPng(cardRef.current, { 
+          cacheBust: true,
+          pixelRatio: 2, // 2x is plenty for mobile sharing and more stable than 3x
+          backgroundColor: '#1a0f0f',
+          style: {
+            transform: 'scale(1)',
+          }
+        });
+      } catch (imageErr) {
+        console.error('Image capture error:', imageErr);
+        // Fallback to text only immediately if image generation fails
+        if (navigator.share) {
+          await navigator.share({
+            title: devotional.title,
+            text: shareText
+          });
+        } else {
+          await navigator.clipboard.writeText(shareText);
+          onShowToast('Copiado apenas o texto (Erro ao gerar imagem).', 'warning');
         }
-      });
+        return;
+      }
 
       const blob = await (await fetch(dataUrl)).blob();
       const filename = `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`;
       const file = new File([blob], filename, { type: 'image/png' });
 
-      // 2. Prepare Rich Text formatted for WhatsApp
-      const shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n*Reflexão:*\n${devotional.body}\n\n*Oração:*\n${devotional.prayer}\n\nSiga-nos no Instagram: ${CHURCH_INSTAGRAM}\nLeia mais no App Bíblia ADMA.`;
-
-      // 3. Smart Sharing Logic
+      // 2. Smart Sharing Logic
       const canShareFiles = navigator.share && navigator.canShare && navigator.canShare({ files: [file] });
 
       if (canShareFiles) {
-        // MOBILE / SUPPORTED DESKTOP
-        await navigator.share({
-          files: [file],
-          title: devotional.title,
-          text: shareText,
-        });
+        // MOBILE / SUPPORTED DESKTOP (Chrome on Windows sometimes fails here but let's try)
+        try {
+          await navigator.share({
+            files: [file],
+            title: devotional.title,
+            text: shareText,
+          });
+        } catch (shareErr: any) {
+          // If the browser UI was cancelled or failed internally
+          if (shareErr.name !== 'AbortError') {
+             throw shareErr; // Let the general catch handle it
+          }
+        }
       } else {
         // WINDOWS DESKTOP FALLBACK
-        // Always copy text to clipboard first
         await navigator.clipboard.writeText(shareText);
         
-        // Attempt to copy image to clipboard (Chrome Desktop supports this)
+        // Attempt to copy image to clipboard (Supported in Chrome/Edge Desktop)
         try {
-          const item = new ClipboardItem({ [file.type]: blob });
-          await navigator.clipboard.write([item]);
-          onShowToast('Tudo pronto! A imagem e o texto foram copiados. Basta colar (Ctrl+V) no WhatsApp.', 'success');
+          if (typeof ClipboardItem !== 'undefined') {
+            const item = new ClipboardItem({ [file.type]: blob });
+            await navigator.clipboard.write([item]);
+            onShowToast('Texto e Imagem copiados! Pressione Ctrl+V no WhatsApp.', 'success');
+          } else {
+            throw new Error('ClipboardItem not supported');
+          }
         } catch (clipboardErr) {
           // Final fallback: Download image + Copy text
           const link = document.createElement('a');
           link.download = filename;
           link.href = dataUrl;
           link.click();
-          onShowToast('Texto copiado e imagem baixada! Anexe-a no WhatsApp.', 'success');
+          onShowToast('Texto copiado e imagem baixada!', 'success');
         }
       }
     } catch (err) {
-      console.error('Error sharing:', err);
-      onShowToast('Erro ao processar. Tente compartilhar apenas o texto.', 'error');
+      console.error('Final sharing error:', err);
+      // Absolute fallback
+      try {
+        await navigator.clipboard.writeText(shareText);
+        onShowToast('Copiado apenas o texto para o WhatsApp.', 'warning');
+      } catch (clipErr) {
+        onShowToast('Erro ao compartilhar. Tente novamente mais tarde.', 'error');
+      }
     } finally {
       setSharingImage(false);
     }
