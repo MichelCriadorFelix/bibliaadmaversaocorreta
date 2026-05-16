@@ -258,7 +258,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
         REGRAS DE FORMATAÇÃO VISUAL (CRÍTICO):
         1. O campo 'body' DEVE conter quebras de linha duplas (\\n\\n) para separar os parágrafos.
         2. SEM MARKDOWN: Não use asteriscos (**), negrito ou caracteres especiais.
-        3. TAMANHO: Aprox. 500 palavras no total para o 'body'.
+        3. TAMANHO: Aprox. 300 palavras no total para o 'body'.
         ESTRUTURA OBRIGATÓRIA:
         - summary: Um resumo do devocional entre 10 a 30 palavras para ser exibido no card principal.
         - body (3 PARÁGRAFOS):
