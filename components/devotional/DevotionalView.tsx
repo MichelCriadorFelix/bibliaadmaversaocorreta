@@ -323,97 +323,50 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
     }
   };
 
-  const handleShareImage = async () => {
+  const handleShareCombined = async () => {
     if (!devotional || !cardRef.current) return;
     setSharingImage(true);
-    onShowToast('Gerando imagem para compartilhar...', 'info');
+    onShowToast('Preparando devocional para o WhatsApp...', 'info');
 
     try {
-      // Ensure specific styles for capture if needed
+      // 1. Generate Image (High Quality for Instagram/Social)
       const dataUrl = await toPng(cardRef.current, { 
         cacheBust: true,
-        quality: 0.95,
-        backgroundColor: '#1a0f0f' // Match theme
+        pixelRatio: 2, 
+        backgroundColor: '#1a0f0f' 
       });
 
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`, { type: 'image/png' });
 
+      // 2. Prepare Rich Text formatted for WhatsApp
+      const shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n*Reflexão:*\n${devotional.body}\n\n*Oração:*\n${devotional.prayer}\n\nSiga-nos no Instagram: ${CHURCH_INSTAGRAM}\nLeia mais no App Bíblia ADMA.`;
+
+      // 3. Share Combined (Image + Text)
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: "Devocional Diário - Bíblia ADMA",
-          text: `*${CHURCH_NAME}*\n\n"${devotional.verse_text.trim()}"\n\n*${devotional.reference}*\n\nSiga-nos: ${CHURCH_INSTAGRAM}`,
+          title: devotional.title,
+          text: shareText,
         });
       } else {
-        // Fallback to download if sharing image is not supported
+        // Fallback for desktop or browsers that don't support file sharing
+        navigator.clipboard.writeText(shareText);
         const link = document.createElement('a');
         link.download = `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`;
         link.href = dataUrl;
         link.click();
-        onShowToast('Imagem baixada! Compartilhe-a manualmente.', 'success');
+        onShowToast('Texto copiado e imagem baixada!', 'success');
       }
     } catch (err) {
-      console.error('Error sharing image:', err);
-      onShowToast('Erro ao gerar imagem. Compartilhando texto...', 'error');
-      handleShare(); // Fallback to text
+      console.error('Error sharing:', err);
+      onShowToast('Copiando apenas o texto...', 'warning');
+      
+      const shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n${devotional.body}\n\nSiga-nos: ${CHURCH_INSTAGRAM}`;
+      navigator.clipboard.writeText(shareText);
     } finally {
       setSharingImage(false);
     }
-  };
-
-  const handleShare = async () => {
-    if (!devotional) return;
-    const shareText = `*${CHURCH_NAME}*\n\n"${devotional.verse_text.trim()}"\n\n*${devotional.reference}*\n\nSiga-nos no Instagram: ${CHURCH_INSTAGRAM}\nLeia o devocional completo no App Bíblia ADMA.`;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Versículo do Dia",
-          text: shareText,
-        });
-      } catch (err) {
-        navigator.clipboard.writeText(shareText);
-        onShowToast('Copiado para área de transferência', 'success');
-      }
-    } else {
-      navigator.clipboard.writeText(shareText);
-      onShowToast('Copiado para área de transferência', 'success');
-    }
-  };
-
-  const handleDownload = () => {
-    if (!devotional) return;
-    const content = `
-DEVOCIONAL DIÁRIO - BÍBLIA ADMA
-Igreja: ${CHURCH_NAME}
-Instagram: ${CHURCH_INSTAGRAM}
-Data: ${format(currentDate, 'dd/MM/yyyy')}
-
-${devotional.title.toUpperCase()}
-${devotional.reference}
-
-"${devotional.verse_text}"
-
-MEDITAÇÃO:
-${devotional.body}
-
-ORAÇÃO:
-${devotional.prayer}
-
-Gerado pelo app Bíblia ADMA.
-    `.trim();
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    onShowToast('Arquivo baixado no dispositivo!', 'success');
   };
 
   const handlePrevDay = () => setCurrentDate(addDays(currentDate, -1));
@@ -659,24 +612,17 @@ Gerado pelo app Bíblia ADMA.
                     </div>
                 </section>
 
-                {/* Actions Cluster - Cleaned UP */}
+                {/* Actions Cluster - Unified */}
                 <div className="flex flex-col gap-4 mb-12">
                     <button 
-                      onClick={handleShareImage}
+                      onClick={handleShareCombined}
                       disabled={sharingImage}
-                      className="flex items-center justify-center gap-4 bg-primary-deep py-5 rounded-[32px] text-white font-montserrat text-[11px] font-black tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50"
+                      className="flex items-center justify-center gap-4 bg-primary-deep py-6 rounded-[32px] text-white font-montserrat text-[12px] font-black tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50"
                     >
-                        {sharingImage ? <Loader2 className="w-5 h-5 animate-spin text-secondary" /> : <ImageIcon className="w-5 h-5 text-secondary" />}
-                        COMPARTILHAR IMAGEM
+                        {sharingImage ? <Loader2 className="w-5 h-5 animate-spin text-secondary" /> : <Share2 className="w-5 h-5 text-secondary" />}
+                        COMPARTILHAR NO WHATSAPP
                     </button>
-                    <button 
-                      onClick={handleShare}
-                      className="flex items-center justify-center gap-4 bg-white dark:bg-white/5 border border-outline-variant/30 py-4 rounded-[28px] text-primary font-montserrat text-[10px] font-black tracking-[0.2em] shadow-lg hover:bg-gray-50 dark:hover:bg-white/10 transition-all active:scale-95"
-                    >
-                        <Share2 className="w-4 h-4 text-primary opacity-60" />
-                        COMPARTILHAR TEXTO (WHATSAPP)
-                    </button>
-                    <p className="text-[9px] text-gray-400 text-center font-black uppercase tracking-widest opacity-60">Espalhe a palavra com seus irmãos</p>
+                    <p className="text-[9px] text-gray-400 text-center font-black uppercase tracking-widest opacity-60">Envia imagem e texto completo do devocional</p>
                 </div>
 
                 {/* Devotional Content */}
