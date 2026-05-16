@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigate }: any) {
   const [devotional, setDevotional] = useState<Devotional | null>(null);
   const cardRef = useRef<HTMLElement>(null);
+  const devotionalContentRef = useRef<HTMLDivElement>(null);
   const [sharingImage, setSharingImage] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
@@ -324,18 +325,19 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
   };
 
   const handleShare = async (platform: 'whatsapp' | 'instagram') => {
-    if (!devotional || !cardRef.current) return;
+    if (!devotional || !devotionalContentRef.current) return;
     setSharingImage(true);
     onShowToast(`Preparando para o ${platform === 'whatsapp' ? 'WhatsApp' : 'Instagram'}...`, 'info');
 
     try {
-      // 1. Generate High Definition Image
-      const dataUrl = await toPng(cardRef.current, { 
+      // 1. Generate High Definition Image of the CONTENT (Title + Meditation)
+      const dataUrl = await toPng(devotionalContentRef.current, { 
         cacheBust: true,
         pixelRatio: 3, 
+        backgroundColor: '#1a0f0f',
         style: {
-          transform: 'scale(1)',
-          borderRadius: '40px'
+          padding: '40px',
+          borderRadius: '0px' // Clean edges for share
         }
       });
 
@@ -660,18 +662,33 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
                     <p className="text-[9px] text-gray-400 text-center font-black uppercase tracking-widest opacity-60">Envia imagem e texto formatado</p>
                 </div>
 
-                {/* Devotional Content */}
-                <article className="space-y-10">
-                    <div className="flex items-center gap-6">
+                {/* Devotional Content - NEW CAPTURE TARGET */}
+                <article 
+                    ref={devotionalContentRef}
+                    className="space-y-10 bg-white dark:bg-[#1a0f0f] rounded-[40px] p-8 md:p-12 mb-12 shadow-2xl border border-outline-variant/20 relative overflow-hidden"
+                >
+                    {/* Visual elements for when this is shared as an image */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none"></div>
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-secondary/5 rounded-full -ml-32 -mb-32 blur-3xl pointer-events-none"></div>
+
+                    <div className="flex items-center gap-6 relative z-10">
                         <div className="h-[1px] flex-1 bg-outline-variant/30"></div>
-                        <span className="font-cinzel font-black text-xs text-primary-deep dark:text-[#C5A059] opacity-70 tracking-[0.3em] uppercase">Meditação</span>
+                        <div className="flex flex-col items-center">
+                            <span className="font-cinzel font-black text-[10px] text-primary-deep dark:text-[#C5A059] tracking-[0.4em] uppercase">Meditação Diária</span>
+                            <span className="text-[8px] font-montserrat font-bold text-gray-400 mt-1 uppercase tracking-widest">{CHURCH_NAME}</span>
+                        </div>
                         <div className="h-[1px] flex-1 bg-outline-variant/30"></div>
                     </div>
 
-                    <div className="space-y-8">
+                    <div className="space-y-8 relative z-10">
                         <h2 id="dev-title" className={`font-cinzel text-3xl font-black text-primary-deep dark:text-white leading-tight transition-all duration-300 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-title' ? 'text-[#C5A059] scale-[1.02] origin-left' : ''}`}>
                           {cleanTextDisplay(devotional.title)}
                         </h2>
+
+                        <div className="flex items-center gap-2 mb-4">
+                            <BookMarked className="w-4 h-4 text-secondary" />
+                            <span className="font-montserrat text-xs font-black text-secondary tracking-widest uppercase">{devotional.reference}</span>
+                        </div>
 
                         <div 
                           className="font-cormorant leading-relaxed text-gray-800 dark:text-gray-100 text-justify space-y-6"
@@ -689,21 +706,22 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
                         </div>
                     </div>
 
-                    <div id="dev-prayer" className={`pt-10 space-y-6 transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'scale-[1.02]' : ''}`}>
+                    <div id="dev-prayer" className={`pt-10 space-y-4 border-t border-outline-variant/20 relative z-10 transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'scale-[1.02]' : ''}`}>
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-primary-deep rounded-2xl flex items-center justify-center shadow-lg">
-                            <Flame className="w-5 h-5 text-secondary" />
-                          </div>
-                          <h3 className="font-cinzel font-black text-lg text-primary-deep dark:text-white tracking-widest uppercase">Oração de Hoje</h3>
+                          <Flame className="w-4 h-4 text-secondary" />
+                          <h3 className="font-cinzel font-black text-sm text-primary-deep dark:text-white tracking-widest uppercase">Oração</h3>
                         </div>
-                        
-                        <div className="relative">
-                          <div className="absolute top-0 left-0 w-1 h-full bg-[#C5A059] rounded-full opacity-60"></div>
-                          <p className={`font-cormorant italic leading-relaxed text-gray-700 dark:text-gray-300 pl-8 py-2 min-h-[60px] transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'text-primary-deep dark:text-secondary opacity-100 font-bold' : 'opacity-80'}`}>
-                              "{cleanTextDisplay(devotional.prayer)}"
-                          </p>
-                        </div>
+                        <p className={`font-cormorant italic leading-relaxed text-gray-700 dark:text-gray-300 transition-all duration-500 ${isPlaying && audioChunks[currentChunkIndex]?.blockId === 'dev-prayer' ? 'text-primary-deep dark:text-secondary font-bold' : 'opacity-80'}`}>
+                            "{cleanTextDisplay(devotional.prayer)}"
+                        </p>
                     </div>
+
+                    {/* Branding for Image Share */}
+                    <div className="pt-8 mt-8 border-t border-outline-variant/10 flex justify-between items-center opacity-40">
+                        <span className="font-cinzel text-[8px] font-black tracking-widest uppercase">Bíblia ADMA</span>
+                        <span className="font-montserrat text-[8px] font-bold tracking-tighter">{CHURCH_INSTAGRAM}</span>
+                    </div>
+                </article>
 
                     {/* Suggested Reading Footer Card */}
                     <section className="mt-16 p-10 bg-tertiary-container dark:bg-black/40 rounded-[40px] border border-on-tertiary-container/10 flex flex-col items-center text-center shadow-2xl relative overflow-hidden group">
@@ -732,10 +750,8 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
                             ABRIR CAPÍTULO COMPLETO
                         </button>
                     </section>
-
-                </article>
-            </div>
-        ) : (
+                </div>
+            ) : (
             <div className="text-center py-20 text-gray-500 dark:text-gray-400">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Info className="w-8 h-8 text-gray-300" />
