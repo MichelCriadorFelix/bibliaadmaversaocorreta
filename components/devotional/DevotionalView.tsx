@@ -326,44 +326,58 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
   const handleShareCombined = async () => {
     if (!devotional || !cardRef.current) return;
     setSharingImage(true);
-    onShowToast('Preparando devocional para o WhatsApp...', 'info');
+    onShowToast('Preparando devocional...', 'info');
 
     try {
-      // 1. Generate Image (High Quality for Instagram/Social)
+      // 1. Generate High Definition Image
       const dataUrl = await toPng(cardRef.current, { 
         cacheBust: true,
-        pixelRatio: 2, 
-        backgroundColor: '#1a0f0f' 
+        pixelRatio: 3, // Higher density for Desktop/HD screens
+        style: {
+          transform: 'scale(1)',
+          borderRadius: '40px'
+        }
       });
 
       const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`, { type: 'image/png' });
+      const filename = `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
 
       // 2. Prepare Rich Text formatted for WhatsApp
       const shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n*Reflexão:*\n${devotional.body}\n\n*Oração:*\n${devotional.prayer}\n\nSiga-nos no Instagram: ${CHURCH_INSTAGRAM}\nLeia mais no App Bíblia ADMA.`;
 
-      // 3. Share Combined (Image + Text)
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // 3. Smart Sharing Logic
+      const canShareFiles = navigator.share && navigator.canShare && navigator.canShare({ files: [file] });
+
+      if (canShareFiles) {
+        // MOBILE / SUPPORTED DESKTOP
         await navigator.share({
           files: [file],
           title: devotional.title,
           text: shareText,
         });
       } else {
-        // Fallback for desktop or browsers that don't support file sharing
-        navigator.clipboard.writeText(shareText);
-        const link = document.createElement('a');
-        link.download = `Devocional_ADMA_${format(currentDate, 'yyyy-MM-dd')}.png`;
-        link.href = dataUrl;
-        link.click();
-        onShowToast('Texto copiado e imagem baixada!', 'success');
+        // WINDOWS DESKTOP FALLBACK
+        // Always copy text to clipboard first
+        await navigator.clipboard.writeText(shareText);
+        
+        // Attempt to copy image to clipboard (Chrome Desktop supports this)
+        try {
+          const item = new ClipboardItem({ [file.type]: blob });
+          await navigator.clipboard.write([item]);
+          onShowToast('Tudo pronto! A imagem e o texto foram copiados. Basta colar (Ctrl+V) no WhatsApp.', 'success');
+        } catch (clipboardErr) {
+          // Final fallback: Download image + Copy text
+          const link = document.createElement('a');
+          link.download = filename;
+          link.href = dataUrl;
+          link.click();
+          onShowToast('Texto copiado e imagem baixada! Anexe-a no WhatsApp.', 'success');
+        }
       }
     } catch (err) {
       console.error('Error sharing:', err);
-      onShowToast('Copiando apenas o texto...', 'warning');
-      
-      const shareText = `*${CHURCH_NAME}*\n\n*${devotional.title.toUpperCase()}*\n${devotional.reference}\n\n"${devotional.verse_text.trim()}"\n\n${devotional.body}\n\nSiga-nos: ${CHURCH_INSTAGRAM}`;
-      navigator.clipboard.writeText(shareText);
+      onShowToast('Erro ao processar. Tente compartilhar apenas o texto.', 'error');
     } finally {
       setSharingImage(false);
     }
