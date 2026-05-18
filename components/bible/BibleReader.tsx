@@ -32,6 +32,12 @@ const BibleSkeleton = () => (
 export default function BibleReader({ onBack, onNavigate, isAdmin, onShowToast, initialBook, initialChapter, initialVerse, userProgress, onProgressUpdate }: any) {
     const [book, setBook] = useState(initialBook || 'Gênesis');
     const [chapter, setChapter] = useState(initialChapter || 1);
+
+    // Sincroniza estado interno com props vindas do histórico (navegação externa/voltar)
+    useEffect(() => {
+        if (initialBook && initialBook !== book) setBook(initialBook);
+        if (initialChapter && initialChapter !== chapter) setChapter(initialChapter);
+    }, [initialBook, initialChapter]);
     const [verses, setVerses] = useState<{number: number, text: string}[]>([]);
     
     const [loading, setLoading] = useState(true);
@@ -156,19 +162,38 @@ export default function BibleReader({ onBack, onNavigate, isAdmin, onShowToast, 
     const handleNext = () => {
         const meta = BIBLE_BOOKS.find(b => b.name === book);
         if (!meta) return;
-        if (chapter < meta.chapters) setChapter(c => c + 1);
-        else {
+        
+        let nextBook = book;
+        let nextChapter = chapter + 1;
+
+        if (chapter >= meta.chapters) {
             const idx = BIBLE_BOOKS.findIndex(b => b.name === book);
-            if (idx < BIBLE_BOOKS.length - 1) { setBook(BIBLE_BOOKS[idx + 1].name); setChapter(1); }
+            if (idx < BIBLE_BOOKS.length - 1) { 
+                nextBook = BIBLE_BOOKS[idx + 1].name; 
+                nextChapter = 1; 
+            } else {
+                return; // Fim da Bíblia
+            }
         }
+        
+        onNavigate('reader', { book: nextBook, chapter: nextChapter });
     };
 
     const handlePrev = () => {
-        if (chapter > 1) setChapter(c => c - 1);
-        else {
+        let prevBook = book;
+        let prevChapter = chapter - 1;
+
+        if (chapter <= 1) {
             const idx = BIBLE_BOOKS.findIndex(b => b.name === book);
-            if (idx > 0) { const prev = BIBLE_BOOKS[idx - 1]; setBook(prev.name); setChapter(prev.chapters); }
+            if (idx > 0) { 
+                const prevMeta = BIBLE_BOOKS[idx - 1];
+                prevBook = prevMeta.name; 
+                prevChapter = prevMeta.chapters; 
+            } else {
+                return; // Início da Bíblia
+            }
         }
+        onNavigate('reader', { book: prevBook, chapter: prevChapter });
     };
 
     // --- OTIMIZAÇÃO DE RENDERIZAÇÃO: MEMOIZAÇÃO DA LISTA DE VERSÍCULOS ---
@@ -320,7 +345,7 @@ export default function BibleReader({ onBack, onNavigate, isAdmin, onShowToast, 
                 isOpen={showSelector} 
                 onClose={() => setShowSelector(false)} 
                 currentBook={book} 
-                onSelect={(b: string, c: number) => { setBook(b); setChapter(c); }} 
+                onSelect={(b: string, c: number) => { onNavigate('reader', { book: b, chapter: c }); setShowSelector(false); }} 
                 userProgress={userProgress}
             />
 

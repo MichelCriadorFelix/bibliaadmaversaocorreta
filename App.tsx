@@ -26,6 +26,32 @@ export default function App() {
   const [fontScale, setFontScale] = useState(100); // Estado para Zoom (Escala)
   
   const [view, setView] = useState('dashboard');
+  
+  // Sincronização com o botão de voltar do Hardware/Navegador
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state;
+      if (state) {
+        setView(state.view || 'dashboard');
+        setNavParams(state.params || {});
+        if (state.activeModule) setActiveModule(state.activeModule);
+      } else {
+        // Se não houver estado (primeira página), voltamos ao dashboard
+        setView('dashboard');
+        setNavParams({});
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    // Define o estado inicial se estiver autenticado para que possamos voltar para cá
+    if (isAuthenticated) {
+        window.history.replaceState({ view: 'dashboard', params: {} }, "");
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isAuthenticated]);
+
   const [toast, setToast] = useState({ msg: '', type: 'info' as any });
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
@@ -349,14 +375,18 @@ export default function App() {
   const handleNavigate = useCallback((v: string, params?: any) => {
       if (v.startsWith('module_')) {
           if (params && params.module) {
+              const state = { view: 'dynamic_module', params: params || {}, activeModule: params.module };
               setActiveModule(params.module);
               setView('dynamic_module');
+              window.history.pushState(state, "");
           }
           return;
       }
       
+      const state = { view: v, params: params || {} };
       setView(v);
       if(params) setNavParams(params);
+      window.history.pushState(state, "");
       window.scrollTo(0, 0);
   }, []);
 
@@ -384,7 +414,7 @@ export default function App() {
             />;
         case 'reader':
             return <BibleReader 
-                onBack={() => setView('dashboard')} 
+                onBack={() => handleNavigate('dashboard')} 
                 onNavigate={handleNavigate}
                 isAdmin={isAdmin}
                 onShowToast={showToast}
@@ -395,10 +425,11 @@ export default function App() {
                 onProgressUpdate={setUserProgress}
             />;
         case 'admin':
-            return <AdminPanel onBack={() => setView('dashboard')} onShowToast={showToast} />;
+            return <AdminPanel onBack={() => handleNavigate('dashboard')} onShowToast={showToast} />;
         case 'panorama':
             return <PanoramaView 
-                onBack={() => setView('dashboard')} 
+                onBack={() => handleNavigate('dashboard')} 
+                onNavigate={handleNavigate}
                 isAdmin={isAdmin} 
                 onShowToast={showToast}
                 userProgress={userProgress} 
@@ -407,21 +438,21 @@ export default function App() {
                 initialChapter={navParams.chapter}
             />;
         case 'devotional':
-            return <DevotionalView onBack={() => setView('dashboard')} onNavigate={handleNavigate} onShowToast={showToast} isAdmin={isAdmin} />;
+            return <DevotionalView onBack={() => handleNavigate('dashboard')} onNavigate={handleNavigate} onShowToast={showToast} isAdmin={isAdmin} />;
         case 'plans':
             return <PlansView 
-                onBack={() => setView('dashboard')} 
+                onBack={() => handleNavigate('dashboard')} 
                 onNavigate={handleNavigate} 
                 userProgress={userProgress} 
                 onProgressUpdate={setUserProgress} 
                 onShowToast={showToast}
             />;
         case 'ranking':
-            return <RankingView onBack={() => setView('dashboard')} userProgress={userProgress} />;
+            return <RankingView onBack={() => handleNavigate('dashboard')} userProgress={userProgress} />;
         case 'messages':
-            return <MessagesView onBack={() => setView('dashboard')} isAdmin={isAdmin} user={user} />;
+            return <MessagesView onBack={() => handleNavigate('dashboard')} isAdmin={isAdmin} user={user} />;
         case 'dynamic_module':
-            return activeModule ? <DynamicModuleViewer module={activeModule} onBack={() => setView('dashboard')} /> : <div className="p-10 text-center">Módulo não encontrado</div>;
+            return activeModule ? <DynamicModuleViewer module={activeModule} onBack={() => handleNavigate('dashboard')} /> : <div className="p-10 text-center">Módulo não encontrado</div>;
         default:
             return <div className="dark:text-white p-10 text-center font-cinzel">Página em Construção</div>;
     }

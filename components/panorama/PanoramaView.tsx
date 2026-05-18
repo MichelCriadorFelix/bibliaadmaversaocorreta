@@ -53,6 +53,7 @@ interface PanoramaProps {
     isAdmin: boolean;
     onShowToast: (msg: string, type: 'success' | 'error' | 'info') => void;
     onBack: () => void;
+    onNavigate: (view: string, params?: any) => void;
     userProgress: UserProgress | null;
     onProgressUpdate: (updated: UserProgress) => void;
     initialBook?: string;
@@ -141,7 +142,7 @@ const loadingStatusMessages = [
     "ATUALIZAÇÃO v116.0: Aplicando Design Imperial Gold..."
 ];
 
-export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgress, onProgressUpdate, initialBook, initialChapter }: PanoramaProps) {
+export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate, userProgress, onProgressUpdate, initialBook, initialChapter }: PanoramaProps) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [scrolled, setScrolled] = React.useState(false);
     const [isMobile, setIsMobile] = React.useState(false);
@@ -194,6 +195,12 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgres
         onShowToast, 
         isAdmin 
     });
+
+    // Sincroniza estado interno com as props do histórico (botão voltar)
+    useEffect(() => {
+        if (initialBook && initialBook !== book) setBook(initialBook);
+        if (initialChapter && initialChapter !== chapter) setChapter(initialChapter);
+    }, [initialBook, initialChapter, book, chapter, setBook, setChapter]);
 
     const { 
         markEbdAsRead, 
@@ -502,7 +509,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgres
                             <div className="w-12 h-12 bg-[#8B0000]/10 rounded-2xl flex items-center justify-center">
                                 <Book className="w-6 h-6 text-[#8B0000]" />
                             </div>
-                            <select value={book} onChange={(e) => setBook(e.target.value)} className="flex-1 bg-white dark:bg-dark-card font-cinzel font-black text-lg md:text-xl text-gray-800 dark:text-white outline-none cursor-pointer">
+                            <select value={book} onChange={(e) => onNavigate('panorama', { book: e.target.value, chapter })} className="flex-1 bg-white dark:bg-dark-card font-cinzel font-black text-lg md:text-xl text-gray-800 dark:text-white outline-none cursor-pointer">
                                 {BIBLE_BOOKS.map(b => <option key={b.name} value={b.name} className="bg-white dark:bg-dark-card text-gray-800 dark:text-white">{b.name}</option>)}
                             </select>
                         </div>
@@ -511,7 +518,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, userProgres
                             <div className="w-12 h-12 bg-[#C5A059]/10 rounded-2xl flex items-center justify-center">
                                 <ListIcon className="w-6 h-6 text-[#C5A059]" />
                             </div>
-                            <select value={chapter} onChange={(e) => setChapter(Number(e.target.value))} className="flex-1 bg-white dark:bg-dark-card font-cinzel font-black text-lg md:text-xl text-gray-800 dark:text-white outline-none cursor-pointer">
+                            <select value={chapter} onChange={(e) => onNavigate('panorama', { book, chapter: Number(e.target.value) })} className="flex-1 bg-white dark:bg-dark-card font-cinzel font-black text-lg md:text-xl text-gray-800 dark:text-white outline-none cursor-pointer">
                                 {chaptersList.map(c => <option key={c} value={c} className="bg-white dark:bg-dark-card text-gray-800 dark:text-white">Capítulo {c}</option>)}
                             </select>
                         </div>
