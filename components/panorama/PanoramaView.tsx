@@ -254,7 +254,9 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         stopAudio();
     }, [activeTab, stopAudio]);
 
-    const studyKey = generateChapterKey(book, chapter);
+    const studyKey = activeTab === 'thematic' && activeLesson 
+        ? `thematic_${activeLesson.id}` 
+        : generateChapterKey(book, chapter);
     const isRead = activeTab === 'thematic' 
         ? (activeLesson ? userProgress?.thematic_read?.includes(activeLesson.id!) : false)
         : userProgress?.ebd_read?.includes(studyKey);
