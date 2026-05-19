@@ -34,12 +34,16 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     const [highlights, setHighlights] = useState<any[]>([]);
     const [showHighlightButton, setShowHighlightButton] = useState(false);
     const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
-    const [selectedText, setSelectedText] = useState("");
+    const [selectedHighlightInfo, setSelectedHighlightInfo] = useState<{
+        paragraph_index: number;
+        start_offset: number;
+        end_offset: number;
+        text: string;
+    } | null>(null);
 
     useEffect(() => {
         const loadAnnotations = async () => {
             try {
-                // Use filter instead of list for better performance and to avoid 1000 items limit issues
                 const filtered = await db.entities.Commentary.filter({ 
                     study_key: studyKey, 
                     type: 'annotation' 
@@ -63,7 +67,7 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     }, [studyKey, isAdmin]);
 
     const handleCreateHighlight = async () => {
-        if (!selectedText || !isAdmin) return;
+        if (!selectedHighlightInfo || !isAdmin) return;
         const highlightId = `highlight_${studyKey}_${Date.now()}`;
         const userEmail = 'michel.felix@adma.local';
         
@@ -71,7 +75,10 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             await db.entities.Highlights.save({
                 id: highlightId,
                 study_key: studyKey,
-                text: selectedText,
+                paragraph_index: selectedHighlightInfo.paragraph_index,
+                start_offset: selectedHighlightInfo.start_offset,
+                end_offset: selectedHighlightInfo.end_offset,
+                text: selectedHighlightInfo.text,
                 user_email: userEmail,
                 created_at: new Date().toISOString()
             });
@@ -83,7 +90,7 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             // Clear selection browser-side
             window.getSelection()?.removeAllRanges();
             setShowHighlightButton(false);
-            setSelectedText("");
+            setSelectedHighlightInfo(null);
         } catch (error) {
             console.error("Error saving highlight:", error);
         }
@@ -131,12 +138,51 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
         }
     };
 
+    const getParagraphIndex = (node: Node | null): number | null => {
+        let current: HTMLElement | null = node instanceof HTMLElement ? node : (node?.parentElement || null);
+        while (current) {
+            if (current.id && current.id.startsWith('read-block-')) {
+                const match = current.id.match(/^read-block-(\d+)$/);
+                if (match) return parseInt(match[1], 10);
+            }
+            current = current.parentElement;
+        }
+        return null;
+    };
+
+    const getSelectionOffsets = (parent: HTMLElement, range: Range) => {
+        let startOffset = 0;
+        let endOffset = 0;
+        
+        const nodeIterator = document.createNodeIterator(
+            parent,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+        
+        let currentNode = nodeIterator.nextNode();
+        let currentLength = 0;
+        
+        while (currentNode) {
+            if (currentNode === range.startContainer) {
+                startOffset = currentLength + range.startOffset;
+            }
+            if (currentNode === range.endContainer) {
+                endOffset = currentLength + range.endOffset;
+                break;
+            }
+            currentLength += currentNode.textContent?.length || 0;
+            currentNode = nodeIterator.nextNode();
+        }
+        
+        return { startOffset, endOffset };
+    };
+
     const handleMouseUpOrTouchEnd = () => {
         if (!isAdmin) return;
-        // Delay slight to ensure selection object is stable
         setTimeout(() => {
             const selection = window.getSelection();
-            if (!selection) {
+            if (!selection || selection.rangeCount === 0) {
                 setShowHighlightButton(false);
                 return;
             }
@@ -144,14 +190,32 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             if (text.length > 0) {
                 try {
                     const range = selection.getRangeAt(0);
-                    const rect = range.getBoundingClientRect();
-                    // Position highlight button just above the center of selected text
-                    setButtonPosition({
-                        top: rect.top + window.scrollY - 45,
-                        left: rect.left + window.scrollX + (rect.width / 2) - 40
-                    });
-                    setSelectedText(text);
-                    setShowHighlightButton(true);
+                    const startParagraphIdx = getParagraphIndex(range.startContainer);
+                    const endParagraphIdx = getParagraphIndex(range.endContainer);
+                    
+                    if (startParagraphIdx !== null && startParagraphIdx === endParagraphIdx) {
+                        const parent = document.getElementById(`read-block-${startParagraphIdx}`);
+                        if (parent) {
+                            const { startOffset, endOffset } = getSelectionOffsets(parent, range);
+                            const rect = range.getBoundingClientRect();
+                            setButtonPosition({
+                                top: rect.top + window.scrollY - 45,
+                                left: rect.left + window.scrollX + (rect.width / 2) - 40
+                            });
+                            
+                            setSelectedHighlightInfo({
+                                paragraph_index: startParagraphIdx,
+                                start_offset: startOffset,
+                                end_offset: endOffset,
+                                text
+                            });
+                            setShowHighlightButton(true);
+                        } else {
+                            setShowHighlightButton(false);
+                        }
+                    } else {
+                        setShowHighlightButton(false);
+                    }
                 } catch (e) {
                     setShowHighlightButton(false);
                 }
@@ -161,65 +225,81 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
         }, 100);
     };
 
-    // Recursive React Tree Walker mapper to highlight matches inside text nodes
-    const highlightTree = (node: React.ReactNode, activeHighlights: any[], onRemoveHighlight: (id: string) => void): React.ReactNode => {
-        if (!activeHighlights || activeHighlights.length === 0 || !isAdmin) return node;
+    const applyHighlightsToReactNode = (
+        node: React.ReactNode,
+        activeHighlights: any[],
+        onRemoveHighlight: (id: string) => void,
+        offsetRef: { current: number }
+    ): React.ReactNode => {
+        if (!node) return node;
 
         if (typeof node === 'string') {
-            // Sort matches descending by length to tackle longest sub-strings first
-            const sortedHighlights = [...activeHighlights].sort((a, b) => b.text.length - a.text.length);
-            let parts: React.ReactNode[] = [node];
+            const text = node;
+            const startOfNode = offsetRef.current;
+            const endOfNode = startOfNode + text.length;
+            offsetRef.current = endOfNode;
 
-            for (const highlight of sortedHighlights) {
-                const hText = highlight.text;
-                if (!hText) continue;
-
-                const nextParts: React.ReactNode[] = [];
-                for (const part of parts) {
-                    if (typeof part === 'string') {
-                        let currentStr = part;
-                        while (true) {
-                            const matchIndex = currentStr.indexOf(hText);
-                            if (matchIndex === -1) {
-                                if (currentStr) nextParts.push(currentStr);
-                                break;
-                            }
-                            if (matchIndex > 0) {
-                                nextParts.push(currentStr.substring(0, matchIndex));
-                            }
-                            nextParts.push(
-                                <mark 
-                                    key={`hl-${highlight.id}-${matchIndex}-${Date.now()}`} 
-                                    className="bg-yellow-300 dark:bg-yellow-600/70 text-[#1a1a1a] dark:text-white px-1 py-0.5 rounded cursor-pointer select-all font-semibold transition-all hover:bg-yellow-400 active:scale-95"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onRemoveHighlight(highlight.id);
-                                    }}
-                                    title="Remover Destaque em Amarelo (Admin)"
-                                >
-                                    {hText}
-                                </mark>
-                            );
-                            currentStr = currentStr.substring(matchIndex + hText.length);
-                        }
-                    } else {
-                        nextParts.push(part);
-                    }
+            const activeInNode: { h: any; relStart: number; relEnd: number }[] = [];
+            for (const h of activeHighlights) {
+                const overlapStart = Math.max(startOfNode, h.start_offset);
+                const overlapEnd = Math.min(endOfNode, h.end_offset);
+                if (overlapStart < overlapEnd) {
+                    activeInNode.push({
+                        h,
+                        relStart: overlapStart - startOfNode,
+                        relEnd: overlapEnd - startOfNode
+                    });
                 }
-                parts = nextParts;
             }
-            return <>{parts}</>;
+
+            if (activeInNode.length === 0) {
+                return text;
+            }
+
+            activeInNode.sort((a, b) => a.relStart - b.relStart);
+
+            const segments: React.ReactNode[] = [];
+            let lastIndex = 0;
+
+            for (const { h, relStart, relEnd } of activeInNode) {
+                if (relStart > lastIndex) {
+                    segments.push(text.substring(lastIndex, relStart));
+                }
+                const highlightedText = text.substring(relStart, relEnd);
+                segments.push(
+                    <mark
+                        key={`hl-${h.id}-${startOfNode + relStart}`}
+                        className="bg-yellow-300 dark:bg-yellow-600/70 text-[#1a1a1a] dark:text-white px-0.5 rounded cursor-pointer font-semibold transition-all hover:bg-yellow-400 active:scale-95 select-all"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveHighlight(h.id);
+                        }}
+                        title="Remover Destaque (Admin)"
+                    >
+                        {highlightedText}
+                    </mark>
+                );
+                lastIndex = relEnd;
+            }
+
+            if (lastIndex < text.length) {
+                segments.push(text.substring(lastIndex));
+            }
+
+            return <>{segments}</>;
         }
 
         if (React.isValidElement(node)) {
             const element = node as React.ReactElement<any>;
-            if (element.props && element.props.children) {
+            if (element.props && 'children' in element.props) {
                 const children = element.props.children;
                 let updatedChildren;
                 if (Array.isArray(children)) {
-                    updatedChildren = React.Children.map(children, child => highlightTree(child, activeHighlights, onRemoveHighlight));
+                    updatedChildren = React.Children.map(children, child =>
+                        applyHighlightsToReactNode(child, activeHighlights, onRemoveHighlight, offsetRef)
+                    );
                 } else {
-                    updatedChildren = highlightTree(children, activeHighlights, onRemoveHighlight);
+                    updatedChildren = applyHighlightsToReactNode(children, activeHighlights, onRemoveHighlight, offsetRef);
                 }
                 return React.cloneElement(element, { ...element.props }, updatedChildren);
             }
@@ -228,12 +308,20 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
         if (Array.isArray(node)) {
             return node.map((child, idx) => (
                 <React.Fragment key={idx}>
-                    {highlightTree(child, activeHighlights, onRemoveHighlight)}
+                    {applyHighlightsToReactNode(child, activeHighlights, onRemoveHighlight, offsetRef)}
                 </React.Fragment>
             ));
         }
 
         return node;
+    };
+
+    const renderLineWithHighlights = (idx: number, parsedNode: React.ReactNode) => {
+        const lineHighlights = highlights.filter(h => h.paragraph_index === idx);
+        if (lineHighlights.length === 0) return parsedNode;
+
+        const offsetRef = { current: 0 };
+        return applyHighlightsToReactNode(parsedNode, lineHighlights, handleRemoveHighlight, offsetRef);
     };
 
     // Identifica o bloco ativo para highlight
@@ -317,11 +405,11 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 if (tr.toUpperCase().includes('DOSSIÊ ESPECIAL') && (tr.startsWith('#') || tr.startsWith('##'))) {
                      const cleanTitle = tr.replace(/#/g, '').trim();
                      return (
-                        <div key={idx} id={`read-block-${idx}`} className={`my-16 text-center relative py-12 px-3 md:px-4 border-y-4 border-double border-[#8B0000] ${activeClass}`}>
+                        <div key={idx} className={`my-16 text-center relative py-12 px-3 md:px-4 border-y-4 border-double border-[#8B0000] ${activeClass}`}>
                             <div className="absolute inset-0 bg-[#8B0000]/5 -z-10"></div>
                             <span className="block font-cinzel font-black text-[#C5A059] text-sm uppercase tracking-[0.5em] mb-4">Documento Histórico</span>
-                            <h1 className="font-cinzel font-black text-4xl md:text-6xl text-[#8B0000] dark:text-[#ff6b6b] uppercase tracking-widest leading-tight drop-shadow-xl">
-                                {highlightTree(parseInline(cleanTitle), highlights, handleRemoveHighlight)}
+                            <h1 id={`read-block-${idx}`} className="font-cinzel font-black text-4xl md:text-6xl text-[#8B0000] dark:text-[#ff6b6b] uppercase tracking-widest leading-tight drop-shadow-xl outline-none">
+                                {renderLineWithHighlights(idx, parseInline(cleanTitle))}
                             </h1>
                         </div>
                      );
@@ -334,9 +422,9 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 if (isMainTitle) {
                     const cleanTitle = tr.replace(/#/g, '').trim();
                     return (
-                        <div key={idx} id={`read-block-${idx}`} className={`mb-14 text-center border-b-8 border-[#8B0000] pb-8 pt-4 bg-gradient-to-b from-transparent to-[#8B0000]/5 rounded-b-[3rem] ${activeClass}`}>
-                            <h1 className="font-cinzel font-black text-4xl md:text-6xl text-[#8B0000] dark:text-[#ff6b6b] uppercase tracking-widest leading-tight drop-shadow-xl">
-                                {highlightTree(parseInline(cleanTitle), highlights, handleRemoveHighlight)}
+                        <div key={idx} className={`mb-14 text-center border-b-8 border-[#8B0000] pb-8 pt-4 bg-gradient-to-b from-transparent to-[#8B0000]/5 rounded-b-[3rem] ${activeClass}`}>
+                            <h1 id={`read-block-${idx}`} className="font-cinzel font-black text-4xl md:text-6xl text-[#8B0000] dark:text-[#ff6b6b] uppercase tracking-widest leading-tight drop-shadow-xl outline-none">
+                                {renderLineWithHighlights(idx, parseInline(cleanTitle))}
                             </h1>
                         </div>
                     );
@@ -351,10 +439,10 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                     
                     if (isPremium) {
                         return (
-                            <div key={idx} id={`read-block-${idx}`} className={`mt-10 mb-6 ${activeClass}`}>
-                                <div className="w-full bg-gradient-to-br from-[#C5A059] to-[#9e8045] px-6 py-3 rounded-lg shadow-md">
+                            <div key={idx} className={`mt-10 mb-6 ${activeClass}`}>
+                                <div id={`read-block-${idx}`} className="w-full bg-gradient-to-br from-[#C5A059] to-[#9e8045] px-6 py-3 rounded-lg shadow-md outline-none">
                                     <h3 className="font-cinzel font-black text-base md:text-lg text-[#1a1a1a] uppercase tracking-[0.15em] leading-tight">
-                                        {highlightTree(parseInline(title), highlights, handleRemoveHighlight)}
+                                        {renderLineWithHighlights(idx, parseInline(title))}
                                     </h3>
                                 </div>
                             </div>
@@ -362,10 +450,10 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                     }
 
                     return (
-                        <div key={idx} id={`read-block-${idx}`} className={`mt-16 mb-8 text-center relative ${activeClass}`}>
+                        <div key={idx} className={`mt-16 mb-8 text-center relative ${activeClass}`}>
                             <div className="absolute top-1/2 left-0 w-full h-[1px] bg-[#C5A059]/30 -z-10"></div>
-                            <h3 className="inline-block bg-[#FDFBF7] dark:bg-dark-card px-4 md:px-6 font-cinzel font-bold text-xl md:text-2xl uppercase tracking-widest text-[#C5A059] leading-tight">
-                                {highlightTree(parseInline(title), highlights, handleRemoveHighlight)}
+                            <h3 id={`read-block-${idx}`} className="inline-block bg-[#FDFBF7] dark:bg-dark-card px-4 md:px-6 font-cinzel font-bold text-xl md:text-2xl uppercase tracking-widest text-[#C5A059] leading-tight outline-none">
+                                {renderLineWithHighlights(idx, parseInline(title))}
                             </h3>
                         </div>
                     );
@@ -375,8 +463,8 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 if (isH2) {
                     const title = tr.replace(/##/g, '').trim();
                     return (
-                        <h2 key={idx} id={`read-block-${idx}`} className={`font-cinzel font-black text-3xl md:text-4xl text-[#8B0000] dark:text-[#ff6b6b] mt-16 mb-8 uppercase tracking-widest border-l-[6px] border-[#C5A059] pl-4 md:pl-6 leading-tight ${activeClass}`}>
-                            {highlightTree(parseInline(title), highlights, handleRemoveHighlight)}
+                        <h2 key={idx} id={`read-block-${idx}`} className={`font-cinzel font-black text-3xl md:text-4xl text-[#8B0000] dark:text-[#ff6b6b] mt-16 mb-8 uppercase tracking-widest border-l-[6px] border-[#C5A059] pl-4 md:pl-6 leading-tight ${activeClass} outline-none`}>
+                            {renderLineWithHighlights(idx, parseInline(title))}
                         </h2>
                     );
                 }
@@ -384,19 +472,19 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 if (tr.toUpperCase().includes('PÉROLA DE OURO')) {
                     const parts = tr.split(/(\*\*PÉROLA DE OURO:\*\*|\*\*PÉROLA DE OURO\*\*|PÉROLA DE OURO:|PÉROLA DE OURO)/i);
                     return (
-                        <div key={idx} id={`read-block-${idx}`} className={`mb-6 md:mb-8 ${activeClass}`}>
+                        <div key={idx} className={`mb-6 md:mb-8 ${activeClass}`}>
                             {parts.map((p, i) => {
                                 if (!p) return null;
                                 if (p.toUpperCase().match(/PÉROLA DE OURO/)) {
                                     return (
-                                        <div key={i} className="text-[#000000] bg-gradient-to-br from-[#C5A059] to-[#9e8045] px-4 py-3 md:px-6 md:py-4 rounded-xl border-l-[6px] border-[#8B0000] shadow-lg font-black my-4 tracking-wider uppercase text-sm md:text-base">
+                                        <div key={i} className="text-[#000000] bg-gradient-to-br from-[#C5A059] to-[#9e8045] px-4 py-3 md:px-6 md:py-4 rounded-xl border-l-[6px] border-[#8B0000] shadow-lg font-black my-4 tracking-wider uppercase text-sm md:text-base select-none">
                                             {p.replace(/\*\*/g, '').trim()}
                                         </div>
                                     );
                                 }
                                 return (
-                                    <div key={i} className="text-gray-800 dark:text-gray-300 text-lg md:text-xl leading-relaxed text-justify mt-2">
-                                        {highlightTree(parseInline(p), highlights, handleRemoveHighlight)}
+                                    <div key={i} id={`read-block-${idx}`} className="text-gray-800 dark:text-gray-300 text-lg md:text-xl leading-relaxed text-justify mt-2 outline-none">
+                                        {renderLineWithHighlights(idx, parseInline(p))}
                                     </div>
                                 );
                             })}
@@ -410,11 +498,11 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                     const contentPart = tr.substring(firstSpaceIndex + 1).trim();
                     
                     return (
-                        <div key={idx} id={`read-block-${idx}`} className={`mb-10 flex gap-4 md:gap-6 items-start animate-in slide-in-from-left-6 group ${activeClass}`}>
+                        <div key={idx} className={`mb-10 flex gap-4 md:gap-6 items-start animate-in slide-in-from-left-6 group ${activeClass}`}>
                             <span className="font-cinzel font-black text-6xl text-[#C5A059] opacity-80 shrink-0 select-none drop-shadow-sm leading-none -mt-1 group-hover:text-[#8B0000] transition-colors duration-500">{numPart}</span>
                             <div className="flex-1 pt-1">
-                                <div className="font-cormorant text-xl md:text-2xl leading-relaxed text-gray-900 dark:text-gray-100 text-justify tracking-wide font-medium" style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
-                                    {highlightTree(parseInline(contentPart), highlights, handleRemoveHighlight)}
+                                <div id={`read-block-${idx}`} className="font-cormorant text-xl md:text-2xl leading-relaxed text-gray-900 dark:text-gray-100 text-justify tracking-wide font-medium outline-none" style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
+                                    {renderLineWithHighlights(idx, parseInline(contentPart))}
                                 </div>
                             </div>
                         </div>
@@ -422,9 +510,9 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 }
 
                 return (
-                    <div key={idx} id={`read-block-${idx}`} className={`font-cormorant text-xl md:text-2xl leading-loose text-gray-950 dark:text-gray-50 text-justify indent-6 md:indent-12 mb-8 tracking-wide font-medium ${activeClass}`} style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
+                    <div key={idx} id={`read-block-${idx}`} className={`font-cormorant text-xl md:text-2xl leading-loose text-gray-950 dark:text-gray-50 text-justify indent-6 md:indent-12 mb-8 tracking-wide font-medium ${activeClass} outline-none`} style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
                         {renderAnnotationButton()}
-                        {highlightTree(parseInline(tr), highlights, handleRemoveHighlight)}
+                        {renderLineWithHighlights(idx, parseInline(tr))}
                     </div>
                 );
             })}
