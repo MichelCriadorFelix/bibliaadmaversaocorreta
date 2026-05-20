@@ -116,26 +116,27 @@ export default async function handler(request, response) {
             else if (taskType === 'teacher_ebd' || taskType === 'upgrade_teacher_ebd') {
                 let depthInstruction = "";
                 let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 2500;
-                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 500}`;
+                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 150}`;
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
                 } else if (depthLevel === 'estendido') {
                     depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas lines. Cada ponto deve ser dissecado exaustivamente para garantir que o professor compreenda a profundidade do tema. Não resuma nada.";
+                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o professor compreenda a profundidade do tema. Não resuma nada.";
                 }
 
-                systemInstruction = `ATUE COMO: Professor Michel Felix (Assistente Pedagógico). Você está ATUALIZANDO um MANUAL DE AULA existente para o professor usando o modelo Gemini 3.5 Flash de última geração. Sua tarefa é analisar o manual atual fornecido no prompt e aprimorá-lo, corrigindo, expandindo e aplicando a máxima didática erudita.\n\nINSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}\n\nMANDATO DE VOLUME: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS.`;
+                systemInstruction = `ATUE COMO: Professor Michel Felix (Assistente Pedagógico). Você está gerando ou atualizando um MANUAL DE AULA para o professor usando o modelo Gemini 3.5 Flash de última geração. Sua tarefa é analisar, corrigir, expandir e aplicar a máxima didática erudita.\n\nINSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}\n\nMANDATO DE VOLUME CRÍTICO: O texto FINAL deve ter RIGOROSAMENTE entre ${wordCountTarget} PALAVRAS, não excedendo o limite superior de ${baseWordCount + 150} sob nenhuma circunstância. Faça um controle preciso do tamanho de cada seção.`;
                 if (taskType === 'upgrade_teacher_ebd') {
-                    enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO ATIVO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS]: Analise o seguinte manual existente, reescreva-o de forma a expandir todos os conceitos, aplicando as instruções acima. Insira novas pérolas históricas e didatismo impecável. Use formatação rica (Markdown). 
+                    enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO ATIVO - ALVO RÍGIDO DE PRECISÃO: ENTRE ${baseWordCount} E ${baseWordCount + 150} PALAVRAS]: Analise o seguinte manual existente, reescreva-o de forma a calibrar todos os conceitos, aplicando as instruções acima. Insira novas pérolas históricas e didatismo impecável. Use formatação rica (Markdown). 
+                    Rigorosamente controle o tamanho para enquadrar na meta de ${baseWordCount} a ${baseWordCount + 150} palavras!
                     
                     CONTEÚDO EXISTENTE PARA UPGRADE:
                     """
                     ${prompt}
                     """`;
                 } else {
-                    enhancedPrompt = `[MODO ASSISTENTE PEDAGÓGICO ATIVO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS]: Gere um guia de aula prático e profundo conforme solicitado. Use formatação rica (Markdown). \n\n${prompt}`;
+                    enhancedPrompt = `[MODO ASSISTENTE PEDAGÓGICO ATIVO - ALVO RÍGIDO DE PRECISÃO: ENTRE ${baseWordCount} E ${baseWordCount + 150} PALAVRAS]: Gere um guia de aula prático e profundo conforme solicitado. Use formatação rica (Markdown). \nRigorosamente controle o tamanho para enquadrar na meta de ${baseWordCount} a ${baseWordCount + 150} palavras! \n\n${prompt}`;
                 }
             }
             // --- LÓGICA DE QUIZ (NOVO v105 - BLINDAGEM ANTI-ALUCINAÇÃO) ---
@@ -334,7 +335,7 @@ export default async function handler(request, response) {
             else if (taskType === 'ebd' || taskType === 'upgrade_ebd') {
                 let depthInstruction = "";
                 let baseWordCount = targetPages ? parseInt(targetPages) * 800 : 4000;
-                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 1000}`;
+                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 200}`;
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os versículos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
@@ -372,16 +373,11 @@ export default async function handler(request, response) {
         7. SELAGEM FINAL: As seções "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA" são o encerramento absoluto. Nada deve ser escrito após elas.
         8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
 
-        --- MANDATO DE VOLUME EXAUSTIVO (v113.0 - ALVO EXATO: ${targetPages} PÁGINAS) ---
-        1. PROIBIÇÃO DE RESUMOS: É estritamente proibido resumir versículos ou capítulos. O aluno ADMA exige densidade máxima. Se o texto estiver ficando curto, expanda os detalhes históricos e etimológicos.
-        2. ALVO DE PÁGINAS: O usuário selecionou ${targetPages} páginas. Você DEVE gerar conteúdo suficiente para preencher esse volume. Não pare de escrever até atingir a meta de palavras.
-        3. EXPLICAÇÕES ROBUSTAS: Cada versículo ou grupo de versículos deve ter uma explicação detalhada. Evite frases curtas. Use parágrafos longos e bem fundamentados.
-        2. ESTRATÉGIA DE EXPANSÃO: Se o capítulo bíblico for curto, você DEVE expandir a aula focando em:
-           - Etimologia profunda de cada nome e lugar citado.
-           - Análise sintática e morfológica dos verbos no original.
-           - Descrição detalhada da fauna, flora e geografia mencionada.
-           - Conexões tipológicas exaustivas com o Tabernáculo, Sacrifícios e o Messias.
-        3. QUOTA MÍNIMA: O texto final deve ter entre ${wordCountTarget} palavras. Menos que isso será considerado falha operacional.
+        --- MANDATO DE VOLUME CONTROLADO E EXATO (v119.0 - ALVO RIGOROSO: ${baseWordCount} PALAVRAS) ---
+        1. EQUILÍBRIO E CONCISÃO: Não resuma versículos ou capítulos, mas também evite repetições volumosas para não esticar o texto artificialmente. O texto deve ser denso e brilhante, mas planejado sob medida.
+        2. ALVO DE PÁGINAS RIGOROSO: O usuário selecionou um alvo de ${targetPages} páginas (${baseWordCount} palavras). O volume final gerado deve estar sob medida, estritamente contido no intervalo de ${baseWordCount} a ${baseWordCount + 200} palavras. É expressamente proibido superar ${baseWordCount + 200} palavras.
+        3. PLANEJAMENTO DE TAMANHO: Parcele mentalmente o comprimento de cada tópico de acordo com o total de versículos para que você atinja a meta com precisão absoluta.
+        4. QUOTA EXTRAORDINÁRIA: O texto final deve conter entre ${wordCountTarget} palavras. Ultrapassar essa quota máxima ou ficar aquém será considerado falha operacional grave.
 
         --- BLINDAGEM ANTI-HERESIA SUPREMA (100% OBRIGATÓRIO) ---
         - 1 SAMUEL 28 (NECROMANCIA): Samuel NÃO voltou pelo poder da médium. Ensine que ou foi uma personificação demoníaca permitida por Deus ou uma intervenção soberana direta para juízo, NUNCA validando a consulta aos mortos.
@@ -441,32 +437,32 @@ export default async function handler(request, response) {
         `;
                 systemInstruction = WRITING_STYLE;
                 if (taskType === 'upgrade_ebd') {
-                    enhancedPrompt = `[PROTOCOLO DE ATUALIZAÇÃO CORAÇÃO DA IA v115.0 - REESCRITA COM MODELO GEMINI 3.5 FLASH - MANDATO RÍGIDO: ${baseWordCount} PALAVRAS]: 
+                    enhancedPrompt = `[PROTOCOLO DE ATUALIZAÇÃO CORAÇÃO DA IA v115.0 - REESCRITA COM MODELO GEMINI 3.5 FLASH - MANDATO RÍGIDO DE PRECISÃO: ENTRE ${baseWordCount} E ${baseWordCount + 200} PALAVRAS]: 
                     Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
-                    1. O volume total alcançou ${baseWordCount} palavras? (Se estiver curto, você DEVE expandir cada tópico com análises linguísticas e históricas adicionais até atingir a meta).
+                    1. O volume total está RIGOROSAMENTE dentro do limite de ${baseWordCount} a ${baseWordCount + 200} palavras? (Se estiver mais curto que ${baseWordCount}, expanda com análises linguísticas adicionais; se estiver mais longo que ${baseWordCount + 200}, condense e resuma trechos repetitivos ou longos demais até enquadrar perfeitamente na meta).
                     2. Cobri 100% dos versículos do capítulo com exegese microscópica?
                     3. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
                     4. Injetou E CITOU POR EXTENSO (ex: Jo 1:1, Sl 23:1) referências bíblicas conexas em cada parágrafo?
                     5. As curiosidades estão numeradas?
                     6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
                     
-                    Reescreva, aprimore e expanda exaustivamente a seguinte aula existente do aluno, aplicando a estrutura padrão, sem resumir nada!
+                    Reescreva, aprimore e expanda exaustivamente a seguinte aula existente do aluno, aplicando a estrutura padrão, calibrando o volume dentro da meta!
                     
                     AULA ATUAL:
                     """
                     ${prompt}
                     """`;
                 } else {
-                    enhancedPrompt = `[PROTOCOLO CORAÇÃO DA IA v115.0 - MANDATO RÍGIDO: ${baseWordCount} PALAVRAS]: 
+                    enhancedPrompt = `[PROTOCOLO CORAÇÃO DA IA v115.0 - MANDATO RÍGIDO DE PRECISÃO: ENTRE ${baseWordCount} E ${baseWordCount + 200} PALAVRAS]: 
                     Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
-                    1. O volume total alcançou ${baseWordCount} palavras? (Se estiver curto, você DEVE expandir cada tópico com análises linguísticas e históricas adicionais até atingir a meta).
+                    1. O volume total está RIGOROSAMENTE dentro do limite de ${baseWordCount} a ${baseWordCount + 200} palavras? (Se estiver mais curto que ${baseWordCount}, expanda com análises linguísticas adicionais; se estiver mais longo que ${baseWordCount + 200}, condense e resuma trechos repetitivos ou longos demais até enquadrar perfeitamente na meta).
                     2. Cobri 100% dos versículos do capítulo com exegese microscópica?
                     3. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
                     4. Injetou E CITOU POR EXTENSO (ex: Jo 1:1, Sl 23:1) referências bíblicas conexas em cada parágrafo?
                     5. As curiosidades estão numeradas?
                     6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
                     
-                    NÃO ACEITO RESPOSTAS CURTAS. SEJA EXAUSTIVO, MAGISTRAL E DENSO. O USUÁRIO EXIGE EXATAMENTE ${targetPages} PÁGINAS DE CONTEÚDO. SEJA OBEDIENTE A ESTA QUANTIDADE.\n\n${prompt}`;
+                    RESPEITE RIGOROSAMENTE A META DE PALAVRAS. O USUÁRIO EXIGE EXATAMENTE ENTRE ${baseWordCount} E ${baseWordCount + 200} PALAVRAS DE CONTEÚDO. SEJA EQUILIBRADO.\n\n${prompt}`;
                 }
             }
 
