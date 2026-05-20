@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Loader2, Info, FileText, Settings, Zap, Trash2, Edit, Save, X, RefreshCw } from 'lucide-react';
+import { Sparkles, Loader2, Info, FileText, Settings, Zap, Trash2, Edit, Save, X, RefreshCw, FileDown, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface PanoramaAdminPanelProps {
@@ -29,6 +29,17 @@ interface PanoramaAdminPanelProps {
     generationTime: number;
     currentStatusIndex: number;
     loadingStatusMessages: string[];
+    book: string;
+    activeTab: string;
+    bookDownloadStatus: {
+        status: 'idle' | 'checking' | 'missing' | 'success';
+        missing: number[];
+        bookName: string;
+        modeLabel: string;
+    } | null;
+    isCheckingDownload: boolean;
+    handleDownloadBook: () => void;
+    onNavigate: (view: string, params?: any) => void;
 }
 
 export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
@@ -57,7 +68,13 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
     handleDelete,
     generationTime,
     currentStatusIndex,
-    loadingStatusMessages
+    loadingStatusMessages,
+    book,
+    activeTab,
+    bookDownloadStatus,
+    isCheckingDownload,
+    handleDownloadBook,
+    onNavigate
 }) => {
     if (!isAdmin) return null;
 
@@ -222,6 +239,64 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                 </div>
                             </div>
                         </div>
+
+                        {/* Seção de Exportação de Estudos */}
+                        {activeTab !== 'thematic' && (
+                            <div className="bg-gray-50 dark:bg-black/20 p-6 rounded-3xl border-2 border-dashed border-[#C5A059]/30 space-y-4">
+                                <div>
+                                    <h4 className="font-cinzel font-black text-sm text-[#8B0000] dark:text-[#C5A059] uppercase tracking-wider flex items-center gap-2 mb-1">
+                                        <FileDown className="w-5 h-5" /> Exportação de Livro Completo
+                                    </h4>
+                                    <p className="text-xs text-gray-500">
+                                        Baixe todos os capítulos de <strong className="text-gray-800 dark:text-gray-200">{book}</strong> consolidados em formato Markdown (.md) leve, ideal para impressão ou leitura. O compilado será relativo ao modo atual: <strong className="text-gray-800 dark:text-gray-200">{activeTab === 'teacher' ? 'Guia do Mestre (Professor)' : 'EBD Panorama (Aluno)'}</strong>.
+                                    </p>
+                                </div>
+                                
+                                <div className="flex flex-col gap-4">
+                                    <button
+                                        onClick={handleDownloadBook}
+                                        disabled={isCheckingDownload || isGenerating}
+                                        className="w-full sm:w-auto px-6 py-4 bg-gradient-to-br from-[#8B0000] to-[#600018] text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-md hover:scale-102 flex items-center justify-center gap-2.5 transition-all disabled:opacity-50"
+                                    >
+                                        {isCheckingDownload ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-[#C5A059]" />}
+                                        <span>{isCheckingDownload ? 'Verificando Capítulo por Capítulo...' : `Verificar e Baixar Livro Completo (${activeTab === 'teacher' ? 'Mestre' : 'Aluno'})`}</span>
+                                    </button>
+
+                                    {/* Lista de Capítulos Ausentes */}
+                                    {bookDownloadStatus && bookDownloadStatus.status === 'missing' && (
+                                        <div className="p-5 bg-red-50 dark:bg-[#8B0000]/10 rounded-2xl border border-red-200 dark:border-[#8B0000]/30 animate-in fade-in slide-in-from-top-4 duration-300">
+                                            <p className="text-xs font-black text-red-700 dark:text-red-400 flex items-center gap-2 mb-2">
+                                                ⚠️ ATENÇÃO: NÃO É POSSÍVEL BAIXAR COMPILAÇÃO COMPLETA
+                                            </p>
+                                            <p className="text-xs text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
+                                                Existem <strong className="text-red-700 dark:text-red-300">{bookDownloadStatus.missing.length}</strong> capítulos sem aulas geradas no modo <strong className="text-[#8B0000] dark:text-[#C5A059]">{bookDownloadStatus.modeLabel}</strong> para o livro de <strong className="text-gray-800 dark:text-gray-200">{bookDownloadStatus.bookName}</strong>. Gere ou complete esses capítulos antes de baixar:
+                                            </p>
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-3 bg-white dark:bg-black/40 rounded-xl border border-gray-100 dark:border-gray-800">
+                                                {bookDownloadStatus.missing.map(c => (
+                                                    <button
+                                                        key={c}
+                                                        onClick={() => onNavigate('panorama', { book: bookDownloadStatus.bookName, chapter: c })}
+                                                        className="px-3 py-1.5 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 text-[10px] font-black rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition-all flex items-center justify-center gap-1 border border-red-200/50"
+                                                    >
+                                                        <span>Capitulo {c}</span>
+                                                        <Sparkles className="w-3 h-3 text-[#C5A059]" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 mt-3 font-semibold italic flex items-center gap-1.5">
+                                                💡 Clique em qualquer botão de capítulo acima para mudar o visor para ele e clicar em "Gerar Novo".
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {bookDownloadStatus && bookDownloadStatus.status === 'success' && (
+                                        <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-2xl border border-green-200 dark:border-green-900/30 text-xs text-green-700 dark:text-green-400 font-bold flex items-center gap-2 animate-in fade-in duration-300">
+                                            ✓ PRONTO! O compilado consolidado de {bookDownloadStatus.bookName} ({bookDownloadStatus.modeLabel}) foi baixado com sucesso!
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Status de Geração */}
                         {isGenerating && (

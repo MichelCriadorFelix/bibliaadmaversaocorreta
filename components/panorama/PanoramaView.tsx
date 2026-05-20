@@ -184,6 +184,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         newFolderTitle, setNewFolderTitle,
         newLessonTitle, setNewLessonTitle,
         handleSaveEdit, handleDelete, handleGenerateThematic, handleUpgrade,
+        bookDownloadStatus, setBookDownloadStatus, isCheckingDownload, handleDownloadBook,
         loadQuiz, generateQuizFromContent,
         generateEbd, finalizeGeneration,
         addTheme, deleteTheme, addFolder, deleteFolder, addLesson, deleteLesson, renameLesson, moveLesson
@@ -575,6 +576,12 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                         generationTime={generationTime}
                         currentStatusIndex={currentStatusIndex}
                         loadingStatusMessages={loadingStatusMessages}
+                        book={book}
+                        activeTab={activeTab}
+                        bookDownloadStatus={bookDownloadStatus}
+                        isCheckingDownload={isCheckingDownload}
+                        handleDownloadBook={handleDownloadBook}
+                        onNavigate={onNavigate}
                     />
                 )}
 

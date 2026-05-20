@@ -454,6 +454,114 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         }
     }, [activeTab, book, chapter, depthLevel, targetPages, content, activeLesson]);
 
+    const [bookDownloadStatus, setBookDownloadStatus] = useState<{
+        status: 'idle' | 'checking' | 'missing' | 'success';
+        missing: number[];
+        bookName: string;
+        modeLabel: string;
+    } | null>(null);
+    const [isCheckingDownload, setIsCheckingDownload] = useState(false);
+
+    useEffect(() => {
+        setBookDownloadStatus(null);
+    }, [book, activeTab]);
+
+    const handleDownloadBook = async () => {
+        const bookMeta = BIBLE_BOOKS.find(b => b.name === book);
+        if (!bookMeta) {
+            onShowToast("Livro inválido.", "error");
+            return;
+        }
+
+        const totalChapters = bookMeta.chapters;
+        const currentMode = activeTab === 'teacher' ? 'teacher' : 'student';
+        const modeLabel = currentMode === 'teacher' ? 'Guia do Mestre (Professor)' : 'EBD Panorama (Aluno)';
+
+        setIsCheckingDownload(true);
+        setBookDownloadStatus({
+            status: 'checking',
+            missing: [],
+            bookName: book,
+            modeLabel
+        });
+
+        try {
+            // Filtra os registros do Panoramabíblico que correspondem ao livro selecionado
+            const records = await db.entities.PanoramaBiblico.filter({ book: book });
+            
+            const missingChapters: number[] = [];
+            const chapterContentsMap: Record<number, EBDContent> = {};
+
+            records.forEach(r => {
+                if (r.chapter) {
+                    chapterContentsMap[Number(r.chapter)] = r;
+                }
+            });
+
+            for (let c = 1; c <= totalChapters; c++) {
+                const record = chapterContentsMap[c];
+                const contentText = currentMode === 'teacher' ? record?.teacher_content : record?.student_content;
+                if (!record || !contentText || contentText.trim().length < 50) {
+                    missingChapters.push(c);
+                }
+            }
+
+            if (missingChapters.length > 0) {
+                setBookDownloadStatus({
+                    status: 'missing',
+                    missing: missingChapters,
+                    bookName: book,
+                    modeLabel: modeLabel
+                });
+                onShowToast(`Existem ${missingChapters.length} capítulos sem aula neste livro.`, 'error');
+                setIsCheckingDownload(false);
+                return;
+            }
+
+            // Tudo completo! Compila tudo
+            let markdown = `# COMPILADO DO LIVRO DE ${book.toUpperCase()}\n`;
+            markdown += `## SERIE EBD PANORAMA - ${modeLabel.toUpperCase()}\n`;
+            markdown += `*Ministério de Ensino ADMA - Assembleia de Deus Ministério Ágape*\n`;
+            markdown += `*Data de Exportação: ${new Date().toLocaleDateString('pt-BR')}*\n\n`;
+            markdown += `Este e-book consolidado contém todos os ${totalChapters} capítulos de ${book} interpretados sob o rigor hermenêutico e exegese microscópica da IA ADMA.\n\n`;
+            markdown += `---\n\n`;
+
+            for (let c = 1; c <= totalChapters; c++) {
+                const record = chapterContentsMap[c];
+                const contentText = currentMode === 'teacher' ? record.teacher_content : record.student_content;
+                
+                markdown += `# ${book} - Capítulo ${c}\n\n`;
+                markdown += `${contentText}\n\n`;
+                markdown += `\n<hr class="page-break">\n\n`;
+            }
+
+            // Cria arquivo e dispara download
+            const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${book.toLowerCase().replace(/\s/g, '_')}_ebd_completo_${currentMode}.md`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            setBookDownloadStatus({
+                status: 'success',
+                missing: [],
+                bookName: book,
+                modeLabel
+            });
+            onShowToast(`Compilado de ${book} baixado com sucesso!`, 'success');
+        } catch (error: any) {
+            console.error(error);
+            onShowToast(`Erro ao exportar compilado: ${error.message}`, 'error');
+            setBookDownloadStatus(null);
+        } finally {
+            setIsCheckingDownload(false);
+        }
+    };
+
     return {
         book, setBook,
         chapter, setChapter,
@@ -490,6 +598,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         newFolderTitle, setNewFolderTitle,
         newLessonTitle, setNewLessonTitle,
         handleSaveEdit, handleDelete, handleGenerateThematic, handleUpgrade,
+        bookDownloadStatus, setBookDownloadStatus, isCheckingDownload, handleDownloadBook,
         loadQuiz, generateQuizFromContent,
         generateEbd, finalizeGeneration,
         addTheme, deleteTheme, addFolder, deleteFolder, addLesson, deleteLesson, renameLesson, moveLesson
