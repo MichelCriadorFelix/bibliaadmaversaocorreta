@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Loader2, Info, FileText, Settings, Zap, Trash2, Edit, Save, X } from 'lucide-react';
+import { Sparkles, Loader2, Info, FileText, Settings, Zap, Trash2, Edit, Save, X, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface PanoramaAdminPanelProps {
@@ -17,6 +17,7 @@ interface PanoramaAdminPanelProps {
     showInstructions: boolean;
     setShowInstructions: (val: boolean) => void;
     handleGenerate: () => void;
+    handleUpgrade?: () => void;
     adminPanelExpanded: boolean;
     setAdminPanelExpanded: (val: boolean) => void;
     isEditing: boolean;
@@ -45,6 +46,7 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
     showInstructions,
     setShowInstructions,
     handleGenerate,
+    handleUpgrade,
     adminPanelExpanded,
     setAdminPanelExpanded,
     isEditing,
@@ -197,14 +199,27 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                     />
                                 </div>
                                 
-                                <button 
-                                    onClick={handleGenerate}
-                                    disabled={isGenerating}
-                                    className="w-full md:w-auto px-12 py-6 bg-gradient-to-br from-[#C5A059] to-[#9e8045] text-black font-black rounded-3xl shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex flex-col items-center gap-2"
-                                >
-                                    {isGenerating ? <Loader2 className="w-8 h-8 animate-spin" /> : <Sparkles className="w-8 h-8" />}
-                                    <span className="text-xs uppercase tracking-widest">{isGenerating ? 'Processando...' : 'Gerar Magnum Opus'}</span>
-                                </button>
+                                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto self-stretch md:self-auto justify-end">
+                                    <button 
+                                        onClick={handleGenerate}
+                                        disabled={isGenerating}
+                                        className="flex-1 md:flex-initial px-8 py-5 bg-gradient-to-br from-[#C5A059] to-[#9e8045] text-black font-black rounded-3xl shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex flex-col items-center justify-center gap-1.5 md:min-w-[160px]"
+                                    >
+                                        {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
+                                        <span className="text-[10px] uppercase tracking-widest whitespace-nowrap">{isGenerating ? 'Processando...' : 'Gerar Novo'}</span>
+                                    </button>
+
+                                    {handleUpgrade && (
+                                        <button 
+                                            onClick={handleUpgrade}
+                                            disabled={isGenerating}
+                                            className="flex-1 md:flex-initial px-8 py-5 bg-gradient-to-br from-[#8B0000] to-[#600018] text-white font-black rounded-3xl shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex flex-col items-center justify-center gap-1.5 md:min-w-[160px] border border-[#C5A059]/40"
+                                        >
+                                            {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <RefreshCw className="w-6 h-6" />}
+                                            <span className="text-[10px] uppercase tracking-widest whitespace-nowrap">{isGenerating ? 'Atualizando...' : 'Atualizar IA'}</span>
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 

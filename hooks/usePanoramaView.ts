@@ -369,6 +369,91 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         }
     };
 
+    const upgradeEbd = async (book: string, chapter: number, depthLevel: string, targetPages: number) => {
+        if (!content) {
+            onShowToast("Nenhum manuscrito disponível para atualizar.", "error");
+            return;
+        }
+        const existingText = activeTab === 'student' ? content.student_content : content.teacher_content;
+        if (!existingText || existingText.trim().length === 0) {
+            onShowToast("O manuscrito atual está vazio. Gere-o do zero primeiro.", "error");
+            return;
+        }
+
+        setIsGenerating(true);
+        setValidationPhase('structural');
+        setValidationLog(["🚀 Iniciando upgrade de manuscrito via Gemini 3.5 Flash...", `📐 Target de páginas: ${targetPages} páginas (${activeTab === 'student' ? 'Manuscrito Aluno' : 'Guia do Mestre'})`]);
+        setTheologicalDensity(30);
+
+        try {
+            const taskType = activeTab === 'teacher' ? 'upgrade_teacher_ebd' : 'upgrade_ebd';
+            const res = await generateContent(existingText, null, true, taskType, { book, chapter, depthLevel, targetPages: targetPages.toString() });
+            if (!res || res.length < 500) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
+
+            setValidationPhase('theological');
+            setTheologicalDensity(75);
+            let clean = res.trim();
+            if (clean.startsWith('{"text":')) { try { clean = JSON.parse(clean).text; } catch(e){} }
+            if (clean.startsWith('```')) clean = clean.replace(/```[a-z]*\n|```/g, '');
+
+            const updatedContent = { ...content, [activeTab === 'student' ? 'student_content' : 'teacher_content']: clean };
+            await db.entities.PanoramaBiblico.update(content.id!, updatedContent);
+            setContent(updatedContent);
+
+            setValidationPhase('releasing');
+            setTheologicalDensity(100);
+            onShowToast('Manuscrito Atualizado com Sucesso!', 'success');
+        } catch (e: any) {
+            onShowToast(`Erro no Upgrade: ${e.message}`, 'error');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const upgradeThematic = async (depthLevel: string, targetPages: number) => {
+        if (!activeLesson) return;
+        if (!activeLesson.content || activeLesson.content.trim().length === 0) {
+            onShowToast("A aula atual está vazia. Gere-a do zero primeiro.", "error");
+            return;
+        }
+
+        setIsGenerating(true);
+        setValidationPhase('structural');
+        setValidationLog(["🚀 Iniciando upgrade de apostila Temática Série Ouro via Gemini 3.5 Flash...", `📐 Target de páginas: ${targetPages} páginas`]);
+        setTheologicalDensity(30);
+
+        try {
+            const res = await generateContent(activeLesson.content, null, true, 'upgrade_thematic_ebd', { depthLevel, targetPages: targetPages.toString() });
+            if (!res || res.length < 500) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
+
+            setValidationPhase('theological');
+            setTheologicalDensity(75);
+            let clean = res.trim();
+            if (clean.startsWith('{"text":')) { try { clean = JSON.parse(clean).text; } catch(e){} }
+            if (clean.startsWith('```')) clean = clean.replace(/```[a-z]*\n|```/g, '');
+
+            const updatedLesson = { ...activeLesson, content: clean, is_published: true };
+            await db.entities.ThematicLessons.update(activeLesson.id!, updatedLesson);
+            setActiveLesson(updatedLesson);
+
+            setValidationPhase('releasing');
+            setTheologicalDensity(100);
+            onShowToast('Apostila Atualizada com Sucesso!', 'success');
+        } catch (e: any) {
+            onShowToast(`Erro no Upgrade: ${e.message}`, 'error');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleUpgrade = useCallback(() => {
+        if (activeTab === 'thematic') {
+            upgradeThematic(depthLevel, targetPages);
+        } else {
+            upgradeEbd(book, chapter, depthLevel, targetPages);
+        }
+    }, [activeTab, book, chapter, depthLevel, targetPages, content, activeLesson]);
+
     return {
         book, setBook,
         chapter, setChapter,
@@ -404,7 +489,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         newThemeTitle, setNewThemeTitle,
         newFolderTitle, setNewFolderTitle,
         newLessonTitle, setNewLessonTitle,
-        handleSaveEdit, handleDelete, handleGenerateThematic,
+        handleSaveEdit, handleDelete, handleGenerateThematic, handleUpgrade,
         loadQuiz, generateQuizFromContent,
         generateEbd, finalizeGeneration,
         addTheme, deleteTheme, addFolder, deleteFolder, addLesson, deleteLesson, renameLesson, moveLesson

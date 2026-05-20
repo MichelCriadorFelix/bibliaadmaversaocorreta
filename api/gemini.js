@@ -113,7 +113,7 @@ export default async function handler(request, response) {
                 enhancedPrompt = `[BUSCA DE FONTE PRIMÁRIA]: Forneça o texto da seguinte referência: "${prompt}"`;
             }
             // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR (NOVO v104) ---
-            else if (taskType === 'teacher_ebd') {
+            else if (taskType === 'teacher_ebd' || taskType === 'upgrade_teacher_ebd') {
                 let depthInstruction = "";
                 let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 2500;
                 let wordCountTarget = `${baseWordCount} a ${baseWordCount + 500}`;
@@ -126,8 +126,17 @@ export default async function handler(request, response) {
                     depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas lines. Cada ponto deve ser dissecado exaustivamente para garantir que o professor compreenda a profundidade do tema. Não resuma nada.";
                 }
 
-                systemInstruction = `ATUE COMO: Professor Michel Felix (Assistente Pedagógico). Você é um especialista em Didática Bíblica e Andragogia Cristã. SEU OBJETIVO É CRIAR UM MANUAL DE AULA PARA O PROFESSOR, E NÃO UM ESTUDO PARA O ALUNO.\n\nINSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}\n\nMANDATO DE VOLUME: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS.`;
-                enhancedPrompt = `[MODO ASSISTENTE PEDAGÓGICO ATIVO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS]: Gere um guia de aula prático e profundo conforme solicitado. Use formatação rica (Markdown). \n\n${prompt}`;
+                systemInstruction = `ATUE COMO: Professor Michel Felix (Assistente Pedagógico). Você está ATUALIZANDO um MANUAL DE AULA existente para o professor usando o modelo Gemini 3.5 Flash de última geração. Sua tarefa é analisar o manual atual fornecido no prompt e aprimorá-lo, corrigindo, expandindo e aplicando a máxima didática erudita.\n\nINSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}\n\nMANDATO DE VOLUME: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS.`;
+                if (taskType === 'upgrade_teacher_ebd') {
+                    enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO ATIVO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS]: Analise o seguinte manual existente, reescreva-o de forma a expandir todos os conceitos, aplicando as instruções acima. Insira novas pérolas históricas e didatismo impecável. Use formatação rica (Markdown). 
+                    
+                    CONTEÚDO EXISTENTE PARA UPGRADE:
+                    """
+                    ${prompt}
+                    """`;
+                } else {
+                    enhancedPrompt = `[MODO ASSISTENTE PEDAGÓGICO ATIVO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS]: Gere um guia de aula prático e profundo conforme solicitado. Use formatação rica (Markdown). \n\n${prompt}`;
+                }
             }
             // --- LÓGICA DE QUIZ (NOVO v105 - BLINDAGEM ANTI-ALUCINAÇÃO) ---
             else if (taskType === 'quiz_gen') {
@@ -192,7 +201,7 @@ export default async function handler(request, response) {
                 enhancedPrompt = prompt;
             }
             // --- LÓGICA DE EBD TEMÁTICA (SÉRIE OURO - APOSTILA DIDÁTICA PREMIUM v117.0 PhD IMPLÍCITO) ---
-            else if (taskType === 'thematic_ebd') {
+            else if (taskType === 'thematic_ebd' || taskType === 'upgrade_thematic_ebd') {
                 let depthInstruction = "";
                 let baseWordCount = targetPages ? parseInt(targetPages) * 800 : 4500;
                 let wordCountTarget = `${baseWordCount} a ${baseWordCount + 1000}`;
@@ -200,13 +209,13 @@ export default async function handler(request, response) {
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial. Cada explicação deve ser densa e informativa.";
+                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial. Cada explicação deve ser densa and informativa.";
                 } else if (depthLevel === 'profundo') {
                     depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do tema. Não resuma nada. Cada tópico deve ter no mínimo 600 palavras de explicação.";
                 }
 
                 systemInstruction = `
-                    ATUE COMO: Um PhD em Teologia, História Eclesiástica e Educação Cristã (Nível Professor Michel Felix).
+                    ATUE COMO: Um PhD em Teologia, História Eclesiástica e Educação Cristã (Nível Professor Michel Felix). Você está ATUALIZANDO uma APOSTILA DIDÁTICA "SÉRIE OURO" existente usando o modelo Gemini 3.5 Flash de última geração. Use o texto de base fornecido pelo usuário e aplique as diretrizes completas de redação do Professor de forma totalmente implícita.
                     ESTILO DE ATUAÇÃO: O conhecimento, a erudição e a didática do Professor devem ser aplicados de forma TOTALMENTE IMPLÍCITA. Você não é o sujeito da aula, o conteúdo é.
                     
                     OBJETIVO: Escrever uma APOSTILA DIDÁTICA "SÉRIE OURO" (Extensa, Profunda, Clara e Magistral).
@@ -269,7 +278,7 @@ export default async function handler(request, response) {
                        - Evite o academicismo estéril. O objetivo é a compreensão total.
 
                     --- DIRETRIZES DE COMANDO DO USUÁRIO (O QUE ENSINAR) ---
-                    O prompt do usuário contém a EMENTA OBRIGATÓRIA. Siga rigorosamente os pontos pedidos, mas expandindo-os ao máximo para atingir o volume de ${baseWordCount} palavras.
+                    O prompt do usuário contém a EMENTA OBRIGATÓRIA ou a aula atual a ser atualizada. Siga rigorosamente os tópicos existentes, expandindo-os e os reescrevendo em profundidade sob o novo modelo Gemini 3.5 Flash para atingir o volume de ${baseWordCount} palavras.
 
                     --- REGRA DE OURO DE ENUMERAÇÃO (CRÍTICO) ---
                     JAMAIS faça listas em linha (ex: "A, B e C"). 
@@ -292,7 +301,23 @@ export default async function handler(request, response) {
                     5. CONCLUSÃO (Solene, Apelativa e Resumitiva, focada na glória de Deus e na prática).
                 `;
                 
-                enhancedPrompt = `[GERAR APOSTILA DIDÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS - LINGUAGEM CLARA E PhD IMPLÍCITO]:
+                if (taskType === 'upgrade_thematic_ebd') {
+                    enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS - MODELO GEMINI 3.5 FLASH]:
+                    Analise e reescreva a seguinte apostila existente, elevando sua densidade acadêmica, enriquecendo a explicação e aplicando rigorosamente todas as regras de Glossário, Tradição e Fontes Primárias acima.
+                    
+                    APOSTILA ATUAL:
+                    """
+                    ${prompt}
+                    """
+                    
+                    INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
+                    - Comece com o TÍTULO em letras maiúsculas (Use #).
+                    - Siga e expanda o conteúdo atual com explicações completas de nível PhD.
+                    - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
+                    - CITE A BÍBLIA CONSTANTEMENTE.
+                    - CASO O TEXTO FICAR CURTO, EXPANDA AS EXPLICAÇÕES HISTÓRICAS E ETIMOLÓGICAS ATÉ ATINGIR ${baseWordCount} PALAVRAS.`;
+                } else {
+                    enhancedPrompt = `[GERAR APOSTILA DIDÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS - LINGUAGEM CLARA E PhD IMPLÍCITO]:
                     
                     EMENTA/TÓPICOS OBRIGATÓRIOS DEFINIDOS PELO RESPONSÁVEL:
                     "${prompt}"
@@ -303,9 +328,10 @@ export default async function handler(request, response) {
                     - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
                     - CITE A BÍBLIA CONSTANTEMENTE.
                     - SE O TEXTO FICAR CURTO, VOCÊ FALHOU. EXPANDA AS EXPLICAÇÕES HISTÓRICAS E ETIMOLÓGICAS ATÉ ATINGIR ${baseWordCount} PALAVRAS.`;
+                }
             }
             // --- LÓGICA PARA CONTEÚDO DO ALUNO (PADRÃO - EBD PANORAMA) ---
-            else if (taskType === 'ebd') {
+            else if (taskType === 'ebd' || taskType === 'upgrade_ebd') {
                 let depthInstruction = "";
                 let baseWordCount = targetPages ? parseInt(targetPages) * 800 : 4000;
                 let wordCountTarget = `${baseWordCount} a ${baseWordCount + 1000}`;
@@ -414,16 +440,34 @@ export default async function handler(request, response) {
         2. Insira <hr class="page-break"> entre os tópicos principais para dividir as páginas.
         `;
                 systemInstruction = WRITING_STYLE;
-                enhancedPrompt = `[PROTOCOLO CORAÇÃO DA IA v115.0 - MANDATO RÍGIDO: ${baseWordCount} PALAVRAS]: 
-                   Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
-                   1. O volume total alcançou ${baseWordCount} palavras? (Se estiver curto, você DEVE expandir cada tópico com análises linguísticas e históricas adicionais até atingir a meta).
-                   2. Cobri 100% dos versículos do capítulo com exegese microscópica?
-                   3. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
-                   4. Injetou E CITOU POR EXTENSO (ex: Jo 1:1, Sl 23:1) referências bíblicas conexas em cada parágrafo?
-                   5. As curiosidades estão numeradas?
-                   6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
-                   
-                   NÃO ACEITO RESPOSTAS CURTAS. SEJA EXAUSTIVO, MAGISTRAL E DENSO. O USUÁRIO EXIGE EXATAMENTE ${targetPages} PÁGINAS DE CONTEÚDO. SEJA OBEDIENTE A ESTA QUANTIDADE.\n\n${prompt}`;
+                if (taskType === 'upgrade_ebd') {
+                    enhancedPrompt = `[PROTOCOLO DE ATUALIZAÇÃO CORAÇÃO DA IA v115.0 - REESCRITA COM MODELO GEMINI 3.5 FLASH - MANDATO RÍGIDO: ${baseWordCount} PALAVRAS]: 
+                    Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
+                    1. O volume total alcançou ${baseWordCount} palavras? (Se estiver curto, você DEVE expandir cada tópico com análises linguísticas e históricas adicionais até atingir a meta).
+                    2. Cobri 100% dos versículos do capítulo com exegese microscópica?
+                    3. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
+                    4. Injetou E CITOU POR EXTENSO (ex: Jo 1:1, Sl 23:1) referências bíblicas conexas em cada parágrafo?
+                    5. As curiosidades estão numeradas?
+                    6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
+                    
+                    Reescreva, aprimore e expanda exaustivamente a seguinte aula existente do aluno, aplicando a estrutura padrão, sem resumir nada!
+                    
+                    AULA ATUAL:
+                    """
+                    ${prompt}
+                    """`;
+                } else {
+                    enhancedPrompt = `[PROTOCOLO CORAÇÃO DA IA v115.0 - MANDATO RÍGIDO: ${baseWordCount} PALAVRAS]: 
+                    Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
+                    1. O volume total alcançou ${baseWordCount} palavras? (Se estiver curto, você DEVE expandir cada tópico com análises linguísticas e históricas adicionais até atingir a meta).
+                    2. Cobri 100% dos versículos do capítulo com exegese microscópica?
+                    3. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
+                    4. Injetou E CITOU POR EXTENSO (ex: Jo 1:1, Sl 23:1) referências bíblicas conexas em cada parágrafo?
+                    5. As curiosidades estão numeradas?
+                    6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
+                    
+                    NÃO ACEITO RESPOSTAS CURTAS. SEJA EXAUSTIVO, MAGISTRAL E DENSO. O USUÁRIO EXIGE EXATAMENTE ${targetPages} PÁGINAS DE CONTEÚDO. SEJA OBEDIENTE A ESTA QUANTIDADE.\n\n${prompt}`;
+                }
             }
 
             // Seleção de Modelo: Todas as tarefas agora utilizam o modelo Gemini 3.5 Flash de última geração.
@@ -443,7 +487,7 @@ export default async function handler(request, response) {
             };
 
             // thinkingConfig para tipos complexos
-            if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd') {
+            if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 config.maxOutputTokens = 30000;
                 config.thinkingConfig = { thinkingBudget: 24576 };
             } else if (taskType === 'dictionary' || taskType === 'commentary') {

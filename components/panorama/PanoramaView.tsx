@@ -183,7 +183,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         newThemeTitle, setNewThemeTitle,
         newFolderTitle, setNewFolderTitle,
         newLessonTitle, setNewLessonTitle,
-        handleSaveEdit, handleDelete, handleGenerateThematic,
+        handleSaveEdit, handleDelete, handleGenerateThematic, handleUpgrade,
         loadQuiz, generateQuizFromContent,
         generateEbd, finalizeGeneration,
         addTheme, deleteTheme, addFolder, deleteFolder, addLesson, deleteLesson, renameLesson, moveLesson
@@ -563,6 +563,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                         showInstructions={showInstructions}
                         setShowInstructions={setShowInstructions}
                         handleGenerate={activeTab === 'thematic' ? handleGenerateThematic : () => generateEbd(book, chapter, customInstructions, theologicalDensity, activeTab as 'student' | 'teacher', depthLevel, targetPages)}
+                        handleUpgrade={handleUpgrade}
                         adminPanelExpanded={adminPanelExpanded}
                         setAdminPanelExpanded={setAdminPanelExpanded}
                         isEditing={isEditing}
