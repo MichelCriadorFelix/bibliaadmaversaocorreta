@@ -482,19 +482,21 @@ export default async function handler(request, response) {
                 ]
             };
 
-            // thinkingConfig para tipos complexos
+            // thinkingConfig para tipos complexos - v121.0 Correção de Truncamento Crítico
+            // Mantemos o limitador de tokens em 8192 (limite real do Gemini 3.5 Flash) e reduzimos o orçamento de reflexão (thinkingBudget).
+            // Isso garante que haja mais de 7.000 tokens dedicados exclusivamente para gerar o conteúdo textual completo sem cortes (previne mid-sentence cuts).
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
-                config.maxOutputTokens = 30000;
-                config.thinkingConfig = { thinkingBudget: 24576 };
+                config.maxOutputTokens = 8192;
+                config.thinkingConfig = { thinkingBudget: 1024 };
             } else if (taskType === 'dictionary' || taskType === 'commentary') {
                 config.maxOutputTokens = 8192; 
-                config.thinkingConfig = { thinkingBudget: 8192 };
+                config.thinkingConfig = { thinkingBudget: 512 };
             } else if (taskType === 'assistente_chat') {
                 // BUSCA NÃO USA THINKING PARA SER INSTANTÂNEA
                 config.maxOutputTokens = 2048;
             } else {
-                config.maxOutputTokens = 24000;
-                config.thinkingConfig = { thinkingBudget: 16000 };
+                config.maxOutputTokens = 8192;
+                config.thinkingConfig = { thinkingBudget: 1024 };
             }
 
             if (schema) {
