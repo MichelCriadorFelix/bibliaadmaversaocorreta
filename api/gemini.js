@@ -482,12 +482,11 @@ export default async function handler(request, response) {
                 ]
             };
 
-            // thinkingConfig para tipos complexos - v121.0 Correção de Truncamento Crítico
-            // Mantemos o limitador de tokens em 8192 (limite real do Gemini 3.5 Flash) e reduzimos o orçamento de reflexão (thinkingBudget).
-            // Isso garante que haja mais de 7.000 tokens dedicados exclusivamente para gerar o conteúdo textual completo sem cortes (previne mid-sentence cuts).
+            // thinkingConfig para tipos complexos - v122.0 Calibragem do Usuário
+            // Definido conforme solicitação direta: 12.000 maxOutputTokens e 12.000 thinkingBudget para garantir integridade e profundidade sem truncamento.
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
-                config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingBudget: 1024 };
+                config.maxOutputTokens = 12000;
+                config.thinkingConfig = { thinkingBudget: 12000 };
             } else if (taskType === 'dictionary' || taskType === 'commentary') {
                 config.maxOutputTokens = 8192; 
                 config.thinkingConfig = { thinkingBudget: 512 };
