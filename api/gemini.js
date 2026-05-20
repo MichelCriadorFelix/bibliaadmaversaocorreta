@@ -482,20 +482,19 @@ export default async function handler(request, response) {
                 ]
             };
 
-            // thinkingConfig para tipos complexos - v122.0 Calibragem do Usuário
-            // Definido conforme solicitação direta: 12.000 maxOutputTokens e 12.000 thinkingBudget para garantir integridade e profundidade sem truncamento.
+            // thinkingConfig para tipos complexos
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
-                config.maxOutputTokens = 12000;
-                config.thinkingConfig = { thinkingBudget: 12000 };
+                config.maxOutputTokens = 30000;
+                config.thinkingConfig = { thinkingBudget: 24576 };
             } else if (taskType === 'dictionary' || taskType === 'commentary') {
                 config.maxOutputTokens = 8192; 
-                config.thinkingConfig = { thinkingBudget: 512 };
+                config.thinkingConfig = { thinkingBudget: 8192 };
             } else if (taskType === 'assistente_chat') {
                 // BUSCA NÃO USA THINKING PARA SER INSTANTÂNEA
                 config.maxOutputTokens = 2048;
             } else {
-                config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingBudget: 1024 };
+                config.maxOutputTokens = 24000;
+                config.thinkingConfig = { thinkingBudget: 16000 };
             }
 
             if (schema) {
