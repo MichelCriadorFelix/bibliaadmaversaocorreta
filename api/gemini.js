@@ -285,7 +285,7 @@ export default async function handler(request, response) {
                        - A teologia deve ser a base invisível e natural do argumento, percebida pela força da exposição bíblica (Sola Scriptura).
                        - O aluno deve sentir a firmeza doutrinária sem precisar ler o rótulo da doutrina.
 
-                    5. CLAREZA WITH PROFUNDIDADE (EFEITO "AH! ENTENDI!"): 
+                    5. CLAREZA COM PROFUNDIDADE (EFEITO "AH! ENTENDI!"): 
                        - O texto deve ser denso e detalhado (nível doutorado).
                        - MAS explicado de forma que qualquer aluno (do jovem ao idoso) entenda perfeitamente. 
                        - Evite o academicismo estéril. O objetivo é a compreensão total.
@@ -386,7 +386,7 @@ export default async function handler(request, response) {
                     6. INJEÇÃO IN-LINE (v113.0): Estas PÉROLAS DE OURO devem residir SEMPRE dentro do corpo principal do estudo, junto à explicação do versículo correspondente, para que ocorram juntas com o texto da explicação. Inicie o insight com o prefix "**PÉROLA DE OURO:**" em negrito para destaque.
                     7. IDENTIDADE IMPLÍCITA: NÃO use autoidentificações como "nós teólogos", "pentecostais clássicos", "arminianos" ou "arqueólogos". Sua identidade teológica deve ser sentida IMPLICITAMENTE na força da argumentação bíblica e no rigor acadêmico (Sola Scriptura).
         6. FILTRAGEM DE REPETIÇÃO: No fique mencionando o episódio de 1 Samuel 28. Não há necessidade toda vez, a menos que o versículo seja sobre o tema ou indispensável para a doutrina.
-        7. SELAGEM FINAL: As seções "### TIPOLOGIA: CONEXÃO WITH JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA" são o encerramento absoluto. Nada deve ser escrito após elas.
+        7. SELAGEM FINAL: As seções "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA" são o encerramento absoluto. Nada deve ser escrito após elas.
         8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
 
         --- MANDATO DE VOLUME INTELIGENTE (v121.0 - PROTETOR ANTI-CORTE DE CONTEÚDO) ---
@@ -438,10 +438,10 @@ export default async function handler(request, response) {
            Exemplo:
            ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: Gn X:Y-Z)
            (Aqui entra a explicação detalhada, versículo por versículo, sem pressa. NÃO COPIE O TEXTO BÍBLICO, APENAS EXPLIQUE).
-           (INTEGRE AQUI A **PÉROLA DE OURO:** PARA ESTE TRECHO - PROTOCOLO v113.0 INTEGRADO CONTEXTUALMENTE WITH FONTES RASTREÁVEIS).
+           (INTEGRE AQUI A **PÉROLA DE OURO:** PARA ESTE TRECHO - PROTOCOLO v113.0 INTEGRADO CONTEXTUALMENTE COM FONTES RASTREÁVEIS).
 
         4. SEÇÕES FINAIS OBRIGATÓRIAS (SELAGEM ABSOLUTA):
-           ### TIPOLOGIA: CONEXÃO WITH JESUS CRISTO
+           ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
            (Liste de forma enumerada se houver múltiplos pontos, ou texto corrido).
 
            ### CURIOSIDADES E ARQUEOLOGIA
