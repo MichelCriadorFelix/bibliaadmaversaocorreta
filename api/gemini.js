@@ -426,8 +426,8 @@ export default async function handler(request, response) {
                    NÃO ACEITO RESPOSTAS CURTAS. SEJA EXAUSTIVO, MAGISTRAL E DENSO. O USUÁRIO EXIGE EXATAMENTE ${targetPages} PÁGINAS DE CONTEÚDO. SEJA OBEDIENTE A ESTA QUANTIDADE.\n\n${prompt}`;
             }
 
-            // Seleção de Modelo: Todas as tarefas agora utilizam o modelo Gemini 3 Flash Preview conforme solicitado.
-            const modelToUse = 'gemini-3-flash-preview';
+            // Seleção de Modelo: Todas as tarefas agora utilizam o modelo Gemini 3.5 Flash de última geração.
+            const modelToUse = 'gemini-3.5-flash';
 
             const config = {
                 temperature: 0.3, // Menor temperatura para buscas mais precisas e rápidas

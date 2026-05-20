@@ -37,7 +37,7 @@ export default async function handler(request, response) {
 
     const checkKey = async (keyEntry) => {
         const start = Date.now();
-        let usedModel = "gemini-3-flash-preview";
+        let usedModel = "gemini-3.5-flash";
 
         try {
             const ai = new GoogleGenAI({ apiKey: keyEntry.key });
@@ -55,7 +55,7 @@ export default async function handler(request, response) {
 
             let result;
             try {
-                result = await performCall("gemini-3-flash-preview");
+                result = await performCall("gemini-3.5-flash");
             } catch (errPrimary) {
                 throw errPrimary;
             }
