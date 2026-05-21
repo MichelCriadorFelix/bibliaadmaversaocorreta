@@ -500,10 +500,10 @@ export default async function handler(request, response) {
             };
 
             // thinkingConfig para tipos complexos
-            if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
+            if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd' || taskType === 'dictionary') {
                 config.maxOutputTokens = 30000;
                 config.thinkingConfig = { thinkingBudget: 24576 };
-            } else if (taskType === 'dictionary' || taskType === 'commentary') {
+            } else if (taskType === 'commentary') {
                 config.maxOutputTokens = 8192; 
                 config.thinkingConfig = { thinkingBudget: 8192 };
             } else if (taskType === 'assistente_chat') {
