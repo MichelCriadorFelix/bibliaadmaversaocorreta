@@ -28,38 +28,65 @@ export default async function handler(request, response) {
   }
 
   try {
-    // --- GESTÃO DE POOL DE CHAVES (LOAD BALANCER v118) ---
-    const allKeys = [];
-    if (process.env.API_KEY) allKeys.push(process.env.API_KEY);
-    if (process.env.Biblia_ADMA_API) allKeys.push(process.env.Biblia_ADMA_API);
+    // --- GESTÃO DE POOL DE CHAVES (LOAD BALANCER v122 - CIRURGICO) ---
+    const rawKeys = [];
+    if (process.env.API_KEY) rawKeys.push(process.env.API_KEY);
+    if (process.env.Biblia_ADMA_API) rawKeys.push(process.env.Biblia_ADMA_API);
 
     for (let i = 1; i <= 50; i++) {
         const keyName = `API_KEY_${i}`;
         const val = process.env[keyName];
         if (val && val.length > 10 && !val.startsWith('vck_')) {
-            allKeys.push(val);
+            rawKeys.push(val);
         }
     }
 
-    if (allKeys.length === 0) {
+    // 1. DEDUPLICAÇÃO CIRÚRGICA DE CHAVES (Evita desperdício e focos repetidos)
+    const uniqueKeys = Array.from(new Set(rawKeys.map(k => k.trim()))).filter(k => k.length > 10);
+
+    if (uniqueKeys.length === 0) {
          return response.status(500).json({ 
              error: 'CONFIGURAÇÃO PENDENTE: Nenhuma Chave de API válida encontrada.' 
          });
     }
 
-    // --- ALGORITMO DE ROUND-ROBIN EM MEMÓRIA (MELHORADO) ---
-    // Isso garante uso uniforme das chaves enquanto o container estiver ativo.
-    if (global.currentKeyIndex === undefined || isNaN(global.currentKeyIndex)) {
-        global.currentKeyIndex = 0;
+    // 2. CIRCUITO BREAKER INTEGRADO (Zera tentativas lentas em chaves já esgotadas)
+    if (!global.exhaustedKeys) {
+        global.exhaustedKeys = new Map();
     }
-    
-    let startIndex = global.currentKeyIndex;
-    global.currentKeyIndex = (global.currentKeyIndex + 1) % allKeys.length;
 
-    const orderedKeysToTry = [];
-    for (let i = 0; i < allKeys.length; i++) {
-        orderedKeysToTry.push(allKeys[(startIndex + i) % allKeys.length]);
+    // Limpeza rápida de expirações passadas
+    const now = Date.now();
+    for (const [key, expireTime] of global.exhaustedKeys.entries()) {
+        if (now > expireTime) {
+            global.exhaustedKeys.delete(key);
+        }
     }
+
+    // Separar chaves saudáveis das chaves esgotadas temporariamente
+    let healthyActiveKeys = uniqueKeys.filter(key => !global.exhaustedKeys.has(key));
+
+    // Se TODAS as chaves do pool estiverem marcadas como esgotadas, reinicie por precaução
+    if (healthyActiveKeys.length === 0) {
+        global.exhaustedKeys.clear();
+        healthyActiveKeys = uniqueKeys;
+    }
+
+    // 3. SHUFFLE ROTATION (Garante distribuição de carga em multi-abas e restarts Vercel)
+    const shuffledHealthy = [...healthyActiveKeys];
+    for (let i = shuffledHealthy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledHealthy[i], shuffledHealthy[j]] = [shuffledHealthy[j], shuffledHealthy[i]];
+    }
+
+    // Tentativas das esgotadas como último recurso (backup total) caso a cota por minuto tenha resetado
+    const backupExhausted = uniqueKeys.filter(key => global.exhaustedKeys.has(key));
+    for (let i = backupExhausted.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [backupExhausted[i], backupExhausted[j]] = [backupExhausted[j], backupExhausted[i]];
+    }
+
+    const orderedKeysToTry = [...shuffledHealthy, ...backupExhausted];
 
     let body = request.body;
     if (typeof body === 'string') {
@@ -70,7 +97,7 @@ export default async function handler(request, response) {
         }
     }
 
-    const { prompt, schema, taskType, book, chapter, depthLevel, targetPages } = body || {};
+    const { prompt, schema, taskType, book, chapter, depthLevel, targetPages, thinkingLevel } = body || {};
     if (!prompt) return response.status(400).json({ error: 'O Prompt é obrigatório.' });
 
     let lastError = null;
@@ -500,18 +527,20 @@ export default async function handler(request, response) {
             };
 
             // thinkingConfig para tipos complexos
+            const selectedThinkingLevel = thinkingLevel || 'high';
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd' || taskType === 'dictionary') {
                 config.maxOutputTokens = 30000;
-                config.thinkingConfig = { thinkingBudget: 24576 };
+                config.thinkingConfig = { thinkingLevel: selectedThinkingLevel };
             } else if (taskType === 'commentary') {
-                config.maxOutputTokens = 8192; 
-                config.thinkingConfig = { thinkingBudget: 8192 };
+                config.maxOutputTokens = 12000; 
+                config.thinkingConfig = { thinkingLevel: selectedThinkingLevel };
             } else if (taskType === 'assistente_chat') {
-                // BUSCA NÃO USA THINKING PARA SER INSTANTÂNEA
-                config.maxOutputTokens = 2048;
+                // BUSCA NÃO USA THINKING FORTE PARA SER INSTANTÂNEA
+                config.maxOutputTokens = 4096;
+                config.thinkingConfig = { thinkingLevel: thinkingLevel || 'minimal' };
             } else {
                 config.maxOutputTokens = 24000;
-                config.thinkingConfig = { thinkingBudget: 16000 };
+                config.thinkingConfig = { thinkingLevel: selectedThinkingLevel };
             }
 
             if (schema) {
@@ -535,6 +564,16 @@ export default async function handler(request, response) {
         } catch (error) {
             lastError = error;
             const msg = error.message || '';
+            
+            // Registra cota atingida no Circuito para as requisições subsequentes pularem de imediato
+            if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted')) {
+                // Bloqueia no local por 3 minutos (período de respiro da cota do Google)
+                global.exhaustedKeys.set(apiKey, Date.now() + 180000);
+            } else if (msg.includes('API key not valid') || msg.includes('400')) {
+                // Chave de API inválida / erro de configuração: bloqueia por 1 hora para evitar lag
+                global.exhaustedKeys.set(apiKey, Date.now() + 3600000);
+            }
+
             // Se for erro de rate limit, invalid argument ou quota, tentamos a próxima chave
             if (msg.includes('400') || msg.includes('429') || msg.includes('INVALID_ARGUMENT') || msg.includes('API key not valid')) {
                 continue; 

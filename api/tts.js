@@ -21,29 +21,59 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: 'Método não permitido.' });
   }
 
-  const allKeys = [];
-  if (process.env.API_KEY) allKeys.push(process.env.API_KEY);
-  if (process.env.Biblia_ADMA_API) allKeys.push(process.env.Biblia_ADMA_API);
+  const rawKeys = [];
+  if (process.env.API_KEY) rawKeys.push(process.env.API_KEY);
+  if (process.env.Biblia_ADMA_API) rawKeys.push(process.env.Biblia_ADMA_API);
 
   for (let i = 1; i <= 50; i++) {
       const keyName = `API_KEY_${i}`;
       const val = process.env[keyName];
       if (val && val.length > 10 && !val.startsWith('vck_')) {
-          allKeys.push(val);
+          rawKeys.push(val);
       }
   }
 
-  if (allKeys.length === 0) {
+  // Deduplicação cirúrgica
+  const uniqueKeys = Array.from(new Set(rawKeys.map(k => k.trim()))).filter(k => k.length > 10);
+
+  if (uniqueKeys.length === 0) {
        return response.status(500).json({ 
            error: 'CONFIGURAÇÃO PENDENTE: Nenhuma Chave de API válida encontrada.' 
        });
   }
 
-  const shuffledKeys = [...allKeys];
+  // Circuito breaker de 429
+  if (!global.exhaustedKeys) {
+      global.exhaustedKeys = new Map();
+  }
+
+  const now = Date.now();
+  for (const [key, expireTime] of global.exhaustedKeys.entries()) {
+      if (now > expireTime) {
+          global.exhaustedKeys.delete(key);
+      }
+  }
+
+  let healthyKeys = uniqueKeys.filter(key => !global.exhaustedKeys.has(key));
+  if (healthyKeys.length === 0) {
+      global.exhaustedKeys.clear();
+      healthyKeys = uniqueKeys;
+  }
+
+  const shuffledKeys = [...healthyKeys];
   for (let i = shuffledKeys.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffledKeys[i], shuffledKeys[j]] = [shuffledKeys[j], shuffledKeys[i]];
   }
+
+  // Backup das exaustas
+  const backupExhausted = uniqueKeys.filter(key => global.exhaustedKeys.has(key));
+  for (let i = backupExhausted.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [backupExhausted[i], backupExhausted[j]] = [backupExhausted[j], backupExhausted[i]];
+  }
+
+  const orderedKeysToTry = [...shuffledKeys, ...backupExhausted];
 
   let body = request.body;
   if (typeof body === 'string') {
@@ -59,7 +89,7 @@ export default async function handler(request, response) {
 
   let lastError = null;
 
-  for (const apiKey of shuffledKeys) {
+  for (const apiKey of orderedKeysToTry) {
       try {
           const ai = new GoogleGenAI({ apiKey: apiKey });
 
@@ -127,6 +157,12 @@ export default async function handler(request, response) {
       } catch (error) {
           lastError = error;
           console.error("Erro na TTS: ", error);
+          const msg = error?.message || '';
+          if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted')) {
+              global.exhaustedKeys.set(apiKey, Date.now() + 180000);
+          } else if (msg.includes('API key not valid') || msg.includes('400')) {
+              global.exhaustedKeys.set(apiKey, Date.now() + 3600000);
+          }
           continue; 
       }
   }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Loader2, Info, FileText, Settings, Zap, Trash2, Edit, Save, X, RefreshCw, FileDown, Download } from 'lucide-react';
+import { Sparkles, Loader2, Info, FileText, Settings, Zap, Trash2, Edit, Save, X, RefreshCw, FileDown, Download, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface PanoramaAdminPanelProps {
@@ -12,6 +12,8 @@ interface PanoramaAdminPanelProps {
     setCustomInstructions: (val: string) => void;
     depthLevel: string;
     setDepthLevel: (val: string) => void;
+    thinkingLevel: string;
+    setThinkingLevel: (val: string) => void;
     targetPages: number;
     setTargetPages: (val: number) => void;
     showInstructions: boolean;
@@ -52,6 +54,8 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
     setCustomInstructions,
     depthLevel,
     setDepthLevel,
+    thinkingLevel,
+    setThinkingLevel,
     targetPages,
     setTargetPages,
     showInstructions,
@@ -164,6 +168,34 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                         {depthLevel === 'padrao' && 'Foco no essencial, direto ao ponto. Ideal para aulas rápidas.'}
                                         {depthLevel === 'estendido' && 'Mais contexto histórico, referências e explicações detalhadas.'}
                                         {depthLevel === 'profundo' && 'Análise exaustiva. Explora teorias, idiomas originais e debates teológicos. Ideal para capítulos complexos.'}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-black text-[#8B0000] uppercase tracking-widest flex items-center gap-2 mb-2">
+                                        <Brain className="w-3 h-3" /> Nível de Raciocínio (Gemini Thinking)
+                                    </label>
+                                    <div className="flex gap-2">
+                                        {[
+                                            { id: 'minimal', label: 'Mínimo', desc: 'Rápido e direto, ótimo para respostas rápidas e simples.' },
+                                            { id: 'low', label: 'Baixo', desc: 'Leve reflexão. Ideal para rascunhos ágeis com boa precisão.' },
+                                            { id: 'medium', label: 'Médio', desc: 'Equilibrado. Boa densidade teológica e inteligência intermediária.' },
+                                            { id: 'high', label: 'Máximo', desc: 'Raciocínio PhD Profundo. Análises exexgéticas completas com alta estabilidade.' },
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                onClick={() => setThinkingLevel(opt.id)}
+                                                className={`flex-1 py-2 px-1 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all ${thinkingLevel === opt.id ? 'bg-[#8B0000] text-white shadow-md' : 'bg-white dark:bg-black/40 text-gray-500 border border-gray-200 dark:border-gray-800 hover:border-[#8B0000]'}`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-2">
+                                        {thinkingLevel === 'minimal' && 'Sem tempo de ponderação (instantâneo). Bom para correções gramaticais ou rápidas adições.'}
+                                        {thinkingLevel === 'low' && 'O Gemini 3.5 pensa brevemente antes de começar a responder. Geração veloz.'}
+                                        {thinkingLevel === 'medium' && 'Tempo de raciocínio intermediário equilibrado para garantir que referências fundamentais sejam citadas.'}
+                                        {thinkingLevel === 'high' && 'Raciocínio máximo habilitado (Padrão Ouro). O Gemini realiza um debate mental completo na busca teológica e estrutural antes de emitir a palavra final.'}
                                     </p>
                                 </div>
                                 

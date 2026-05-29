@@ -12,7 +12,7 @@ export const generateContent = async (
   jsonSchema?: any,
   isLongOutput: boolean = false,
   taskType: TaskType = 'general',
-  context?: { book?: string; chapter?: number; depthLevel?: string; targetPages?: string } // Novo parâmetro opcional
+  context?: { book?: string; chapter?: number; depthLevel?: string; targetPages?: string; thinkingLevel?: string } // Novo parâmetro opcional
 ) => {
     try {
         // Envia a requisição para o endpoint local da Vercel
@@ -28,7 +28,8 @@ export const generateContent = async (
                 book: context?.book,      // Envia o livro
                 chapter: context?.chapter, // Envia o capítulo
                 depthLevel: context?.depthLevel, // Envia o nível de profundidade
-                targetPages: context?.targetPages // Envia o número de páginas
+                targetPages: context?.targetPages, // Envia o número de páginas
+                thinkingLevel: context?.thinkingLevel // Envia o nível de pensamento do Gemini 3.5
             })
         });
 

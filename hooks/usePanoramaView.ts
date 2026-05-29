@@ -31,6 +31,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     const [customInstructions, setCustomInstructions] = useState('');
     const [depthLevel, setDepthLevel] = useState('padrao');
     const [targetPages, setTargetPages] = useState(5); // Default 5 pages
+    const [thinkingLevel, setThinkingLevel] = useState('high'); // Default 'high' for deep reasoning
     const [generationTime, setGenerationTime] = useState(0);
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [stats, setStats] = useState({ wordCount: 0, charCount: 0, estimatedPages: 0 });
@@ -347,7 +348,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
 
         try {
             const userPrompt = customInstructions ? customInstructions : activeLesson.title;
-            const res = await generateContent(userPrompt, null, true, 'thematic_ebd', { depthLevel, targetPages: targetPages.toString() });
+            const res = await generateContent(userPrompt, null, true, 'thematic_ebd', { depthLevel, targetPages: targetPages.toString(), thinkingLevel });
             if (!res || res.length < 1000) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
 
             setValidationPhase('theological');
@@ -369,7 +370,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         }
     };
 
-    const upgradeEbd = async (book: string, chapter: number, depthLevel: string, targetPages: number) => {
+    const upgradeEbd = async (book: string, chapter: number, depthLevel: string, targetPages: number, thinkingLevel: string) => {
         if (!content) {
             onShowToast("Nenhum manuscrito disponível para atualizar.", "error");
             return;
@@ -387,7 +388,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
 
         try {
             const taskType = activeTab === 'teacher' ? 'upgrade_teacher_ebd' : 'upgrade_ebd';
-            const res = await generateContent(existingText, null, true, taskType, { book, chapter, depthLevel, targetPages: targetPages.toString() });
+            const res = await generateContent(existingText, null, true, taskType, { book, chapter, depthLevel, targetPages: targetPages.toString(), thinkingLevel });
             if (!res || res.length < 500) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
 
             setValidationPhase('theological');
@@ -410,7 +411,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         }
     };
 
-    const upgradeThematic = async (depthLevel: string, targetPages: number) => {
+    const upgradeThematic = async (depthLevel: string, targetPages: number, thinkingLevel: string) => {
         if (!activeLesson) return;
         if (!activeLesson.content || activeLesson.content.trim().length === 0) {
             onShowToast("A aula atual está vazia. Gere-a do zero primeiro.", "error");
@@ -423,7 +424,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         setTheologicalDensity(30);
 
         try {
-            const res = await generateContent(activeLesson.content, null, true, 'upgrade_thematic_ebd', { depthLevel, targetPages: targetPages.toString() });
+            const res = await generateContent(activeLesson.content, null, true, 'upgrade_thematic_ebd', { depthLevel, targetPages: targetPages.toString(), thinkingLevel });
             if (!res || res.length < 500) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
 
             setValidationPhase('theological');
@@ -448,11 +449,11 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
 
     const handleUpgrade = useCallback(() => {
         if (activeTab === 'thematic') {
-            upgradeThematic(depthLevel, targetPages);
+            upgradeThematic(depthLevel, targetPages, thinkingLevel);
         } else {
-            upgradeEbd(book, chapter, depthLevel, targetPages);
+            upgradeEbd(book, chapter, depthLevel, targetPages, thinkingLevel);
         }
-    }, [activeTab, book, chapter, depthLevel, targetPages, content, activeLesson]);
+    }, [activeTab, book, chapter, depthLevel, targetPages, thinkingLevel, content, activeLesson]);
 
     const [bookDownloadStatus, setBookDownloadStatus] = useState<{
         status: 'idle' | 'checking' | 'missing' | 'success';
@@ -577,6 +578,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         customInstructions, setCustomInstructions,
         depthLevel, setDepthLevel,
         targetPages, setTargetPages,
+        thinkingLevel, setThinkingLevel,
         generationTime, setGenerationTime,
         currentStatusIndex, setCurrentStatusIndex,
         stats,
