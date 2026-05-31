@@ -139,43 +139,97 @@ export default async function handler(request, response) {
                 `;
                 enhancedPrompt = `[BUSCA DE FONTE PRIMÁRIA]: Forneça o texto da seguinte referência: "${prompt}"`;
             }
-            // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR (NOVO v104) ---
+            // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR (NOVO v123.0 - CIRÚRGICO) ---
             else if (taskType === 'teacher_ebd' || taskType === 'upgrade_teacher_ebd') {
                 let depthInstruction = "";
-                let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 2500;
+                let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 1000; // Padrão 2 páginas se não especificado
                 
-                // Margem de flexibilidade (gordura) para evitar que o conteúdo venha cortado na atualização
                 const isUpgrade = taskType === 'upgrade_teacher_ebd';
                 const toleranceLimit = isUpgrade ? 800 : 350;
                 let wordCountTarget = `${baseWordCount} a ${baseWordCount + toleranceLimit}`;
                 
                 if (depthLevel === 'padrao') {
-                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
+                    depthInstruction = "Mantenha o foco no essencial, fornecendo orientações práticas e diretas ao ponto.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial.";
+                    depthInstruction = "Gere explicações e planos didáticos bem amparados com contexto histórico, conselhos práticos e recursos de fixação adicionais.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o professor compreenda a profundidade do tema. Não resuma nada.";
+                    depthInstruction = "Profundidade teológica extrema integrada no resumo pedagógico. Inclua conexões com idiomas originais (grego/hebraico), termos em latim e exegese rebuscada adaptada para o professor explicar na lousa de forma que o aluno compreenda.";
                 }
 
                 let volumeInstruction = "";
                 if (isUpgrade) {
-                    volumeInstruction = `MANDATO DE VOLUME FLEXÍVEL (ALVO PREFERENCIAL: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Como este é um UPGRADE de conteúdo existente que receberá novas estruturas ricas (Glossário, Pérolas, etc), a integridade é prioritária. É EXPRESSAMENTE PROIBIDO cortar a aula no meio ou deixá-la inacabada para economizar palavras ou se enquadrar num teto muito estrito. Se necessário para concluir o estudo de forma majestosa, use a margem estendida de até ${baseWordCount + toleranceLimit} palavras.`;
+                    volumeInstruction = `MANDATO DE VOLUME FLEXÍVEL (ALVO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Gire em torno da escala de páginas definida no painel. É proibido cortar seções interrompidas.`;
                 } else {
-                    volumeInstruction = `MANDATO DE VOLUME EQUILIBRADO (ALVO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Planeje o tamanho de cada seção proporcionalmente para que o texto final fique confortavelmente no intervalo de ${wordCountTarget} palavras. Nunca ultrapasse excessivamente ou termine de forma abrupta antes de completar os tópicos.`;
+                    volumeInstruction = `MANDATO DE VOLUME EQUILIBRADO (ALVO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Enquadre o resumo e roadmap na meta de ${wordCountTarget} palavras de forma perfeitamente polida e concisa.`;
                 }
 
-                systemInstruction = `ATUE COMO: Professor Michel Felix (Assistente Pedagógico). Você está gerando ou atualizando um MANUAL DE AULA para o professor usando o modelo Gemini 3.5 Flash de última geração. Sua tarefa é analisar, corrigir, expandir e aplicar a máxima didática erudita.\n\nINSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}\n\n${volumeInstruction}`;
-                
-                if (isUpgrade) {
-                    enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO - ALVO FLEXÍVEL COM GORDURA PORTÁTIL: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Analise o seguinte manual existente, reescreva-o para integrar novas pérolas históricas, novos glossários fáceis e aplicar máxima erudição e formatação rica (Markdown).
-                    ATENÇÃO EXTREMA: Nunca interrompa ou corte o texto pela metade. Se o conteúdo original acrescido das novas pérolas e glossários ultrapassar o tamanho original, use a margem ("gordura") extra completa de até ${baseWordCount + toleranceLimit} palavras para emoldurar toda a aula até o final sem truncamento.
+                // Detecta se há uma aula extensa colada no prompt (como texto da lição do aluno)
+                const isPastedLesson = prompt && (prompt.length > 350 || prompt.includes('##') || prompt.toLowerCase().includes('manuscrito') || prompt.toLowerCase().includes('student_content') || prompt.toLowerCase().includes('lição') || prompt.toLowerCase().includes('introdução'));
+
+                if (isPastedLesson) {
+                    systemInstruction = `ATUE COMO: Professor Michel Felix (Assistente Didático de Elite). Você está gerando ou atualizando um **GUIA DO MESTRE: RESUMO ESTRATÉGICO E CIRÚRGICO** baseado no texto/manuscrito da aula fornecido no prompt.
+
+                    DIRETRIZES DE OURO CRÍTICAS:
+                    1. NÃO crie uma aula paralela do zero, não reescreva a teoria inteira e não copie longamente o texto colado. O professor já tem o texto da aula; ele precisa de um MANUAL PEDAGÓGICO DE PALESTRAÇÃO.
+                    2. Gere uma orientação didática polida com foco em: Como prender a atenção do aluno, como estruturar o tempo, explicações simplificadas de termos complexos e aplicações.
+                    3. Respeite rigidamente a meta de tamanho solicitada (visando de 1 a 5 páginas conforme selecionado, ex: ~${baseWordCount} a ${baseWordCount + toleranceLimit} palavras total).
                     
-                    CONTEÚDO EXISTENTE PARA UPGRADE:
-                    """
-                    ${prompt}
-                    """`;
+                    ESTRUTURA OBRIGATÓRIA DO GUIA DO MESTRE:
+                    *   **Título Principal**: GUIA DO MESTRE: RESUMO E ROADMAP DA AULA
+                    *   **1. RESUMO CIRÚRGICO & FOCO DE ENSINO (~15%)**:
+                        - Parágrafo de síntese da grande verdade ensinada naquela aula específica.
+                        - Objetivos de Aprendizado (Saber, Sentir, Praticar).
+                    *   **2. ROADMAP PEDAGÓGICO (ROTEIRO COM DIVISÃO DE TEMPOS) (~35%)**:
+                        - **Introdução & Quebra-Gelo (Sugerido: 10 mins)**: Pergunta engajadora ou dinâmica contextualizada com a aula.
+                        - **Exposição dos Tópicos (Sugerido: 25 mins)**: Divisão estratégica de como abordar os tópicos principais da aula colada, adicionando notas de ênfase para prender o aluno.
+                        - **Aplicações Práticas & Conclusão (Sugerido: 10 mins)**: Como encerrar de forma inesquecível.
+                    *   **3. DENTRO DA MENTE DO ALUNO: PONTE DIDÁTICA (~20%)**:
+                        - Como traduzir termos difíceis, nomes ou teorias teológicas daquela aula colada para ilustrações do cotidiano simples que qualquer crente entenda.
+                    *   **4. PÉROLAS DE SABEDORIA & CURIOSIDADES HISTÓRICAS (~15%)**:
+                        - Mistérios adicionais arqueológicos, culturais, rabínicos ou históricos que não estão explícitos na aula original, mas que enriquecem o repertório do professor ao falar daquele tema.
+                    *   **5. PERGUNTAS DE OURO PARA DEBATE EM CLASSE (~15%)**:
+                        - 3 a 5 perguntas desafiadoras baseadas na aula para o professor propor aos alunos, com a resposta ideal estruturada resumidamente entre parágrafos de forma oculta ou explicativa para o professor guiar os comentários.
+
+                    INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
+                    ${volumeInstruction}`;
+
+                    if (isUpgrade) {
+                        enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO - RESUMO E ROADMAP DO PROFESSOR: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Analise a lição/artigo abaixo e o guia existente. Atualize e reestruture o Guia do Mestre para focar cirurgicamente no roteiro de dinâmica, ponte didática, pérolas de ilustração e cronograma.
+                        
+                        AULA / MANUSCRITO BASE & GUIA EXISTENTE:
+                        """
+                        ${prompt}
+                        """`;
+                    } else {
+                        enhancedPrompt = `[MODO GUIA DO MESTRE - RESUMO E ROADMAP DO PROFESSOR: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Analise atentamente a aula colada abaixo e gere o Guia do Mestre baseado nela. Siga estritamente a estrutura do Padrão Ouro estabelecida (Resumo Cirúrgico, Roadmap de Tempos, Ponte Didática, Pérolas e Discussão em Classe).
+                        
+                        AULA / MANUSCRITO COLADO:
+                        """
+                        ${prompt}
+                        """`;
+                    }
                 } else {
-                    enhancedPrompt = `[MODO ASSISTENTE PEDAGÓGICO - ALVO EQUILIBRADO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Gere um guia de aula prático e profundo conforme solicitado. Use formatação rica (Markdown). Planeje as seções para enquadrar na meta de ${baseWordCount} a ${baseWordCount + toleranceLimit} palavras executadas perfeitamente! \n\n${prompt}`;
+                    systemInstruction = `ATUE COMO: Professor Michel Felix (Assistente Didático de Elite). Você está gerando ou atualizando um MANUAL DE ENSINO E GUIA DO MESTRE de EBD. Seu papel é estruturar estratégias de aula práticas para que o instrutor lecione com excelência as Escrituras.
+                    
+                    ESTRUTURA COMPACTA:
+                    1. ROTEIRO DE MINISTRAÇÃO (Roadmap temporal)
+                    2. PONTES DIDÁTICAS DE CONEXÃO
+                    3. PÉROLAS HISTÓRICAS E TEOLÓGICAS (Exegese aprofundada)
+                    4. DICAS DE FIXAÇÃO E PERGUNTAS PARA DEBATE
+                    
+                    INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
+                    ${volumeInstruction}`;
+
+                    if (isUpgrade) {
+                        enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO - GUIA DO MESTRE: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Atualize o guia do mestre para ampliar as dinâmicas pedagógicas e pontes didáticas.
+                        
+                        CONTEÚDO EXISTENTE PARA UPGRADE:
+                        """
+                        ${prompt}
+                        """`;
+                    } else {
+                        enhancedPrompt = `[MODO GUIA DO MESTRE - ALVO EQUILIBRADO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Gere um guia estratégico de ministração de aula do professor para o seguinte tema/capítulo: "${prompt}".`;
+                    }
                 }
             }
             // --- LÓGICA DE QUIZ (NOVO v105 - BLINDAGEM ANTI-ALUCINAÇÃO) ---
