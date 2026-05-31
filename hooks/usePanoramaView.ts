@@ -291,7 +291,9 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             if (activeTab === 'thematic' && activeLesson) {
                 setEditValue(activeLesson.content);
             } else if (content) {
-                setEditValue(activeTab === 'student' ? content.student_content : content.teacher_content);
+                setEditValue((activeTab === 'student' ? content.student_content : content.teacher_content) || '');
+            } else {
+                setEditValue('');
             }
         }
     }, [isEditing, activeTab, content, activeLesson]);
@@ -304,14 +306,30 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 const updated = { ...activeLesson, content: editValue };
                 await db.entities.ThematicLessons.update(activeLesson.id!, updated);
                 setActiveLesson(updated);
-            } else if (content) {
-                const updated = { ...content, [activeTab === 'student' ? 'student_content' : 'teacher_content']: editValue };
-                await db.entities.PanoramaBiblico.update(content.id!, updated);
-                setContent(updated);
+            } else {
+                const key = generateChapterKey(book, chapter);
+                if (content) {
+                    const updated = { ...content, [activeTab === 'student' ? 'student_content' : 'teacher_content']: editValue };
+                    await db.entities.PanoramaBiblico.update(content.id!, updated);
+                    setContent(updated);
+                } else {
+                    const newContent: Omit<EBDContent, 'id'> = {
+                        study_key: key,
+                        book,
+                        chapter,
+                        title: `Panorama de ${book} ${chapter}`,
+                        outline: [],
+                        student_content: activeTab === 'student' ? editValue : '',
+                        teacher_content: activeTab === 'teacher' ? editValue : '',
+                    };
+                    const created = await db.entities.PanoramaBiblico.create(newContent as EBDContent);
+                    setContent(created);
+                }
             }
             setIsEditing(false);
             onShowToast("Alterações salvas!", "success");
         } catch (e) {
+            console.error("Erro ao salvar manuscrito:", e);
             onShowToast("Erro ao salvar.", "error");
         } finally {
             setIsSaving(false);
