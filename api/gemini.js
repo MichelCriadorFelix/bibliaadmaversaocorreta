@@ -102,9 +102,12 @@ export default async function handler(request, response) {
 
     let lastError = null;
     let successResponse = null;
+    const triedKeysLog = [];
 
     // Tenta as chaves na ordem escalonada (Round-Robin) para esta requisição específica
     for (const apiKey of orderedKeysToTry) {
+        const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
+        triedKeysLog.push({ key: maskedKey, name: `API_KEY (Fim ${apiKey.slice(-4)})`, status: 'TENTANDO' });
         try {
             const ai = new GoogleGenAI({ apiKey: apiKey });
             
@@ -613,11 +616,13 @@ export default async function handler(request, response) {
             }
 
             successResponse = aiResponse.text;
+            triedKeysLog[triedKeysLog.length - 1].status = 'SUCESSO';
             break; 
 
         } catch (error) {
             lastError = error;
             const msg = error.message || '';
+            triedKeysLog[triedKeysLog.length - 1].status = 'FALHA: ' + msg.substring(0, 120);
             
             // Registra cota atingida no Circuito para as requisições subsequentes pularem de imediato
             if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted')) {
@@ -638,9 +643,9 @@ export default async function handler(request, response) {
     }
 
     if (successResponse) {
-        return response.status(200).json({ text: successResponse });
+        return response.status(200).json({ text: successResponse, rotationLog: triedKeysLog });
     } else {
-        return response.status(500).json({ error: `Falha na geração v118.0: ${lastError?.message || 'Todas as chaves do pool falharam.'}` });
+        return response.status(500).json({ error: `Falha na geração v118.0: ${lastError?.message || 'Todas as chaves do pool falharam.'}`, rotationLog: triedKeysLog });
     }
   } catch (error) {
     console.error("Critical Server Error:", error);
