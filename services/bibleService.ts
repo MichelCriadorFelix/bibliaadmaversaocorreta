@@ -1,6 +1,7 @@
 import { db } from './database';
 import { BIBLE_BOOKS } from '../constants';
 import { Verse, SourceMode } from '../types';
+import { generateContent } from './geminiService';
 
 export interface ChapterResult {
     verses: Verse[];
@@ -108,8 +109,45 @@ export const BibleService = {
                 throw new Error("Capítulo vazio.");
             }
         } catch (e) {
-            console.error("External API error:", e);
-            throw e;
+            console.error("External API error, attempting Gemini recovery...", e);
+            try {
+                const schema = {
+                    type: 'object',
+                    properties: {
+                        verses: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    number: { type: 'number' },
+                                    text: { type: 'string' }
+                                },
+                                required: ['number', 'text']
+                            }
+                        }
+                    },
+                    required: ['verses']
+                };
+
+                const prompt = `Traga todos os versículos de ${bookMeta.name} capítulo ${chapter} na versão ACF (Almeida Corrigida Fiel).`;
+                const geminiResult = await generateContent(prompt, schema, false, 'get_bible_verses');
+
+                if (geminiResult && Array.isArray(geminiResult.verses) && geminiResult.verses.length > 0) {
+                    const cleanVerses = geminiResult.verses.map((v: any) => ({
+                        number: Number(v.number),
+                        text: String(v.text).trim()
+                    }));
+                    const simpleVerses = cleanVerses.map((v: any) => v.text);
+                    // Salva na nuvem e offline para o futuro (primeiro clique alimenta para todos)
+                    await db.entities.BibleChapter.saveUniversal(cacheKey, simpleVerses);
+                    return { verses: cleanVerses, source: 'online' };
+                } else {
+                    throw new Error("Resposta do Gemini vazia ou inválida.");
+                }
+            } catch (geminiError) {
+                console.error("Gemini Bible Recovery failed:", geminiError);
+                throw new Error("Erro ao carregar o texto bíblico.");
+            }
         }
     },
 

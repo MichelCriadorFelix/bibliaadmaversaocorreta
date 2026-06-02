@@ -118,6 +118,10 @@ export default async function handler(request, response) {
             if (taskType === 'assistente_chat') {
                 systemInstruction = "Você é um buscador bíblico ultrarrápido. Retorne apenas os dados solicitados em JSON, sem explicações longas.";
             }
+            // --- GERADOR DE VERSÍCULOS BÍBLICOS DETALHADO (NOVO v124.0) ---
+            else if (taskType === 'get_bible_verses') {
+                systemInstruction = "Você é um servo e gerador extremamente fiel dos textos da Bíblia Sagrada na tradução ACF (Almeida Corrigida Fiel). Forneça todos os versículos do capítulo solicitado no livro especificado sob formato de array JSON contendo número do versículo e texto de cada versículo. Seja extremamente fiel à ortografia e redação da ACF em português brasileiro, mantendo exatamente o número correto de versículos do capítulo e os textos originais, sem cortes ou paráfrase.";
+            }
             // --- LÓGICA DE BUSCA DE FONTES PRIMÁRIAS (NOVO v120.0) ---
             else if (taskType === 'fetch_primary_source') {
                 systemInstruction = `
@@ -591,9 +595,9 @@ export default async function handler(request, response) {
             } else if (taskType === 'commentary') {
                 config.maxOutputTokens = 12000; 
                 config.thinkingConfig = { thinkingLevel: selectedThinkingLevel };
-            } else if (taskType === 'assistente_chat') {
-                // BUSCA NÃO USA THINKING FORTE PARA SER INSTANTÂNEA
-                config.maxOutputTokens = 4096;
+            } else if (taskType === 'assistente_chat' || taskType === 'get_bible_verses') {
+                // BUSCA E RECUPERAÇÃO NÃO USAM THINKING FORTE PARA SER INSTANTÂNEA
+                config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingLevel: thinkingLevel || 'minimal' };
             } else {
                 config.maxOutputTokens = 24000;
