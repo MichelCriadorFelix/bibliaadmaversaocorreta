@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BibleService } from '../../services/bibleService';
 import { BookOpen, X, Loader2, RefreshCw } from 'lucide-react';
+import { db } from '../../services/database';
 
 interface BibleReferenceProps {
     book: string;
@@ -16,9 +17,32 @@ export const BibleReference: React.FC<BibleReferenceProps> = ({ book, chapter, v
     const [verseTexts, setVerseTexts] = useState<{number: number, text: string}[]>([]);
     const [error, setError] = useState('');
     const [shiftX, setShiftX] = useState(0);
+    const [localIsAdmin, setLocalIsAdmin] = useState(false);
     
     const popoverRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        const checkAdminFallback = async () => {
+            try {
+                const saved = localStorage.getItem('adma_user');
+                if (saved) {
+                    const u = JSON.parse(saved);
+                    if (u?.user_email) {
+                        const profiles = await db.entities.ReadingProgress.filter({ user_email: u.user_email });
+                        if (profiles && profiles.length > 0 && profiles[0].role === 'admin') {
+                            setLocalIsAdmin(true);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Error verifying admin fallback", e);
+            }
+        };
+        checkAdminFallback();
+    }, []);
+
+    const finalIsAdmin = !!(isAdmin || localIsAdmin);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -115,7 +139,7 @@ export const BibleReference: React.FC<BibleReferenceProps> = ({ book, chapter, v
                         <div className="flex items-center gap-2 text-[#8B0000] dark:text-[#ff6b6b] font-cinzel font-bold">
                             <BookOpen className="w-4 h-4" />
                             <span>{book} {chapter}:{verses}</span>
-                            {isAdmin && (
+                            {finalIsAdmin && (
                                 <button 
                                     onClick={() => loadVerses(true)}
                                     disabled={loading}

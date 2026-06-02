@@ -304,7 +304,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                     }
                     
                     result.push(
-                        <BibleReference key={`${keyPrefix}-${i}-${idx}`} book={resolvedBook} chapter={currentChapter} verses={currentVerses} isAdmin={isAdmin}>
+                        <BibleReference key={`${keyPrefix}-${i}-${idx}`} book={resolvedBook} chapter={currentChapter} verses={currentVerses} isAdmin={isAdmin || userProgress?.role === 'admin'}>
                             {idx === 0 ? `${bookRaw} ${chapter}:${verses}` : v}
                         </BibleReference>
                     );
@@ -336,7 +336,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
 
             // Cria o componente interativo para a fonte histórica
             parts.push(
-                <PrimarySource key={`${keyPrefix}-ps-${match.index}`} source={sourceName} reference={reference} isAdmin={isAdmin}>
+                <PrimarySource key={`${keyPrefix}-ps-${match.index}`} source={sourceName} reference={reference} isAdmin={isAdmin || userProgress?.role === 'admin'}>
                     {fullMatch}
                 </PrimarySource>
             );
@@ -365,7 +365,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                 const hiddenCommand = refParts.slice(2).join('|').trim() || '';
                 
                 return (
-                    <PrimarySource key={`ps-${i}`} source={source} reference={reference} hiddenCommand={hiddenCommand} isAdmin={isAdmin}>
+                    <PrimarySource key={`ps-${i}`} source={source} reference={reference} hiddenCommand={hiddenCommand} isAdmin={isAdmin || userProgress?.role === 'admin'}>
                         {source}, {reference}
                     </PrimarySource>
                 );

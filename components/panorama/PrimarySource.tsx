@@ -17,9 +17,32 @@ export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference,
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [shiftX, setShiftX] = useState(0);
+    const [localIsAdmin, setLocalIsAdmin] = useState(false);
     
     const popoverRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        const checkAdminFallback = async () => {
+            try {
+                const saved = localStorage.getItem('adma_user');
+                if (saved) {
+                    const u = JSON.parse(saved);
+                    if (u?.user_email) {
+                        const profiles = await db.entities.ReadingProgress.filter({ user_email: u.user_email });
+                        if (profiles && profiles.length > 0 && profiles[0].role === 'admin') {
+                            setLocalIsAdmin(true);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Error verifying admin fallback in PrimarySource", e);
+            }
+        };
+        checkAdminFallback();
+    }, []);
+
+    const finalIsAdmin = !!(isAdmin || localIsAdmin);
 
     const sourceIdBase = `${source.toLowerCase().replace(/\s+/g, '_')}_${reference.toLowerCase().replace(/\s+/g, '_')}`;
     const hashCode = (s: string) => s.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);
@@ -140,7 +163,7 @@ export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference,
                         <div className="flex items-center gap-2 text-[#D4AF37] font-cinzel font-bold">
                             <BookOpen className="w-4 h-4" />
                             <span className="text-xs uppercase tracking-wider">Fonte Primária</span>
-                            {isAdmin && (
+                            {finalIsAdmin && (
                                 <button 
                                     onClick={() => fetchSource(true)}
                                     disabled={isLoading}

@@ -134,6 +134,7 @@ export interface UserProgress {
   quiz_points?: number; // Pontos acumulados no Quiz
   quizzes_taken?: string[]; // IDs dos quizzes já realizados
   quiz_attempts?: Record<string, QuizAttempt>; // NOVO: Rastreio de tentativas em andamento
+  role?: string; // Papel do usuário (e.g., admin)
   id?: string;
   created_at?: string;
 }
