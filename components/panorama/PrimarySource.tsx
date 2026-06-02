@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, X, Loader2, AlertCircle } from 'lucide-react';
+import { BookOpen, X, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { db } from '../../services/database';
 import ReactMarkdown from 'react-markdown';
 
@@ -7,10 +7,11 @@ interface PrimarySourceProps {
     source: string;
     reference: string;
     hiddenCommand?: string;
+    isAdmin?: boolean;
     children: React.ReactNode;
 }
 
-export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference, hiddenCommand, children }) => {
+export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference, hiddenCommand, isAdmin, children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [content, setContent] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -24,19 +25,21 @@ export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference,
     const hashCode = (s: string) => s.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);
     const sourceId = hiddenCommand ? `${sourceIdBase}_${Math.abs(hashCode(hiddenCommand))}` : sourceIdBase;
 
-    const fetchSource = async () => {
+    const fetchSource = async (forceRegenerate = false) => {
         setIsLoading(true);
         setError(null);
         try {
-            // 1. Tentar buscar no banco de dados (Universal via Supabase)
-            const existing = await db.entities.PrimarySources.get(sourceId);
-            if (existing && existing.text) {
-                setContent(existing.text);
-                setIsLoading(false);
-                return;
+            if (!forceRegenerate) {
+                // 1. Tentar buscar no banco de dados (Universal via Supabase)
+                const existing = await db.entities.PrimarySources.get(sourceId);
+                if (existing && existing.text) {
+                    setContent(existing.text);
+                    setIsLoading(false);
+                    return;
+                }
             }
 
-            // 2. Se não existir, buscar via Gemini
+            // 2. Se não existir ou forçar a regeneração, buscar via Gemini
             const promptText = hiddenCommand 
                 ? `Referência: ${source}, ${reference}. Instrução específica: ${hiddenCommand}` 
                 : `${source}, ${reference}`;
@@ -137,6 +140,16 @@ export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference,
                         <div className="flex items-center gap-2 text-[#D4AF37] font-cinzel font-bold">
                             <BookOpen className="w-4 h-4" />
                             <span className="text-xs uppercase tracking-wider">Fonte Primária</span>
+                            {isAdmin && (
+                                <button 
+                                    onClick={() => fetchSource(true)}
+                                    disabled={isLoading}
+                                    title="Regerar Fonte Primária (Ignorar Cache)"
+                                    className="ml-2 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
+                                >
+                                    <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                                </button>
+                            )}
                         </div>
                         <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                             <X className="w-4 h-4" />

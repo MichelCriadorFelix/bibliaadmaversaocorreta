@@ -336,7 +336,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
 
             // Cria o componente interativo para a fonte histórica
             parts.push(
-                <PrimarySource key={`${keyPrefix}-ps-${match.index}`} source={sourceName} reference={reference}>
+                <PrimarySource key={`${keyPrefix}-ps-${match.index}`} source={sourceName} reference={reference} isAdmin={isAdmin}>
                     {fullMatch}
                 </PrimarySource>
             );
@@ -365,7 +365,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                 const hiddenCommand = refParts.slice(2).join('|').trim() || '';
                 
                 return (
-                    <PrimarySource key={`ps-${i}`} source={source} reference={reference} hiddenCommand={hiddenCommand}>
+                    <PrimarySource key={`ps-${i}`} source={source} reference={reference} hiddenCommand={hiddenCommand} isAdmin={isAdmin}>
                         {source}, {reference}
                     </PrimarySource>
                 );
