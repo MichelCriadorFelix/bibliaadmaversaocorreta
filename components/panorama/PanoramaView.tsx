@@ -304,7 +304,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                     }
                     
                     result.push(
-                        <BibleReference key={`${keyPrefix}-${i}-${idx}`} book={resolvedBook} chapter={currentChapter} verses={currentVerses}>
+                        <BibleReference key={`${keyPrefix}-${i}-${idx}`} book={resolvedBook} chapter={currentChapter} verses={currentVerses} isAdmin={isAdmin}>
                             {idx === 0 ? `${bookRaw} ${chapter}:${verses}` : v}
                         </BibleReference>
                     );

@@ -15,7 +15,7 @@ export const BibleService = {
      * 3. Supabase (Cloud)
      * 4. API Externa (Online)
      */
-    async getChapter(bookName: string, chapter: number): Promise<ChapterResult> {
+    async getChapter(bookName: string, chapter: number, forceBypassCache = false): Promise<ChapterResult> {
         const cleanInput = bookName.toLowerCase().replace(/[\s\.]/g, "");
         const normalizedInput = cleanInput.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         
@@ -39,46 +39,53 @@ export const BibleService = {
 
         const cacheKey = `bible_acf_${bookMeta.abbrev}_${chapter}`;
         
-        // 1. TENTA OFFLINE (IndexedDB)
-        try {
-            const cached = await db.entities.BibleChapter.getOffline(cacheKey);
-            if (cached && Array.isArray(cached) && cached.length > 0) {
-                const formatted = cached.map((t: string, i: number) => ({ number: i + 1, text: t }));
-                return { verses: formatted, source: 'offline' };
+        if (!forceBypassCache) {
+            // 1. TENTA OFFLINE (IndexedDB)
+            try {
+                const cached = await db.entities.BibleChapter.getOffline(cacheKey);
+                if (cached && Array.isArray(cached) && cached.length > 0) {
+                    const formatted = cached.map((t: string, i: number) => ({ number: i + 1, text: t }));
+                    return { verses: formatted, source: 'offline' };
+                }
+            } catch (e) {
+                console.warn("IndexedDB error:", e);
             }
-        } catch (e) {
-            console.warn("IndexedDB error:", e);
-        }
 
-        // 2. TENTA LOCAL STORAGE (LEGADO)
-        try {
-            const legacyCache = localStorage.getItem(cacheKey);
-            if (legacyCache) {
-                const parsed = JSON.parse(legacyCache);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    if (typeof parsed[0] === 'string') {
-                        const formatted = parsed.map((t: string, i: number) => ({ number: i + 1, text: t }));
-                        return { verses: formatted, source: 'offline' };
-                    } else if (typeof parsed[0] === 'object' && parsed[0].text) {
-                        return { verses: parsed, source: 'offline' };
+            // 2. TENTA LOCAL STORAGE (LEGADO)
+            try {
+                const legacyCache = localStorage.getItem(cacheKey);
+                if (legacyCache) {
+                    const parsed = JSON.parse(legacyCache);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        if (typeof parsed[0] === 'string') {
+                            const formatted = parsed.map((t: string, i: number) => ({ number: i + 1, text: t }));
+                            return { verses: formatted, source: 'offline' };
+                        } else if (typeof parsed[0] === 'object' && parsed[0].text) {
+                            return { verses: parsed, source: 'offline' };
+                        }
                     }
                 }
+            } catch(e) {
+                console.warn("LocalStorage error:", e);
             }
-        } catch(e) {
-            console.warn("LocalStorage error:", e);
-        }
 
-        // 3. TENTA NUVEM (SUPABASE - UNIVERSAL)
-        try {
-            const cloudData = await db.entities.BibleChapter.getCloud(cacheKey);
-            if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
-                const formatted = cloudData.map((t: string, i: number) => ({ number: i + 1, text: t }));
-                // Salva offline para o futuro
-                await db.entities.BibleChapter.saveOffline(cacheKey, cloudData);
-                return { verses: formatted, source: 'cloud' };
+            // 3. TENTA NUVEM (SUPABASE - UNIVERSAL)
+            try {
+                const cloudData = await db.entities.BibleChapter.getCloud(cacheKey);
+                if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
+                    const formatted = cloudData.map((t: string, i: number) => ({ number: i + 1, text: t }));
+                    // Salva offline para o futuro
+                    await db.entities.BibleChapter.saveOffline(cacheKey, cloudData);
+                    return { verses: formatted, source: 'cloud' };
+                }
+            } catch (e) {
+                console.warn("Cloud fetch error:", e);
             }
-        } catch (e) {
-            console.warn("Cloud fetch error:", e);
+        } else {
+            // Se forçar bypass, limpa cache local de imediato
+            try {
+                localStorage.removeItem(cacheKey);
+            } catch (e) {}
         }
 
         // 4. FALLBACK FINAL: API EXTERNA

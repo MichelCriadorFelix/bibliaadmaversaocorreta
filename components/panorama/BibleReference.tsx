@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BibleService } from '../../services/bibleService';
-import { BookOpen, X, Loader2 } from 'lucide-react';
+import { BookOpen, X, Loader2, RefreshCw } from 'lucide-react';
 
 interface BibleReferenceProps {
     book: string;
     chapter: number;
     verses: string; // e.g., "16", "1-3", "1,3,5"
+    isAdmin?: boolean;
     children: React.ReactNode;
 }
 
-export const BibleReference: React.FC<BibleReferenceProps> = ({ book, chapter, verses, children }) => {
+export const BibleReference: React.FC<BibleReferenceProps> = ({ book, chapter, verses, isAdmin, children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [verseTexts, setVerseTexts] = useState<{number: number, text: string}[]>([]);
@@ -55,14 +56,11 @@ export const BibleReference: React.FC<BibleReferenceProps> = ({ book, chapter, v
         }
     }, [isOpen, loading, verseTexts]);
 
-    const handleOpen = async () => {
-        setIsOpen(true);
-        if (verseTexts.length > 0) return; // Already loaded
-
+    const loadVerses = async (forceBypass = false) => {
         setLoading(true);
         setError('');
         try {
-            const result = await BibleService.getChapter(book, chapter);
+            const result = await BibleService.getChapter(book, chapter, forceBypass);
             
             // Parse requested verses
             const requestedNumbers = new Set<number>();
@@ -91,6 +89,12 @@ export const BibleReference: React.FC<BibleReferenceProps> = ({ book, chapter, v
         }
     };
 
+    const handleOpen = async () => {
+        setIsOpen(true);
+        if (verseTexts.length > 0) return; // Already loaded
+        await loadVerses(false);
+    };
+
     return (
         <span className="relative inline-block">
             <button 
@@ -111,6 +115,16 @@ export const BibleReference: React.FC<BibleReferenceProps> = ({ book, chapter, v
                         <div className="flex items-center gap-2 text-[#8B0000] dark:text-[#ff6b6b] font-cinzel font-bold">
                             <BookOpen className="w-4 h-4" />
                             <span>{book} {chapter}:{verses}</span>
+                            {isAdmin && (
+                                <button 
+                                    onClick={() => loadVerses(true)}
+                                    disabled={loading}
+                                    title="Regerar/Atualizar Versículo (Burlar Cache)"
+                                    className="ml-2 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
+                                >
+                                    <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                                </button>
+                            )}
                         </div>
                         <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                             <X className="w-4 h-4" />
