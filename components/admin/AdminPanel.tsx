@@ -763,30 +763,24 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                                     --- LINGUAGEM E TOM ---
                                     1. PÚBLICO: Alunos de 16 a 76 anos, escolaridade média.
                                     2. CLAREZA: Profundo, mas simples e didático. Sem "teologês" solto. O texto deve ser fluído e natural.
-                                    3. IMPLICITAMENTE PENTECOSTAL: Ensine a doutrina correta sem usar rótulos ("Arminiano", "Dispensacionalista"). Deixe a teologia fluir naturalmente no texto.
 
-                                    --- EMBASAMENTO BÍBLICO (NOVO v102.0) ---
-                                    1. REFERÊNCIAS: Inclua obrigatoriamente de 1 a 3 referências bíblicas conexas (textos paralelos ou complementares) para fundamentar a interpretação e garantir a segurança doutrinária contra heresias.
-                                    2. SEGURANÇA: Utilize essas referências para mostrar que a Bíblia explica a própria Bíblia, evitando interpretações isoladas.
+                                    --- USO DOS ORIGINAIS (ECONOMIA) ---
+                                    1. QUANTIDADE: Cite NO MÁXIMO 1 a 2 palavras-chave fundamentais em Hebraico (AT) ou Grego (NT).
+                                    2. FORMATO: Cite o termo transliterado de forma natural no texto (ex: "O termo original *palavra* sugere...").
 
-                                    --- USO DOS ORIGINAIS (EXPANDIDO v99.0) ---
-                                    1. QUANTIDADE: Identifique e cite ATÉ 5 palavras-chave fundamentais em Hebraico (AT) ou Grego (NT) para este versículo.
-                                    2. FOCO: Escolha as palavras que, ao serem explicadas no original, tragam o real sentido que o autor quis passar e gerem o sentimento de compreensão indubitável do sentido original.
-                                    3. FORMATO: Cite o termo transliterado de forma natural no texto (ex: "O termo original *palavra* sugere...").
-
-                                    --- ESTRUTURA BLINDADA (3 PARÁGRAFOS - Max 250 Palavras) ---
+                                    --- ESTRUTURA BLINDADA (3 PARÁGRAFOS CURTOS) ---
                                     
-                                    1. PARÁGRAFO 1 (O DESVENDAR DO TEXTO E INTENÇÃO AUTORAL): 
-                                       - Explique o que está acontecendo com clareza cristalina, focando PRIMORDIALMENTE na real intenção do autor original ao escrever este versículo específico e no sentido original do texto dentro de seu contexto histórico-redacional. Responda: Qual era o propósito do autor sagrado? O que ele quis comunicar de fato aos seus primeiros destinatários? Traga aquele detalhe histórico ou linguístico que faz a diferença.
-
-                                    2. PARÁGRAFO 2 (A CONEXÃO TEOLÓGICA E EMBASAMENTO): 
-                                       - Aprofunde o ensino. Conecte com outros textos bíblicos (Analogia da Fé - Uso Implícito) para confirmar a interpretação correta. VOCÊ DEVE CITAR AS REFERÊNCIAS BÍBLICAS CONEXAS POR EXTENSO (ex: Jo 1:1, Ef 2:8) para embasar o conteúdo e mostrar como isso se encaixa no plano de Deus. Isso serve como escudo contra heresias e contradições.
-
+                                    1. PARÁGRAFO 1 (INTENÇÃO AUTORAL): 
+                                       - Explique a real intenção do autor original e o contexto histórico. Qual o detalhe que faz a diferença?
+                                       
+                                    2. PARÁGRAFO 2 (CONEXÃO TEOLÓGICA): 
+                                       - Conecte com outros textos bíblicos curtos (ex: Jo 1:1) para confirmar a interpretação correta blindando de heresias.
+                                       
                                     3. PARÁGRAFO 3 (APLICAÇÃO): 
-                                       - Curto e prático. Como essa verdade bíblica transforma a vida do aluno hoje? (Max 15% do texto).
+                                       - Curto e prático. Como isso transforma a vida do aluno hoje?
 
                                     --- ESTILO VISUAL ---
-                                    Texto corrido, elegante, inspirador e fácil de ler.
+                                    Texto corrido, seja conciso, direto e sem redundâncias. MÁXIMO DE 200 PALAVRAS.
                                 `;
                                 const text = await generateContent(prompt, undefined, true, 'commentary');
                                 await db.entities.Commentary.create({
@@ -847,9 +841,9 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                   // Aguarda todas as promessas do chunk finalizarem
                   await Promise.all(chunkPromises);
 
-                  // INTERVALO MEIO-TERMO: ~8 segundos entre blocos de 3.
-                  // Isso dá cerca de 3 requests a cada 10-12s, ou seja, ~15 a 18 RPM, perfeito para o Free Tier sem travar o usuário.
-                  const delay = type === 'commentary' ? 8000 : 7000;
+                  // INTERVALO SEGURO PARA FREE TIER (15 RPM max): 
+                  // Lote de 3 = 12 segundos de espera para ficar em ~14 RPM globais.
+                  const delay = 12500;
                   await new Promise(r => setTimeout(r, delay)); 
               }
           }

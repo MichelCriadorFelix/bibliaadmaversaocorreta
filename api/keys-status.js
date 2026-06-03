@@ -47,18 +47,29 @@ export default async function handler(request, response) {
         const start = Date.now();
         let usedModel = "gemini-3.5-flash";
 
+        // Verifica na memória global se esta chave já está marcada como bloqueada pela aplicação (gemini.js)
+        if (global.exhaustedKeys && global.exhaustedKeys.has(keyEntry.key)) {
+            const retryTime = global.exhaustedKeys.get(keyEntry.key);
+            if (Date.now() < retryTime) {
+                const secs = Math.ceil((retryTime - Date.now()) / 1000);
+                return {
+                    name: keyEntry.name,
+                    mask: `...${keyEntry.key.slice(-4)}`,
+                    status: 'exhausted',
+                    latency: 0,
+                    msg: `Cota Excedida (Volta em ${secs}s)`,
+                    model: usedModel
+                };
+            } else {
+                global.exhaustedKeys.delete(keyEntry.key);
+            }
+        }
+
         try {
             const ai = new GoogleGenAI({ apiKey: keyEntry.key });
             
             const performCall = async (modelName) => {
-                return await ai.models.generateContent({
-                    model: modelName,
-                    contents: [{ parts: [{ text: "Hello" }] }],
-                    config: { 
-                        maxOutputTokens: 30, 
-                        temperature: 0.1
-                    } 
-                });
+                return await ai.models.get({ model: modelName });
             };
 
             let result;

@@ -603,19 +603,22 @@ export default async function handler(request, response) {
 
             // thinkingConfig para tipos complexos
             const selectedThinkingLevel = thinkingLevel || 'high';
-            if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd' || taskType === 'dictionary') {
+            if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 config.maxOutputTokens = 30000;
                 config.thinkingConfig = { thinkingLevel: selectedThinkingLevel };
+            } else if (taskType === 'dictionary') {
+                config.maxOutputTokens = 12000;
+                config.thinkingConfig = { thinkingLevel: 'medium' };
             } else if (taskType === 'commentary') {
-                config.maxOutputTokens = 12000; 
-                config.thinkingConfig = { thinkingLevel: selectedThinkingLevel };
+                config.maxOutputTokens = 8192; 
+                config.thinkingConfig = { thinkingLevel: 'medium' };
             } else if (taskType === 'assistente_chat' || taskType === 'get_bible_verses') {
                 // BUSCA E RECUPERAÇÃO NÃO USAM THINKING FORTE PARA SER INSTANTÂNEA
                 config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingLevel: thinkingLevel || 'minimal' };
+                // Sem thinkingConfig para não causar lag nem gasto de cota
             } else {
-                config.maxOutputTokens = 24000;
-                config.thinkingConfig = { thinkingLevel: selectedThinkingLevel };
+                config.maxOutputTokens = 12000;
+                // Sem thinkingConfig por padrão para outras tarefas não essenciais
             }
 
             if (schema) {
