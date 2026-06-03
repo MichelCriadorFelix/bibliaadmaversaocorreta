@@ -643,9 +643,15 @@ export default async function handler(request, response) {
             triedKeysLog[triedKeysLog.length - 1].status = 'FALHA: ' + msg.substring(0, 120);
             
             // Registra cota atingida no Circuito para as requisições subsequentes pularem de imediato
-            if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted')) {
-                // Bloqueia no local por 3 minutos (período de respiro da cota do Google)
-                global.exhaustedKeys.set(apiKey, Date.now() + 180000);
+            if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted') || msg.includes('RESOURCE_EXHAUSTED')) {
+                // Tenta extrair o tempo exato de cooldown pedido pelo Google (ex: "retry in 50.5s")
+                let cooldownMs = 180000; // Padrão: 3 minutos
+                const retryMatch = msg.match(/retry in ([\d.]+)s/);
+                if (retryMatch) {
+                    const secs = parseFloat(retryMatch[1]);
+                    if (!isNaN(secs)) cooldownMs = (secs * 1000) + 1000; // +1s de margem de segurança
+                }
+                global.exhaustedKeys.set(apiKey, Date.now() + cooldownMs);
             } else if (msg.includes('API key not valid') || msg.includes('400')) {
                 // Chave de API inválida / erro de configuração: bloqueia por 1 hora para evitar lag
                 global.exhaustedKeys.set(apiKey, Date.now() + 3600000);

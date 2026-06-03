@@ -11,13 +11,21 @@ export default async function handler(request, response) {
 
   try {
     const allKeys = [];
-    if (process.env.API_KEY) allKeys.push({ name: 'MAIN_KEY', key: process.env.API_KEY });
-    if (process.env.Biblia_ADMA_API) allKeys.push({ name: 'ADMA_KEY', key: process.env.Biblia_ADMA_API });
-
-    for (let i = 1; i <= 50; i++) {
-        const keyName = `API_KEY_${i}`;
+    
+    // 1. Busca por padrão (Aiza)
+    for (const [keyName, val] of Object.entries(process.env)) {
+        if (typeof val === 'string' && val.trim().startsWith('AIza') && val.trim().length > 30) {
+            allKeys.push({ name: keyName, key: val.trim() });
+        }
+    }
+    
+    // 2. Busca por nome (Fallback)
+    const fallbackNames = ['API_KEY', 'Biblia_ADMA_API'];
+    for (let i = 1; i <= 100; i++) fallbackNames.push(`API_KEY_${i}`);
+    
+    for (const keyName of fallbackNames) {
         const val = process.env[keyName];
-        if (val && val.trim().length > 20) { 
+        if (val && typeof val === 'string' && val.length > 20 && !val.startsWith('vck_')) {
             allKeys.push({ name: keyName, key: val.trim() });
         }
     }
@@ -60,11 +68,6 @@ export default async function handler(request, response) {
                 throw errPrimary;
             }
 
-            const textOutput = result?.text;
-            if (!textOutput) {
-                throw new Error("Resposta vazia (Sem texto)");
-            }
-
             return {
                 name: keyEntry.name,
                 mask: `...${keyEntry.key.slice(-4)}`,
@@ -79,9 +82,15 @@ export default async function handler(request, response) {
             let status = 'error';
             let msg = err.substring(0, 60);
 
-            if (err.includes('429') || err.includes('Quota') || err.includes('Exhausted')) {
+            if (err.includes('429') || err.includes('Quota') || err.includes('Exhausted') || err.includes('RESOURCE_EXHAUSTED')) {
                 status = 'exhausted';
-                msg = 'Cota Excedida (429)';
+                // Extrai o tempo de espera real retornado pelo Google, se existir
+                const retryMatch = err.match(/retry in ([\d.]+)s/);
+                if (retryMatch) {
+                    msg = `Cota Excedida (Volta em ${Math.round(parseFloat(retryMatch[1]))}s)`;
+                } else {
+                    msg = 'Cota Excedida (429)';
+                }
             } else if (err.includes('API key not valid') || err.includes('400')) {
                 status = 'invalid';
                 msg = 'Chave Inválida';
@@ -100,7 +109,7 @@ export default async function handler(request, response) {
         }
     };
 
-    const BATCH_SIZE = 5;
+    const BATCH_SIZE = 3;
     const finalResults = [];
 
     for (let i = 0; i < uniqueKeys.length; i += BATCH_SIZE) {
@@ -109,7 +118,7 @@ export default async function handler(request, response) {
         finalResults.push(...batchResults);
         
         if (i + BATCH_SIZE < uniqueKeys.length) {
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, 600)); // Delay mais gentil para não engatilhar anti-spam
         }
     }
 
