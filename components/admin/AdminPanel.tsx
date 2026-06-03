@@ -112,27 +112,40 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
               countByChapter[chap] = (countByChapter[chap] || 0) + 1;
           });
 
-          // 2. Compara com total de versículos (se disponível no cache)
+          // 2. Compara com total de versículos (buscando da nuvem se necessário para precisão)
+          const chapterPromises = [];
           for (let c = 1; c <= bookMeta.chapters; c++) {
-              const count = countByChapter[c] || 0;
-              
-              if (count === 0) {
-                  statuses[c] = 'empty';
-              } else {
-                  // Tenta descobrir total de versículos
+              chapterPromises.push((async () => {
+                  const count = countByChapter[c] || 0;
+                  
+                  if (count === 0) {
+                      statuses[c] = 'empty';
+                      return;
+                  }
+
+                  // Tenta descobrir total de versículos (Primeiro local)
                   const textKey = `bible_acf_${bookMeta.abbrev}_${c}`;
-                  const verses = await bibleStorage.get(textKey);
+                  let verses = await bibleStorage.get(textKey);
+                  
+                  // Se não tem local, puxa da nuvem
+                  if (!verses || !Array.isArray(verses) || verses.length === 0) {
+                      try {
+                          verses = await db.entities.BibleChapter.getCloud(textKey);
+                      } catch (err) {}
+                  }
                   
                   if (verses && Array.isArray(verses)) {
                       if (count >= verses.length) statuses[c] = 'full';
                       else statuses[c] = 'partial';
                   } else {
-                      // Fallback se não tiver texto baixado: Se tem mais de 20 comentários, assume cheio, senão parcial
-                      // Ou melhor: Amarelo para indicar que tem algo.
-                      statuses[c] = count > 25 ? 'full' : 'partial';
+                      // Fallback: Capítulos médios da bíblia tem mais de 20 versículos, 
+                      // mas vamos manter o fallback mais seguro caso falhe 
+                      statuses[c] = count > 20 ? 'full' : 'partial';
                   }
-              }
+              })());
           }
+          await Promise.all(chapterPromises);
+          
           setChapterStatuses(statuses);
 
       } catch (e) {
@@ -683,10 +696,10 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
 
               addLog(`🚀 Iniciando lote para ${bookMeta.name} ${c} (${verses.length} versículos)...`);
 
-              // Devido ao Rate Limit da API Gratuita (15 a 20 requisições por minuto), 
-              // não podemos paralelizar (CHUNK_SIZE > 1) sem causar erros 429.
-              // Processamento em lote sequencial estrito e com pausas é o caminho mais seguro.
-              const CHUNK_SIZE = 1; 
+              // Meio Termo: Processamento em lote (chunks) moderado.
+              // Como o Free Tier limite é de 15 RPM, fazer grupos de 3 versículos com
+              // pausas de ~8 segundos mantém a segurança sem engessar a velocidade.
+              const CHUNK_SIZE = type === 'commentary' ? 3 : 2; 
               
               for (let i = 0; i < verses.length; i += CHUNK_SIZE) {
                   if (stopBatchRef.current) { 
@@ -834,8 +847,9 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                   // Aguarda todas as promessas do chunk finalizarem
                   await Promise.all(chunkPromises);
 
-                  // INTERVALO FIXO (mínimo de 4 segundos) PARA EVITAR RATE LIMIT NO FREE TIER (MAX 15 RPM)
-                  const delay = 4500;
+                  // INTERVALO MEIO-TERMO: ~8 segundos entre blocos de 3.
+                  // Isso dá cerca de 3 requests a cada 10-12s, ou seja, ~15 a 18 RPM, perfeito para o Free Tier sem travar o usuário.
+                  const delay = type === 'commentary' ? 8000 : 7000;
                   await new Promise(r => setTimeout(r, delay)); 
               }
           }
