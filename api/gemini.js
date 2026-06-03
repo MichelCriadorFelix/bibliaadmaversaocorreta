@@ -580,7 +580,9 @@ export default async function handler(request, response) {
             let modelToUse = 'gemini-3.5-flash';
             
             // Usa o preview para limites maiores no processamento em lote
-            if (taskType === 'commentary' || taskType === 'dictionary' || taskType === 'get_bible_verses') {
+            if (taskType === 'commentary' || taskType === 'dictionary') {
+                modelToUse = 'gemini-3-flash-preview';
+            } else if (taskType === 'get_bible_verses') {
                 modelToUse = 'gemini-3.5-flash';
             }
 
