@@ -45,35 +45,76 @@ export default async function handler(request, response) {
     // 3. Ações
     if (action === 'filter') {
         console.log(`[Storage] Filtering ${collection} with criteria:`, criteria);
-        let query = supabase.from('adma_content').select('id, data').eq('collection', collection).limit(10000); // Aumento de limite padrão do Supabase de 1000 para 10000 para evitar truncamento em livros populosos como Gênesis
-        if (criteria) {
-            Object.entries(criteria).forEach(([key, value]) => {
-                if (key === 'user_email' && typeof value === 'string') {
-                    query = query.ilike(`data->>${key}`, value);
+        
+        let allData = [];
+        let from = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+            let query = supabase.from('adma_content').select('id, data').eq('collection', collection).range(from, from + pageSize - 1);
+            if (criteria) {
+                Object.entries(criteria).forEach(([key, value]) => {
+                    if (key === 'user_email' && typeof value === 'string') {
+                        query = query.ilike(`data->>${key}`, value);
+                    } else {
+                        query = query.eq(`data->>${key}`, value);
+                    }
+                });
+            }
+
+            const { data, error } = await query;
+            if (error) {
+                console.error(`[Storage] Filter error for ${collection} at range ${from}-${from + pageSize - 1}:`, error);
+                throw error;
+            }
+
+            if (!data || data.length === 0) {
+                hasMore = false;
+            } else {
+                allData = allData.concat(data);
+                if (data.length < pageSize) {
+                    hasMore = false;
                 } else {
-                    query = query.eq(`data->>${key}`, value);
+                    from += pageSize;
                 }
-            });
+            }
         }
-        const { data, error } = await query;
-        if (error) {
-            console.error(`[Storage] Filter error for ${collection}:`, error);
-            throw error;
-        }
-        console.log(`[Storage] Filter result for ${collection}: ${data?.length || 0} items`);
+
+        console.log(`[Storage] Filter result for ${collection}: ${allData.length} items total`);
         // Retorna mapeado com ID para garantir integridade
-        return response.status(200).json(data ? data.map(row => ({...row.data, id: row.id || row.data.id})) : []);
+        return response.status(200).json(allData.map(row => ({...row.data, id: row.id || row.data.id})));
     }
 
     if (action === 'list') {
-        const { data, error } = await supabase
-            .from('adma_content')
-            .select('id, data')
-            .eq('collection', collection)
-            .limit(10000); // Aumento de limite para 10000
+        let allData = [];
+        let from = 0;
+        const pageSize = 1000;
+        let hasMore = true;
 
-        if (error) throw error;
-        return response.status(200).json(data ? data.map(row => ({...row.data, id: row.id})) : []);
+        while (hasMore) {
+            const { data, error } = await supabase
+                .from('adma_content')
+                .select('id, data')
+                .eq('collection', collection)
+                .range(from, from + pageSize - 1);
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                hasMore = false;
+            } else {
+                allData = allData.concat(data);
+                if (data.length < pageSize) {
+                    hasMore = false;
+                } else {
+                    from += pageSize;
+                }
+            }
+        }
+
+        console.log(`[Storage] List result for ${collection}: ${allData.length} items total`);
+        return response.status(200).json(allData.map(row => ({...row.data, id: row.id})));
     }
 
     if (action === 'get') {

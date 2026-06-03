@@ -111,43 +111,65 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
           // Agrupa contagem por capítulo
           const countByChapter: Record<number, number> = {};
           items.forEach((item: any) => {
-              const chap = item.chapter;
-              countByChapter[chap] = (countByChapter[chap] || 0) + 1;
+              const chap = Number(item.chapter);
+              if (!isNaN(chap)) {
+                  countByChapter[chap] = (countByChapter[chap] || 0) + 1;
+              }
           });
 
-          // 2. Compara com total de versículos (buscando da nuvem se necessário para precisão)
-          const chapterPromises = [];
-          for (let c = 1; c <= bookMeta.chapters; c++) {
-              chapterPromises.push((async () => {
-                  const count = countByChapter[c] || 0;
-                  
-                  if (count === 0) {
-                      statuses[c] = 'empty';
-                      return;
+          // 2. Compara com total de versículos (com concorrência controlada para evitar estresse de rede)
+          const limitConcurrency = async (tasks: (() => Promise<void>)[], maxConcurrent: number) => {
+              const executing = new Set<Promise<void>>();
+              for (const task of tasks) {
+                  const p = task();
+                  executing.add(p);
+                  p.then(() => executing.delete(p));
+                  if (executing.size >= maxConcurrent) {
+                      await Promise.race(executing);
                   }
+              }
+              await Promise.all(executing);
+          };
 
-                  // Tenta descobrir total de versículos (Primeiro local)
-                  const textKey = `bible_acf_${bookMeta.abbrev}_${c}`;
-                  let verses = await bibleStorage.get(textKey);
-                  
-                  // Se não tem local, puxa da nuvem
-                  if (!verses || !Array.isArray(verses) || verses.length === 0) {
-                      try {
-                          verses = await db.entities.BibleChapter.getCloud(textKey);
-                      } catch (err) {}
-                  }
-                  
-                  if (verses && Array.isArray(verses)) {
-                      if (count >= verses.length) statuses[c] = 'full';
-                      else statuses[c] = 'partial';
-                  } else {
-                      // Fallback: Capítulos médios da bíblia tem mais de 20 versículos, 
-                      // mas vamos manter o fallback mais seguro caso falhe 
-                      statuses[c] = count > 20 ? 'full' : 'partial';
-                  }
-              })());
+          const chaptersToAnalyze: number[] = [];
+          for (let c = 1; c <= bookMeta.chapters; c++) {
+              chaptersToAnalyze.push(c);
           }
-          await Promise.all(chapterPromises);
+
+          const tasks = chaptersToAnalyze.map(c => async () => {
+              const count = countByChapter[c] || 0;
+              
+              if (count === 0) {
+                  statuses[c] = 'empty';
+                  return;
+              }
+
+              // Tenta descobrir total de versículos (Primeiro local)
+              const textKey = `bible_acf_${bookMeta.abbrev}_${c}`;
+              let verses = await bibleStorage.get(textKey);
+              
+              // Se não tem local, puxa da nuvem
+              if (!verses || !Array.isArray(verses) || verses.length === 0) {
+                  try {
+                      verses = await db.entities.BibleChapter.getCloud(textKey);
+                      // Se trouxe da nuvem, salva local para acelerar futuras leituras
+                      if (verses && Array.isArray(verses) && verses.length > 0) {
+                          await bibleStorage.save(textKey, verses);
+                      }
+                  } catch (err) {}
+              }
+              
+              if (verses && Array.isArray(verses)) {
+                  if (count >= verses.length) statuses[c] = 'full';
+                  else statuses[c] = 'partial';
+              } else {
+                  // Fallback: Capítulos médios da bíblia tem mais de 20 versículos, 
+                  // mas vamos manter o fallback mais seguro caso falhe 
+                  statuses[c] = count > 20 ? 'full' : 'partial';
+              }
+          });
+
+          await limitConcurrency(tasks, 5);
           
           setChapterStatuses(statuses);
 
