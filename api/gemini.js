@@ -75,10 +75,12 @@ export default async function handler(request, response) {
     // Separar chaves saudáveis das chaves esgotadas temporariamente
     let healthyActiveKeys = uniqueKeys.filter(key => !global.exhaustedKeys.has(key));
 
-    // Se TODAS as chaves do pool estiverem marcadas como esgotadas, reinicie por precaução
+    // Se TODAS as chaves do pool estiverem marcadas como esgotadas, abortamos para não bombardear a API
     if (healthyActiveKeys.length === 0) {
-        global.exhaustedKeys.clear();
-        healthyActiveKeys = uniqueKeys;
+        return response.status(429).json({ 
+             error: `Todas as ${uniqueKeys.length} chaves atingiram o limite de uso (Quota Excess). Aguarde cerca de 1 minuto para recuperação.`,
+             rotationLog: []
+        });
     }
 
     // 3. SHUFFLE ROTATION (Garante distribuição de carga em multi-abas e restarts Vercel)
@@ -88,14 +90,8 @@ export default async function handler(request, response) {
         [shuffledHealthy[i], shuffledHealthy[j]] = [shuffledHealthy[j], shuffledHealthy[i]];
     }
 
-    // Tentativas das esgotadas como último recurso (backup total) caso a cota por minuto tenha resetado
-    const backupExhausted = uniqueKeys.filter(key => global.exhaustedKeys.has(key));
-    for (let i = backupExhausted.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [backupExhausted[i], backupExhausted[j]] = [backupExhausted[j], backupExhausted[i]];
-    }
-
-    const orderedKeysToTry = [...shuffledHealthy, ...backupExhausted];
+    // Não tenta chaves esgotadas. Se estão esgotadas, respeitamos o cooldown.
+    const orderedKeysToTry = [...shuffledHealthy];
 
     let body = request.body;
     if (typeof body === 'string') {
@@ -648,7 +644,7 @@ export default async function handler(request, response) {
             // Registra cota atingida no Circuito para as requisições subsequentes pularem de imediato
             if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted') || msg.includes('RESOURCE_EXHAUSTED')) {
                 // Tenta extrair o tempo exato de cooldown pedido pelo Google (ex: "retry in 50.5s")
-                let cooldownMs = 180000; // Padrão: 3 minutos
+                let cooldownMs = 75000; // Padrão: 1m15s (evita segurar chaves por muito tempo)
                 const retryMatch = msg.match(/retry in ([\d.]+)s/);
                 if (retryMatch) {
                     const secs = parseFloat(retryMatch[1]);

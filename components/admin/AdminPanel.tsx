@@ -696,10 +696,8 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
 
               addLog(`🚀 Iniciando lote para ${bookMeta.name} ${c} (${verses.length} versículos)...`);
 
-              // Meio Termo: Processamento em lote (chunks) moderado.
-              // Como o Free Tier limite é de 15 RPM, fazer grupos de 3 versículos com
-              // pausas de ~8 segundos mantém a segurança sem engessar a velocidade.
-              const CHUNK_SIZE = type === 'commentary' ? 3 : 2; 
+              // Lote sequencial (1 por vez) evite o limite de 20 RPM do Gemini 3.5 Flash e contenha concorrências
+              const CHUNK_SIZE = 1; 
               
               for (let i = 0; i < verses.length; i += CHUNK_SIZE) {
                   if (stopBatchRef.current) { 
@@ -708,6 +706,8 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                   }
 
                   const chunk = verses.slice(i, i + CHUNK_SIZE);
+                  let rateLimitHit = false;
+
                   const chunkPromises = chunk.map(async (verseText, chunkIdx) => {
                       const verseNum = i + chunkIdx + 1;
                       const verseKey = generateVerseKey(bookMeta.name, c, verseNum);
@@ -758,7 +758,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                                     3. ZERO POLÊMICAS/ESPECULAÇÕES: Rejeite interpretações baseadas em livros apócrifos, mitologia (ex: anjos coabitando com humanos) ou cultura judaica extra-bíblica. 
                                     4. ORTODOXIA: Em textos difíceis (ex: Gn 6:2), opte SEMPRE pela linha teológica mais conservadora e segura (ex: Linhagem de Sete x Caim), evitando sensacionalismo.
                                     5. FOCO NA INTENÇÃO ORIGINAL: O que o autor sagrado quis ensinar sobre Deus e o homem? Fique nisso.
-                                    6. IMPORTANTE: Não escreva "Segundo a hermenêutica" or "Analisando o contexto". Apenas aplique essas regras para chegar à conclusão correta.
+                                    6. IMPORTANTE: Não escreva "Segundo a hermenêutica" ou "Analisando o contexto". Apenas aplique essas regras para chegar à conclusão correta.
 
                                     --- LINGUAGEM E TOM ---
                                     1. PÚBLICO: Alunos de 16 a 76 anos, escolaridade média.
@@ -839,16 +839,23 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                           processed++;
                       } catch (err: any) {
                           addLog(`⚠️ Falha em ${c}:${verseNum}: ${err.message}`);
+                          if (err.message.includes('429') || err.message.toLowerCase().includes('quota') || err.message.toLowerCase().includes('exhausted')) {
+                              rateLimitHit = true;
+                          }
                       }
                   });
 
                   // Aguarda todas as promessas do chunk finalizarem
                   await Promise.all(chunkPromises);
 
-                  // INTERVALO SEGURO PARA FREE TIER (15 RPM max): 
-                  // Lote de 3 = 12 segundos de espera para ficar em ~14 RPM globais.
-                  const delay = 12500;
-                  await new Promise(r => setTimeout(r, delay)); 
+                  if (rateLimitHit) {
+                      addLog("⏳ Limite de Quota atingido! Pausando gerador por 60 segundos para recuperação...");
+                      await new Promise(r => setTimeout(r, 60000));
+                  } else {
+                      // INTERVALO SEGURO PARA FREE TIER (15 RPM max = 1 por 4s)
+                      const delay = 4200;
+                      await new Promise(r => setTimeout(r, delay)); 
+                  }
               }
           }
 
