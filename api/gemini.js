@@ -30,14 +30,23 @@ export default async function handler(request, response) {
   try {
     // --- GESTÃO DE POOL DE CHAVES (LOAD BALANCER v122 - CIRURGICO) ---
     const rawKeys = [];
-    if (process.env.API_KEY) rawKeys.push(process.env.API_KEY);
-    if (process.env.Biblia_ADMA_API) rawKeys.push(process.env.Biblia_ADMA_API);
-
-    for (let i = 1; i <= 50; i++) {
-        const keyName = `API_KEY_${i}`;
+    
+    // Captura automática de TODAS as variáveis de ambiente que sejam chaves do Google Gemini (iniciam com AIza)
+    // independentemente do nome que o usuário tenha dado na Vercel (ex: MINHA_CHAVE_1, GEMINI_2, etc).
+    for (const [keyName, val] of Object.entries(process.env)) {
+        if (typeof val === 'string' && val.trim().startsWith('AIza') && val.trim().length > 30) {
+            rawKeys.push(val.trim());
+        }
+    }
+    
+    // Fallback: Captura padrões antigos explicitamente (caso a chave fuja da regra AIza, o que é raro)
+    const fallbackNames = ['API_KEY', 'Biblia_ADMA_API'];
+    for (let i = 1; i <= 100; i++) fallbackNames.push(`API_KEY_${i}`);
+    
+    for (const keyName of fallbackNames) {
         const val = process.env[keyName];
-        if (val && val.length > 10 && !val.startsWith('vck_')) {
-            rawKeys.push(val);
+        if (val && typeof val === 'string' && val.length > 20 && !val.startsWith('vck_')) {
+            rawKeys.push(val.trim());
         }
     }
 
@@ -654,7 +663,12 @@ export default async function handler(request, response) {
     if (successResponse) {
         return response.status(200).json({ text: successResponse, rotationLog: triedKeysLog });
     } else {
-        return response.status(500).json({ error: `Falha na geração v118.0: ${lastError?.message || 'Todas as chaves do pool falharam.'}`, rotationLog: triedKeysLog });
+        const triedCount = triedKeysLog.length;
+        const totalKeys = uniqueKeys.length;
+        return response.status(500).json({ 
+            error: `Falha na geração v118.0: Tentamos ${triedCount} de ${totalKeys} chaves disponíveis, mas todas falharam. Último erro: ${lastError?.message || 'Erro desconhecido.'}`, 
+            rotationLog: triedKeysLog 
+        });
     }
   } catch (error) {
     console.error("Critical Server Error:", error);
