@@ -45,7 +45,7 @@ export default async function handler(request, response) {
     // 3. Ações
     if (action === 'filter') {
         console.log(`[Storage] Filtering ${collection} with criteria:`, criteria);
-        let query = supabase.from('adma_content').select('id, data').eq('collection', collection);
+        let query = supabase.from('adma_content').select('id, data').eq('collection', collection).limit(10000); // Aumento de limite padrão do Supabase de 1000 para 10000 para evitar truncamento em livros populosos como Gênesis
         if (criteria) {
             Object.entries(criteria).forEach(([key, value]) => {
                 if (key === 'user_email' && typeof value === 'string') {
@@ -69,7 +69,8 @@ export default async function handler(request, response) {
         const { data, error } = await supabase
             .from('adma_content')
             .select('id, data')
-            .eq('collection', collection);
+            .eq('collection', collection)
+            .limit(10000); // Aumento de limite para 10000
 
         if (error) throw error;
         return response.status(200).json(data ? data.map(row => ({...row.data, id: row.id})) : []);

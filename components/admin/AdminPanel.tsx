@@ -44,6 +44,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
   const [showChapterSelector, setShowChapterSelector] = useState(false);
   const [chapterStatuses, setChapterStatuses] = useState<Record<number, 'empty' | 'partial' | 'full'>>({});
   const [loadingStatuses, setLoadingStatuses] = useState(false);
+  const [statusViewType, setStatusViewType] = useState<'commentary' | 'dictionary'>('commentary');
 
   // Ref para controle imediato de parada
   const stopBatchRef = useRef(false);
@@ -84,12 +85,12 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
     loadUsers(); 
   }, []);
 
-  // CARREGA STATUS DOS CAPÍTULOS AO MUDAR LIVRO OU TIPO
+  // CARREGA STATUS DOS CAPÍTULOS AO MUDAR LIVRO OU TIPO OU TIPO DA VISUALIZAÇÃO
   useEffect(() => {
       if (showChapterSelector) {
           analyzeBookStatus();
       }
-  }, [batchBook, showChapterSelector]);
+  }, [batchBook, showChapterSelector, statusViewType]);
 
   const analyzeBookStatus = async () => {
       setLoadingStatuses(true);
@@ -99,16 +100,18 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       const statuses: Record<number, 'empty' | 'partial' | 'full'> = {};
       
       try {
-          // 1. Puxa todos os comentários deste livro do DB
-          // Nota: Isso pode ser pesado se tiver muitos registros, mas para 1 livro é aceitável.
-          // Otimização: Em um app real, o backend deveria dar esse count. Aqui fazemos client-side.
-          const collection = 'commentaries'; // Focamos em comentários para o status visual
-          const allComments = await db.entities.Commentary.filter({ book: batchBook });
+          // 1. Puxa todos os comentários ou dicionários deste livro do DB com base no statusViewType
+          let items: any[] = [];
+          if (statusViewType === 'commentary') {
+              items = await db.entities.Commentary.filter({ book: batchBook });
+          } else {
+              items = await db.entities.Dictionary.filter({ book: batchBook });
+          }
           
           // Agrupa contagem por capítulo
           const countByChapter: Record<number, number> = {};
-          allComments.forEach((c: any) => {
-              const chap = c.chapter;
+          items.forEach((item: any) => {
+              const chap = item.chapter;
               countByChapter[chap] = (countByChapter[chap] || 0) + 1;
           });
 
@@ -1197,10 +1200,26 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                       <button onClick={() => setShowChapterSelector(false)} className="p-2 hover:bg-white/10 rounded-full"><XCircle className="w-6 h-6"/></button>
                   </div>
                   
-                  <div className="bg-gray-100 dark:bg-black/30 p-2 flex justify-center gap-4 text-[10px] font-bold uppercase tracking-widest shrink-0">
-                      <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-300 border border-gray-400"></span> Vazio</div>
-                      <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 border border-yellow-600"></span> Parcial</div>
-                      <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 border border-green-700"></span> Completo</div>
+                  <div className="bg-gray-100 dark:bg-black/30 p-2 flex flex-col sm:flex-row justify-between items-center px-4 gap-2 shrink-0 border-b dark:border-gray-800">
+                      <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-[#1a0f0f] dark:text-gray-300">
+                          <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-300 border border-gray-400"></span> Vazio</div>
+                          <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 border border-yellow-600"></span> Parcial</div>
+                          <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 border border-green-700"></span> Completo</div>
+                      </div>
+                      <div className="flex bg-[#8B0000]/10 p-0.5 rounded-lg border border-[#C5A059]/30">
+                          <button 
+                              onClick={() => setStatusViewType('commentary')} 
+                              className={`px-3 py-1 text-xs rounded-md font-bold flex items-center gap-1.5 transition-all ${statusViewType === 'commentary' ? 'bg-[#8B0000] text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}
+                          >
+                              <MessageSquare className="w-3.5 h-3.5" /> Comentários
+                          </button>
+                          <button 
+                              onClick={() => setStatusViewType('dictionary')} 
+                              className={`px-3 py-1 text-xs rounded-md font-bold flex items-center gap-1.5 transition-all ${statusViewType === 'dictionary' ? 'bg-[#C5A059] text-white shadow-sm' : 'text-gray-500 hover:text-gray-950 dark:hover:text-white'}`}
+                          >
+                              <Languages className="w-3.5 h-3.5" /> Dicionários
+                          </button>
+                      </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-6 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
