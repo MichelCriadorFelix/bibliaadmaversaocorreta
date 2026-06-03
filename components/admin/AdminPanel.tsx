@@ -780,7 +780,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                                        - Curto e prático. Como isso transforma a vida do aluno hoje?
 
                                     --- ESTILO VISUAL ---
-                                    Texto corrido, seja conciso, direto e sem redundâncias. MÁXIMO DE 250 PALAVRAS.
+                                    Texto corrido, seja conciso, direto e sem redundâncias. MÁXIMO DE 210 PALAVRAS.
                                 `;
                                 const text = await generateContent(prompt, undefined, true, 'commentary');
                                 await db.entities.Commentary.create({
