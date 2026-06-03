@@ -789,10 +789,14 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                           } else {
                                 const prompt = `
                                     Você é um HEBRAÍSTA e HELENISTA SÊNIOR.
-                                    TAREFA: Análise lexical COMPLETA de ${bookMeta.name} ${c}:${verseNum}
+                                    TAREFA: Análise lexical COMPLETA e EXAUSTIVA de ${bookMeta.name} ${c}:${verseNum}
                                     Texto em português: "${verseText}"
                                     Idioma original: ${bookMeta.testament === 'old' ? 'HEBRAICO' : 'GREGO'}
-                                    Analise TODAS as palavras principais.
+                                    
+                                    DIRETRIZ ACADÊMICA:
+                                    Analise TODAS E CADA UMA das palavras do versículo nos idiomas originais (NÃO pule NENHUMA palavra).
+                                    Para o Antigo Testamento, baseie-se na Biblia Hebraica Stuttgartensia (BHS).
+                                    Para o Novo Testamento, baseie-se no Texto Crítico (Nestle-Aland 28ª / UBS 5ª edição).
                                     
                                     --- CAMADA DE INTELIGÊNCIA EXEGÉTICA ---
                                     Para cada palavra analisada, adicione dois campos cruciais:
