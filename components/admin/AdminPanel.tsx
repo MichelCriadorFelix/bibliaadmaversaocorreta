@@ -683,8 +683,10 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
 
               addLog(`🚀 Iniciando lote para ${bookMeta.name} ${c} (${verses.length} versículos)...`);
 
-              // Processamento em lote otimizado (em chunks)
-              const CHUNK_SIZE = type === 'commentary' ? 5 : 1; 
+              // Devido ao Rate Limit da API Gratuita (15 a 20 requisições por minuto), 
+              // não podemos paralelizar (CHUNK_SIZE > 1) sem causar erros 429.
+              // Processamento em lote sequencial estrito e com pausas é o caminho mais seguro.
+              const CHUNK_SIZE = 1; 
               
               for (let i = 0; i < verses.length; i += CHUNK_SIZE) {
                   if (stopBatchRef.current) { 
@@ -832,8 +834,8 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                   // Aguarda todas as promessas do chunk finalizarem
                   await Promise.all(chunkPromises);
 
-                  // INTERVALO AJUSTADO DEPENDENDO DO TIPO (Comentários são mais rápidos, Dicionário precisa de 5s)
-                  const delay = type === 'commentary' ? 2000 : 5000;
+                  // INTERVALO FIXO (mínimo de 4 segundos) PARA EVITAR RATE LIMIT NO FREE TIER (MAX 15 RPM)
+                  const delay = 4500;
                   await new Promise(r => setTimeout(r, delay)); 
               }
           }
