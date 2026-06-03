@@ -696,6 +696,25 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
 
               addLog(`🚀 Iniciando lote para ${bookMeta.name} ${c} (${verses.length} versículos)...`);
 
+              // --- CARREGA CHAVES EXISTENTES EM LOTE (SUPER OTIMIZAÇÃO v123) ---
+              // Carrega uma única vez por capítulo todas as chaves existentes via rede/banco local
+              const existingKeys = new Set<string>();
+              try {
+                  if (type === 'commentary') {
+                      const records = await db.entities.Commentary.filter({ book: bookMeta.name, chapter: c });
+                      records.forEach((r: any) => {
+                          if (r.verse_key) existingKeys.add(r.verse_key);
+                      });
+                  } else {
+                      const records = await db.entities.Dictionary.filter({ book: bookMeta.name, chapter: c });
+                      records.forEach((r: any) => {
+                          if (r.verse_key) existingKeys.add(r.verse_key);
+                      });
+                  }
+              } catch (e: any) {
+                  addLog(`⚠️ Erro ao pré-carregar itens existentes: ${e.message}`);
+              }
+
               // Lote sequencial (1 por vez) evite o limite de 20 RPM do Gemini 3.5 Flash e contenha concorrências
               const CHUNK_SIZE = 1; 
               
@@ -707,30 +726,19 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
 
                   const chunk = verses.slice(i, i + CHUNK_SIZE);
                   let rateLimitHit = false;
+                  let chunkHadGenerations = false;
 
                   const chunkPromises = chunk.map(async (verseText, chunkIdx) => {
                       const verseNum = i + chunkIdx + 1;
                       const verseKey = generateVerseKey(bookMeta.name, c, verseNum);
 
-                      // --- SMART SKIP (NOVO) ---
-                      // Verifica se já existe conteúdo antes de gastar cota
-                      try {
-                          let exists = false;
-                          if (type === 'commentary') {
-                              const check = await db.entities.Commentary.filter({ verse_key: verseKey });
-                              exists = check.length > 0;
-                          } else {
-                              const check = await db.entities.Dictionary.filter({ verse_key: verseKey });
-                              exists = check.length > 0;
-                          }
+                      // --- SMART SKIP INSTANTÂNEO (SEM REQUISIÇÃO DE REDE INDIVIDUAL) ---
+                      if (existingKeys.has(verseKey)) {
+                          addLog(`⏭️ Pulando ${verseKey} (Já existe)`);
+                          return;
+                      }
 
-                          if (exists) {
-                              addLog(`⏭️ Pulando ${verseKey} (Já existe)`);
-                              return;
-                          }
-                      } catch(e) {}
-                      // -------------------------
-
+                      chunkHadGenerations = true;
                       addLog(`Processando ${bookMeta.name} ${c}:${verseNum}...`);
 
                       try {
@@ -851,7 +859,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                   if (rateLimitHit) {
                       addLog("⏳ Limite de Quota atingido! Pausando gerador por 60 segundos para recuperação...");
                       await new Promise(r => setTimeout(r, 60000));
-                  } else {
+                  } else if (chunkHadGenerations) {
                       // INTERVALO SEGURO PARA FREE TIER (15 RPM max = 1 por 4s)
                       const delay = 4200;
                       await new Promise(r => setTimeout(r, delay)); 
