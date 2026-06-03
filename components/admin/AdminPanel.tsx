@@ -764,8 +764,8 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                                     1. PÚBLICO: Alunos de 16 a 76 anos, escolaridade média.
                                     2. CLAREZA: Profundo, mas simples e didático. Sem "teologês" solto. O texto deve ser fluído e natural.
 
-                                    --- USO DOS ORIGINAIS (ECONOMIA) ---
-                                    1. QUANTIDADE: Cite NO MÁXIMO 1 a 2 palavras-chave fundamentais em Hebraico (AT) ou Grego (NT).
+                                    --- USO DOS ORIGINAIS ---
+                                    1. QUANTIDADE: Cite de 3 a 5 palavras-chave fundamentais em Hebraico (AT) ou Grego (NT), dependendo do tamanho do versículo.
                                     2. FORMATO: Cite o termo transliterado de forma natural no texto (ex: "O termo original *palavra* sugere...").
 
                                     --- ESTRUTURA BLINDADA (3 PARÁGRAFOS CURTOS) ---
@@ -780,7 +780,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                                        - Curto e prático. Como isso transforma a vida do aluno hoje?
 
                                     --- ESTILO VISUAL ---
-                                    Texto corrido, seja conciso, direto e sem redundâncias. MÁXIMO DE 200 PALAVRAS.
+                                    Texto corrido, seja conciso, direto e sem redundâncias. MÁXIMO DE 250 PALAVRAS.
                                 `;
                                 const text = await generateContent(prompt, undefined, true, 'commentary');
                                 await db.entities.Commentary.create({
