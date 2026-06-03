@@ -576,7 +576,7 @@ export default async function handler(request, response) {
             
             // Usa o preview para limites maiores no processamento em lote
             if (taskType === 'commentary' || taskType === 'dictionary' || taskType === 'get_bible_verses') {
-                modelToUse = 'gemini-3.0-flash-preview';
+                modelToUse = 'gemini-3.5-flash';
             }
 
             const config = {
