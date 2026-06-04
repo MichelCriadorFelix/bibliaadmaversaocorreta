@@ -343,7 +343,70 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     const text = pages[currentPage];
     if (!text) return null;
 
-    const lines = text.split('\n').filter(b => b.trim().length > 0);
+    const rawLines = text.split('\n');
+    const groupedBlocks: { type: 'line' | 'code' | 'table', text: string, originalIndex: number }[] = [];
+    
+    let inCodeBlock = false;
+    let codeContent: string[] = [];
+    let codeStartIndex = 0;
+
+    for (let i = 0; i < rawLines.length; i++) {
+        const line = rawLines[i];
+        const tr = line.trim();
+
+        if (tr.startsWith('```')) {
+            if (inCodeBlock) {
+                codeContent.push(line);
+                groupedBlocks.push({ type: 'code', text: codeContent.join('\n'), originalIndex: codeStartIndex });
+                codeContent = [];
+                inCodeBlock = false;
+            } else {
+                inCodeBlock = true;
+                codeStartIndex = i;
+                codeContent.push(line);
+            }
+            continue;
+        }
+
+        if (inCodeBlock) {
+            codeContent.push(line);
+        } else {
+            if (tr.length > 0) {
+                // Determine if this line looks like part of an ASCII table or a markdown table
+                const isTableLine = tr.startsWith('+---') || (tr.startsWith('|') && tr.includes('|', 1));
+                
+                if (isTableLine) {
+                    // Peek ahead to see if there are consecutive table lines
+                    let j = i;
+                    const tableLines = [];
+                    while (j < rawLines.length) {
+                        const trNext = rawLines[j].trim();
+                        if (trNext.length === 0) break; // End on empty line
+                        const nextIsTableLine = trNext.startsWith('+---') || (trNext.startsWith('|') && trNext.includes('|', 1)) || /^[=\-+_]+$/.test(trNext);
+                        if (!nextIsTableLine && !trNext.startsWith('|')) {
+                            // Be lenient: some lines inside ASCII tables might not start with |, but usually they do.
+                            // If it doesn't look like a table line, break.
+                            break;
+                        }
+                        tableLines.push(rawLines[j]);
+                        j++;
+                    }
+                    if (tableLines.length > 1) { // It's a block of table lines
+                        groupedBlocks.push({ type: 'code', text: tableLines.join('\n'), originalIndex: i });
+                        i = j - 1; // Skip the lines we just consumed
+                    } else {
+                        groupedBlocks.push({ type: 'line', text: line, originalIndex: i });
+                    }
+                } else {
+                    groupedBlocks.push({ type: 'line', text: line, originalIndex: i });
+                }
+            }
+        }
+    }
+    
+    if (inCodeBlock && codeContent.length > 0) {
+        groupedBlocks.push({ type: 'code', text: codeContent.join('\n'), originalIndex: codeStartIndex });
+    }
 
     return (
         <div 
@@ -379,8 +442,8 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 </button>
             )}
 
-            {lines.map((line, idx) => {
-                const tr = line.trim();
+            {groupedBlocks.map((block, groupIdx) => {
+                const idx = block.originalIndex;
                 const isBlockActive = idx === activeBlockIndex;
                 const activeClass = isBlockActive ? "bg-yellow-100/50 dark:bg-yellow-900/20 rounded-xl px-2 -mx-2 transition-colors duration-300 shadow-[0_0_15px_rgba(197,160,89,0.1)]" : "transition-colors duration-300";
 
@@ -398,6 +461,22 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                         </button>
                     );
                 };
+
+                if (block.type === 'code') {
+                    // Extract code block content without backticks
+                    const codeClean = block.text.replace(/^```[a-zA-Z]*\n?|\n?```$/g, '');
+                    return (
+                        <div key={`code-${groupIdx}`} id={`read-block-${idx}`} className={`my-8 relative group ${activeClass}`}>
+                            {renderAnnotationButton()}
+                            <pre className="bg-[#1a1a1a] dark:bg-black text-[#e5e5e5] p-4 md:p-6 rounded-xl overflow-x-auto font-mono text-sm md:text-base leading-snug shadow-2xl border border-[#333] mt-2">
+                                <code className="block whitespace-pre">{codeClean}</code>
+                            </pre>
+                        </div>
+                    );
+                }
+
+                const line = block.text;
+                const tr = line.trim();
 
                 if (tr === '__CONTINUATION_MARKER__') return <div key={idx} id={`read-block-${idx}`} className="my-12 border-b border-[#C5A059]/20" />;
                 
