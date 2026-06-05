@@ -68,19 +68,21 @@ export default async function handler(request, response) {
         try {
             const ai = new GoogleGenAI({ apiKey: keyEntry.key });
             
-            const performCall = async (modelName) => {
+            const performCall = async () => {
                 // O teste real DEVE usar generateContent pois o models.get() não gasta a quota de geração
                 // e gera um falso positivo de que a chave está "ativa".
+                // Usamos gemini-1.5-flash-8b pois é mais rápido e menos propício a 503 por superlotação de testes
                 const res = await ai.models.generateContent({
-                    model: modelName,
-                    contents: [{ role: "user", parts: [{ text: "ping" }] }]
+                    model: "gemini-1.5-flash-8b",
+                    contents: [{ role: "user", parts: [{ text: "hi" }] }],
+                    config: { maxOutputTokens: 1 }
                 });
                 return res;
             };
 
             let result;
             try {
-                result = await performCall("gemini-3.5-flash");
+                result = await performCall();
             } catch (errPrimary) {
                 throw errPrimary;
             }
@@ -91,7 +93,7 @@ export default async function handler(request, response) {
                 status: 'active',
                 latency: Date.now() - start,
                 msg: 'OK',
-                model: usedModel
+                model: "gemini-1.5-flash-8b"
             };
 
         } catch (e) {
@@ -127,9 +129,12 @@ export default async function handler(request, response) {
                 
                 global.exhaustedKeys = global.exhaustedKeys || new Map();
                 global.exhaustedKeys.set(keyEntry.key, Date.now() + (4 * 60 * 60 * 1000)); // Bloqueia chaves inválidas p/ não atrasar
-            } else if (err.includes('503') || err.includes('Overloaded')) {
-                status = 'slow';
-                msg = 'Google Instável (503)';
+            } else if (err.includes('503') || err.includes('Overloaded') || err.includes('high demand')) {
+                // Trata o 503 como ativa mas Instável. Uma chave com 503 não significa que está esgotada ou inválida,
+                // significa que o Google negou o request por carga. Podemos considerá-la ativa para propósitos do monitor,
+                // já que o esgotamento (Quota) retornaria 429.
+                status = 'active'; 
+                msg = 'Ativa (Google Instável 503)';
             }
 
             return {
