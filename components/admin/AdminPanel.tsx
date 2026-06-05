@@ -1467,8 +1467,13 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                      <div className="mt-4 h-32 overflow-y-auto bg-black text-green-400 p-2 rounded text-xs text-left font-mono">{batchLogs.map((log, i) => <div key={i}>{log}</div>)}</div>
                  </div>
             ) : (
-                <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 mb-2 bg-gray-50 dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative">
+                    {/* TURBO CHECKBOX CAREFULLY INTEGRATED */}
+                    <div className="md:col-span-3 mb-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700">
+                        <label htmlFor="turboMode" className="text-sm font-bold flex items-center gap-1 dark:text-gray-200 cursor-pointer select-none">
+                            <Zap className="w-4 h-4 text-yellow-500" />
+                            Modo Turbo (Geração em Lote Rápida, sem delay longo)
+                        </label>
                         <input 
                             type="checkbox" 
                             id="turboMode" 
@@ -1476,12 +1481,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                             onChange={e => setIsTurboMode(e.target.checked)} 
                             className="w-4 h-4 text-[#8B0000] rounded focus:ring-[#8B0000]"
                         />
-                        <label htmlFor="turboMode" className="text-sm font-bold flex items-center gap-1 dark:text-gray-200 cursor-pointer">
-                            <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                            Modo Turbo (Geração em Lote Rápida, lotes de 5, sem delay)
-                        </label>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <button onClick={() => handleBatchGenerate('commentary')} className="bg-[#8B0000] text-white py-3 rounded font-bold flex flex-col items-center justify-center gap-1 hover:bg-[#600018]"><MessageSquare className="w-5 h-5" /> Gerar Comentários (Smart Skip)</button>
                     <button onClick={() => handleBatchGenerate('dictionary')} className="bg-[#C5A059] text-white py-3 rounded font-bold flex flex-col items-center justify-center gap-1 hover:bg-[#a88645]"><Languages className="w-5 h-5" /> Gerar Dicionários (Smart Skip)</button>
                     <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded border border-purple-200 dark:border-purple-800 flex flex-col gap-2">
@@ -1489,7 +1489,6 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                         <input type="date" value={devotionalDate} onChange={e => setDevotionalDate(e.target.value)} className="p-1.5 text-xs border rounded w-full dark:bg-gray-900 dark:text-white"/>
                         <button onClick={handleGenerateDevotional} className="bg-purple-700 text-white py-1.5 rounded text-xs font-bold hover:bg-purple-800 w-full">Gerar para esta Data</button>
                     </div>
-                </div>
                 </div>
             )}
         </div>

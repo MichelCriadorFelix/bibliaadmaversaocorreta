@@ -372,34 +372,7 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             codeContent.push(line);
         } else {
             if (tr.length > 0) {
-                // Determine if this line looks like part of an ASCII table or a markdown table
-                const isTableLine = tr.startsWith('+---') || (tr.startsWith('|') && tr.includes('|', 1));
-                
-                if (isTableLine) {
-                    // Peek ahead to see if there are consecutive table lines
-                    let j = i;
-                    const tableLines = [];
-                    while (j < rawLines.length) {
-                        const trNext = rawLines[j].trim();
-                        if (trNext.length === 0) break; // End on empty line
-                        const nextIsTableLine = trNext.startsWith('+---') || (trNext.startsWith('|') && trNext.includes('|', 1)) || /^[=\-+_]+$/.test(trNext);
-                        if (!nextIsTableLine && !trNext.startsWith('|')) {
-                            // Be lenient: some lines inside ASCII tables might not start with |, but usually they do.
-                            // If it doesn't look like a table line, break.
-                            break;
-                        }
-                        tableLines.push(rawLines[j]);
-                        j++;
-                    }
-                    if (tableLines.length > 1) { // It's a block of table lines
-                        groupedBlocks.push({ type: 'code', text: tableLines.join('\n'), originalIndex: i });
-                        i = j - 1; // Skip the lines we just consumed
-                    } else {
-                        groupedBlocks.push({ type: 'line', text: line, originalIndex: i });
-                    }
-                } else {
-                    groupedBlocks.push({ type: 'line', text: line, originalIndex: i });
-                }
+                groupedBlocks.push({ type: 'line', text: line, originalIndex: i });
             }
         }
     }
