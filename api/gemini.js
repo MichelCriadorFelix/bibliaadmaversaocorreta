@@ -646,16 +646,22 @@ export default async function handler(request, response) {
             // Registra cota atingida no Circuito para as requisições subsequentes pularem de imediato
             if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted') || msg.includes('RESOURCE_EXHAUSTED')) {
                 // Tenta extrair o tempo exato de cooldown pedido pelo Google (ex: "retry in 50.5s")
-                let cooldownMs = 75000; // Padrão: 1m15s (evita segurar chaves por muito tempo)
+                let cooldownMs = 75000; // Padrão rpm: 1m15s
                 const retryMatch = msg.match(/retry in ([\d.]+)s/);
                 if (retryMatch) {
                     const secs = parseFloat(retryMatch[1]);
                     if (!isNaN(secs)) cooldownMs = (secs * 1000) + 1000; // +1s de margem de segurança
                 }
+
+                // Limite Verdadeiro de Quota (Daily/Total) -> Descanso de 4 Horas
+                if (msg.toLowerCase().includes('per day') || msg.toLowerCase().includes('daily') || msg.toLowerCase().includes('budget')) {
+                    cooldownMs = 4 * 60 * 60 * 1000; // 4 horas sem falso positivo
+                }
+
                 global.exhaustedKeys.set(apiKey, Date.now() + cooldownMs);
             } else if (msg.includes('API key not valid') || msg.includes('400')) {
-                // Chave de API inválida / erro de configuração: bloqueia por 1 hora para evitar lag
-                global.exhaustedKeys.set(apiKey, Date.now() + 3600000);
+                // Chave de API inválida / erro de configuração: bloqueia por 4 horas para evitar lag
+                global.exhaustedKeys.set(apiKey, Date.now() + (4 * 60 * 60 * 1000));
             }
 
             // Se for erro de rate limit, invalid argument ou quota, tentamos a próxima chave

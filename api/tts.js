@@ -159,9 +159,13 @@ export default async function handler(request, response) {
           console.error("Erro na TTS: ", error);
           const msg = error?.message || '';
           if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted')) {
-              global.exhaustedKeys.set(apiKey, Date.now() + 180000);
+              let cooldownMs = 180000;
+              if (msg.toLowerCase().includes('per day') || msg.toLowerCase().includes('daily')) {
+                  cooldownMs = 4 * 60 * 60 * 1000;
+              }
+              global.exhaustedKeys.set(apiKey, Date.now() + cooldownMs);
           } else if (msg.includes('API key not valid') || msg.includes('400')) {
-              global.exhaustedKeys.set(apiKey, Date.now() + 3600000);
+              global.exhaustedKeys.set(apiKey, Date.now() + (4 * 60 * 60 * 1000));
           }
           continue; 
       }

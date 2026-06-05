@@ -69,7 +69,13 @@ export default async function handler(request, response) {
             const ai = new GoogleGenAI({ apiKey: keyEntry.key });
             
             const performCall = async (modelName) => {
-                return await ai.models.get({ model: modelName });
+                // O teste real DEVE usar generateContent pois o models.get() não gasta a quota de geração
+                // e gera um falso positivo de que a chave está "ativa".
+                const res = await ai.models.generateContent({
+                    model: modelName,
+                    contents: [{ role: "user", parts: [{ text: "ping" }] }]
+                });
+                return res;
             };
 
             let result;
@@ -95,16 +101,32 @@ export default async function handler(request, response) {
 
             if (err.includes('429') || err.includes('Quota') || err.includes('Exhausted') || err.includes('RESOURCE_EXHAUSTED')) {
                 status = 'exhausted';
-                // Extrai o tempo de espera real retornado pelo Google, se existir
+                let cooldownMs = 75000;
+                
                 const retryMatch = err.match(/retry in ([\d.]+)s/);
                 if (retryMatch) {
-                    msg = `Cota Excedida (Volta em ${Math.round(parseFloat(retryMatch[1]))}s)`;
+                    const secs = parseFloat(retryMatch[1]);
+                    if (!isNaN(secs)) cooldownMs = (secs * 1000) + 1000;
+                    msg = `Cota Excedida (Tente em ${Math.round(secs)}s)`;
                 } else {
-                    msg = 'Cota Excedida (429)';
+                    msg = 'Cota Excedida (RPM)';
                 }
+
+                // Limite Verdadeiro de Quota (Daily/Total) -> Descanso de 4 Horas
+                if (err.toLowerCase().includes('per day') || err.toLowerCase().includes('daily') || err.toLowerCase().includes('budget')) {
+                    cooldownMs = 4 * 60 * 60 * 1000;
+                    msg = 'Cota Diária Esgotada (Espera 4h)';
+                }
+
+                global.exhaustedKeys = global.exhaustedKeys || new Map();
+                global.exhaustedKeys.set(keyEntry.key, Date.now() + cooldownMs);
+                
             } else if (err.includes('API key not valid') || err.includes('400')) {
                 status = 'invalid';
                 msg = 'Chave Inválida';
+                
+                global.exhaustedKeys = global.exhaustedKeys || new Map();
+                global.exhaustedKeys.set(keyEntry.key, Date.now() + (4 * 60 * 60 * 1000)); // Bloqueia chaves inválidas p/ não atrasar
             } else if (err.includes('503') || err.includes('Overloaded')) {
                 status = 'slow';
                 msg = 'Google Instável (503)';
