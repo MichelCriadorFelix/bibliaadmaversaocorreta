@@ -71,9 +71,9 @@ export default async function handler(request, response) {
             const performCall = async () => {
                 // O teste real DEVE usar generateContent pois o models.get() não gasta a quota de geração
                 // e gera um falso positivo de que a chave está "ativa".
-                // Usamos gemini-1.5-flash-8b pois é mais rápido e menos propício a 503 por superlotação de testes
+                // Usamos gemini-1.5-flash pois é muito rápido e gasta pouquíssima quota no teste
                 const res = await ai.models.generateContent({
-                    model: "gemini-1.5-flash-8b",
+                    model: "gemini-1.5-flash",
                     contents: [{ role: "user", parts: [{ text: "hi" }] }],
                     config: { maxOutputTokens: 1 }
                 });
@@ -93,7 +93,7 @@ export default async function handler(request, response) {
                 status: 'active',
                 latency: Date.now() - start,
                 msg: 'OK',
-                model: "gemini-1.5-flash-8b"
+                model: "gemini-1.5-flash"
             };
 
         } catch (e) {
