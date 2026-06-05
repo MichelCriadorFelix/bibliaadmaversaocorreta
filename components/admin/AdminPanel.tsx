@@ -742,7 +742,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
               }
 
               // Lote sequencial (1 por vez) evite o limite de 20 RPM do Gemini 3.5 Flash e contenha concorrências
-              const CHUNK_SIZE = isTurboMode ? 5 : 1; 
+              const CHUNK_SIZE = isTurboMode ? 10 : 1; 
               
               for (let i = 0; i < verses.length; i += CHUNK_SIZE) {
                   if (stopBatchRef.current) { 
@@ -1472,7 +1472,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                     <div className="md:col-span-3 mb-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700">
                         <label htmlFor="turboMode" className="text-sm font-bold flex items-center gap-1 dark:text-gray-200 cursor-pointer select-none">
                             <Zap className="w-4 h-4 text-yellow-500" />
-                            Modo Turbo (Geração em Lote Rápida, sem delay longo)
+                            Modo Turbo (Geração em Lote Rápida, lotes de 10 simultâneos)
                         </label>
                         <input 
                             type="checkbox" 
