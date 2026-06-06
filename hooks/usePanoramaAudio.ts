@@ -49,8 +49,10 @@ export function usePanoramaAudio(pages: string[], currentPage: number, onPageCha
         if (pages.length > 0) {
             let accumulatedSentences: GlobalSentence[] = [];
             pages.forEach((pageText, pageIndex) => {
-                const lines = pageText.split('\n').filter(b => b.trim().length > 0);
+                const lines = pageText.split('\n');
                 lines.forEach((line, blockIndex) => {
+                    const tr = line.trim();
+                    if (tr.length === 0) return;
                     const tempDiv = document.createElement("div");
                     tempDiv.innerHTML = line.replace(/__CONTINUATION_MARKER__/g, '. ').replace(/<br>/g, '. ');
                     let clean = tempDiv.textContent || tempDiv.innerText || "";
@@ -127,8 +129,10 @@ export function usePanoramaAudio(pages: string[], currentPage: number, onPageCha
             }
 
             const currentSentenceObj = globalSentences[currentGlobalIndex];
+            console.log("[usePanoramaAudio] Playing sentence:", currentGlobalIndex, "Target page Index:", currentSentenceObj.pageIndex, "Current page ref:", currentPageRef.current, "Sentence sample:", currentSentenceObj.text.substring(0, 30));
 
             if (currentSentenceObj.pageIndex !== undefined && currentSentenceObj.pageIndex !== currentPageRef.current) {
+                console.log("[usePanoramaAudio] Page discrepancy detected. Triggering page change from", currentPageRef.current, "to", currentSentenceObj.pageIndex);
                 onPageChangeRef.current(currentSentenceObj.pageIndex);
             }
 
