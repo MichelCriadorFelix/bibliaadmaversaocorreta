@@ -172,7 +172,7 @@ export default async function handler(request, response) {
                 if (isUpgrade) {
                     volumeInstruction = `MANDATO DE VOLUME FLEXÍVEL (ALVO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Gire em torno da escala de páginas definida no painel. É proibido cortar seções interrompidas.`;
                 } else {
-                    volumeInstruction = `MANDATO DE VOLUME EQUILIBRADO (ALVO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Enquadre o resumo e roadmap na meta de ${wordCountTarget} palavras de forma perfeitamente polida e concisa.`;
+                    volumeInstruction = `MANDATO DE VOLUME RIGOROSO (MÁXIMO: ${baseWordCount + toleranceLimit} PALAVRAS): Enquadre o resumo e roadmap rigorosamente no teto máximo de ${baseWordCount + toleranceLimit} palavras totais, de forma perfeitamente polida e concisa.`;
                 }
 
                 // Detecta se há uma aula extensa colada no prompt (como texto da lição do aluno)
@@ -240,7 +240,7 @@ export default async function handler(request, response) {
                         ${prompt}
                         """`;
                     } else {
-                        enhancedPrompt = `[MODO GUIA DO MESTRE - ALVO EQUILIBRADO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Gere um guia estratégico de ministração de aula do professor para o seguinte tema/capítulo: "${prompt}".`;
+                        enhancedPrompt = `[MODO GUIA DO MESTRE - ALVO RIGOROSO: MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS]: Gere um guia estratégico de ministração de aula do professor para o seguinte tema/capítulo: "${prompt}". Seja conciso e não exceda este limite.`;
                     }
                 }
             }
@@ -432,10 +432,10 @@ export default async function handler(request, response) {
                     
                     INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     - Comece com o TÍTULO em letras maiúsculas (Use #).
-                    - Siga rigorosamente a ementa acima, expandindo cada ponto em uma aula completa de nível PhD.
+                    - Siga rigorosamente a ementa acima, gerando uma aula completa de nível PhD, MAS OBRIGATORIAMENTE RESTRITA AO LIMITE MÁXIMO DE PALAVRAS.
                     - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
                     - CITE A BÍBLIA CONSTANTEMENTE.
-                    - SE O TEXTO FICAR CURTO, VOCÊ FALHOU. EXPANDA AS EXPLICAÇÕES HISTÓRICAS E ETIMOLÓGICAS ATÉ ATINGIR ${baseWordCount} PALAVRAS.`;
+                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter no máximo ${baseWordCount + toleranceLimit} palavras. NUNCA exceda ${baseWordCount + toleranceLimit} palavras.`;
                 }
             }
             // --- LÓGICA PARA CONTEÚDO DO ALUNO (PADRÃO - EBD PANORAMA) ---
@@ -487,8 +487,8 @@ export default async function handler(request, response) {
         --- MANDATO DE VOLUME INTELIGENTE E RESTRITO (ALVO RIGOROSO) ---
         ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Esta é uma atualização de conteúdo preexistente. O usuário definiu que o tamanho desejado mais a "gordura" máxima deve parar em ${baseWordCount + toleranceLimit} palavras. 
         2. COMPACTAÇÃO INTELIGENTE: Como você precisará adicionar novas estruturas (Glossário, Pérolas de Ouro, etc), você OBRIGATORIAMENTE DEVE CONDENSAR e ENXUGAR os parágrafos originais. Não permita que o texto inche.
-        3. QUOTA FINAL PERMITIDA: O texto final completo NUNCA deve ultrapassar ${baseWordCount + toleranceLimit} palavras. Não ignore esta instrução.` : `1. EQUILÍBRIO E CONCISÃO (ALVO EQUILIBRADO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Planeje equilibradamente o tamanho do seu texto. O texto final gerado deve estar confortavelmente contido no intervalo de ${baseWordCount} a ${baseWordCount + toleranceLimit} palavras.
-        2. QUOTA DE CRIAÇÃO DO ALUNO: O texto final deve conter entre ${wordCountTarget} palavras.`}
+        3. QUOTA FINAL PERMITIDA: O texto final completo NUNCA deve ultrapassar ${baseWordCount + toleranceLimit} palavras. Não ignore esta instrução.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): O usuário definiu um alvo claro. Você tem uma "gordura" máxima de até ${toleranceLimit} palavras adicionais se for absolutamente necessário para concluir o raciocínio sem cortes.
+        2. QUOTA FINAL PERMITIDA: O texto final completo NUNCA deve ultrapassar ${baseWordCount + toleranceLimit} palavras totais. Planeje o tamanho do seu texto estruturalmente para respeitar este limite de forma rígida.`}
         3. INTEGRALIDADE ACADÊMICA: É terminantemente proibido omitir a explicação de qualquer versículo bíblico ou deixar a conclusão cortada. Conclua todas as seções e flua magnificamente.
 
         --- BLINDAGEM ANTI-HERESIA SUPREMA (100% OBRIGATÓRIO) ---
@@ -566,16 +566,16 @@ export default async function handler(request, response) {
                     ${prompt}
                     """`;
                 } else {
-                    enhancedPrompt = `[MANDATO DE VOLUME EQUILIBRADO E REALISTA v121.0 - ALVO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: 
+                    enhancedPrompt = `[MANDATO DE VOLUME RIGOROSO v121.0 - ALVO EXATO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS MAX]: 
                     Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
-                    1. O volume total está confortavelmente dentro do limite de ${baseWordCount} a ${baseWordCount + toleranceLimit} palavras? (Não o exceda em demasia, mas garanta que nunca termine de forma vaga ou cortada pela metade).
-                    2. Cobri 100% dos versículos do capítulo com exegese microscópica sem resumir nada?
+                    1. O volume total é RIGOROSAMENTE limitado ao máximo de ${baseWordCount + toleranceLimit} palavras. Pare a geração de detalhes excessivos e compacte sua análise se perceber que vai estourar esse limite.
+                    2. Cobri 100% dos versículos do capítulo com exegese? (Você precisa ser criativo para cobrir os versículos dentro do limite máximo de palavras, seja conciso e direto ao ponto).
                     3. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
                     4. Injetou referências bíblicas por extenso no meio dos parágrafos?
                     5. As curiosidades estão numeradas?
                     6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
                     
-                    RESPEITE A META DE PALAVRAS. O USUÁRIO SOLICITA EXATAMENTE ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS DE CONTEÚDO ESTILIZADO, SEJA OBEDIENTE E EQUILIBRADO.\n\n${prompt}`;
+                    RESPEITE O MÁXIMO DE PALAVRAS ESTABELECIDO. O USUÁRIO SOLICITOU UM TETO DE ${baseWordCount + toleranceLimit} PALAVRAS. CONDENSE SEU TEXTO E SEJA DIRETO PARA CUMPRIR A META, SEM DEIXAR CORTADO!\n\n${prompt}`;
                 }
             }
 
