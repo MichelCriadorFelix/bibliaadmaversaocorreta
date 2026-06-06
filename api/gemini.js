@@ -170,7 +170,7 @@ export default async function handler(request, response) {
 
                 let volumeInstruction = "";
                 if (isUpgrade) {
-                    volumeInstruction = `MANDATO DE VOLUME FLEXÍVEL (ALVO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Gire em torno da escala de páginas definida no painel. É proibido cortar seções interrompidas.`;
+                    volumeInstruction = `MANDATO DE VOLUME CIRÚRGICO (ALVO MÁXIMO: ${baseWordCount + toleranceLimit} PALAVRAS): Gire em torno da escala de páginas definida no painel. NÃO expanda desenfreadamente. COMPACTE o guia se ele estiver ultrapassando essa meta. É proibido cortar seções, resuma o conteúdo se precisar.`;
                 } else {
                     volumeInstruction = `MANDATO DE VOLUME RIGOROSO (MÁXIMO: ${baseWordCount + toleranceLimit} PALAVRAS): Enquadre o resumo e roadmap rigorosamente no teto máximo de ${baseWordCount + toleranceLimit} palavras totais, de forma perfeitamente polida e concisa.`;
                 }
@@ -410,8 +410,9 @@ export default async function handler(request, response) {
                 `;
                 
                 if (taskType === 'upgrade_thematic_ebd') {
-                    enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS - MODELO GEMINI 3.5 FLASH]:
-                    Analise e reescreva a seguinte apostila existente, elevando sua densidade acadêmica, enriquecendo a explicação e aplicando rigorosamente todas as regras de Glossário, Tradição e Fontes Primárias acima.
+                    enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RESTRITO: MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS - MODELO GEMINI 3.5 FLASH]:
+                    Analise e reescreva a seguinte apostila existente, elevando sua densidade acadêmica e enriquecendo a explicação.
+                    CRÍTICO: Você DEVE aplicar rigorosamente as regras de Glossário, Tradição e Fontes Primárias, MAS MANTENDO O TEXTO DENTRO DA META. Compacte o que já existe se for necessário, enxugue prolixidades. O teto máximo não deve ser violado!
                     
                     APOSTILA ATUAL:
                     """
@@ -420,10 +421,10 @@ export default async function handler(request, response) {
                     
                     INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     - Comece com o TÍTULO em letras maiúsculas (Use #).
-                    - Atualize o conteúdo existente. COMPACTE as partes redundantes ou prolixas para garantir que o tamanho final não fique excessivo.
+                    - Atualize o conteúdo existente. COMPACTE as partes redundantes ou prolixas OBRIGATORIAMENTE para garantir que o tamanho final não fique excessivo e estoure a meta.
                     - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
                     - CITE A BÍBLIA CONSTANTEMENTE.
-                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${baseWordCount} e no máximo ${baseWordCount + toleranceLimit} palavras. NUNCA exceda ${baseWordCount + toleranceLimit} palavras!`;
+                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter no máximo ${baseWordCount + toleranceLimit} palavras totais. NUNCA exceda ${baseWordCount + toleranceLimit} palavras!`;
                 } else {
                     enhancedPrompt = `[GERAR APOSTILA DIDÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS - LINGUAGEM CLARA E PhD IMPLÍCITO]:
                     
@@ -485,9 +486,9 @@ export default async function handler(request, response) {
         8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
 
         --- MANDATO DE VOLUME INTELIGENTE E RESTRITO (ALVO RIGOROSO) ---
-        ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Esta é uma atualização de conteúdo preexistente. O usuário definiu que o tamanho desejado mais a "gordura" máxima deve parar em ${baseWordCount + toleranceLimit} palavras. 
-        2. COMPACTAÇÃO INTELIGENTE: Como você precisará adicionar novas estruturas (Glossário, Pérolas de Ouro, etc), você OBRIGATORIAMENTE DEVE CONDENSAR e ENXUGAR os parágrafos originais. Não permita que o texto inche.
-        3. QUOTA FINAL PERMITIDA: O texto final completo NUNCA deve ultrapassar ${baseWordCount + toleranceLimit} palavras. Não ignore esta instrução.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): O usuário definiu um alvo claro. Você tem uma "gordura" máxima de até ${toleranceLimit} palavras adicionais se for absolutamente necessário para concluir o raciocínio sem cortes.
+        ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS): A regra primária é não expandir excessivamente. O usuário definiu que o tamanho final somado a qualquer "gordura" deve parar estritamente antes de ${baseWordCount + toleranceLimit} palavras. 
+        2. ATUALIZAÇÃO CIRÚRGICA: Seu objetivo NÃO é reescrever do zero, mas tomar o texto existente e ATUALIZAR (melhorando formatação e inserindo novas estruturas). Use a margem de gordura de forma cirúrgica. Se a aula original já for longa, COMPACTE e enxugue parágrafos redundantes em vez de adicionar mais texto.
+        3. QUOTA FINAL PERMITIDA: O texto COMPLETO (incluindo todas as estruturas) NÃO pode ultrapassar ${baseWordCount + toleranceLimit} palavras totais.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): O usuário definiu um alvo claro. Você tem uma "gordura" máxima de até ${toleranceLimit} palavras adicionais se for absolutamente necessário para concluir o raciocínio sem cortes.
         2. QUOTA FINAL PERMITIDA: O texto final completo NUNCA deve ultrapassar ${baseWordCount + toleranceLimit} palavras totais. Planeje o tamanho do seu texto estruturalmente para respeitar este limite de forma rígida.`}
         3. INTEGRALIDADE ACADÊMICA: É terminantemente proibido omitir a explicação de qualquer versículo bíblico ou deixar a conclusão cortada. Conclua todas as seções e flua magnificamente.
 
@@ -549,19 +550,18 @@ export default async function handler(request, response) {
         `;
                 systemInstruction = WRITING_STYLE;
                 if (isUpgrade) {
-                    enhancedPrompt = `[PROTETOR DE INTEGRIDADE DE UPGRADE v121.0 - ORQUESTRAÇÃO DE EXEGESE AMPLIFICADA COM GORDURA PORTÁTIL: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: 
+                    enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO v122.0 - ALVO EXATO: MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS]: 
                     Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
-                    1. Cobri 100% dos versículos do capítulo com exegese microscópica? (Nenhum versículo deve ficar de fora).
-                    2. Injetou o Glossário interativo em formato [[Palavra|Explicação didática]] para jargões e termos difíceis?
-                    3. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico com as chaves duplas {{...}}?
-                    4. Injetou referências bíblicas conexas (ex: Jo 1:1, Sl 23:1) correndo inline dentro dos parágrafos?
-                    5. As curiosidades estão numeradas?
-                    6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
-                    7. COMPACTAÇÃO OBRIGATÓRIA: Para adicionar novas Pérolas e Glossários sem explodir o tamanho, reescreva e reduza os excessos da aula atual. O tamanho FINAL É RESTRITO a no MÁXIMO ${baseWordCount + toleranceLimit} palavras totais.
+                    1. A estrutura da aula já existe. Mantenha os acertos do conteúdo existente e ATUALIZE pontualmente (formatação, glossários, pérolas de ouro).
+                    2. NÃO FAÇA UM TEXTO NOVO DO ZERO NEM EXPANTA EXAUSTIVAMENTE! O objetivo é atualizar, corrigir e enriquecer pontualmente, sendo cirúrgico.
+                    3. O volume total É RIGOROSAMENTE LIMITADO ao máximo de ${baseWordCount + toleranceLimit} palavras. Se a aula original já está próxima disso, ENXUGUE o texto e compacte prolixidades para que a inserção de novos recursos (Glossário, Pérolas) não faça o texto estourar o limite.
+                    4. Injetou o Glossário interativo em formato [[Palavra|Explicação didática]]?
+                    5. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
+                    6. As curiosidades estão numeradas e a selagem final está presente?
                     
-                    Reescreva e aprimore a seguinte aula existente do aluno, aplicando a estrutura padrão. ATENÇÃO: COMPACTE DE FORMA INTELIGENTE E NÃO EXCEDA O LIMITE DE PALAVRAS ESTABELECIDO (${baseWordCount + toleranceLimit})!
+                    Reescreva e aprimore a seguinte aula existente do aluno. ATENÇÃO: NÃO SEJA PROLIXO E NÃO EXCEDA O MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS!
                     
-                    AULA ATUAL:
+                    AULA ATUAL (REESCREVA MANTENDO CONCISÃO):
                     """
                     ${prompt}
                     """`;
