@@ -420,10 +420,10 @@ export default async function handler(request, response) {
                     
                     INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     - Comece com o TÍTULO em letras maiúsculas (Use #).
-                    - Siga e expanda o conteúdo atual com explicações completas de nível PhD.
+                    - Atualize o conteúdo existente. COMPACTE as partes redundantes ou prolixas para garantir que o tamanho final não fique excessivo.
                     - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
                     - CITE A BÍBLIA CONSTANTEMENTE.
-                    - CASO O TEXTO FICAR CURTO, EXPANDA AS EXPLICAÇÕES HISTÓRICAS E ETIMOLÓGICAS ATÉ ATINGIR ${baseWordCount} PALAVRAS.`;
+                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${baseWordCount} e no máximo ${baseWordCount + toleranceLimit} palavras. NUNCA exceda ${baseWordCount + toleranceLimit} palavras!`;
                 } else {
                     enhancedPrompt = `[GERAR APOSTILA DIDÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS - LINGUAGEM CLARA E PhD IMPLÍCITO]:
                     
@@ -484,9 +484,10 @@ export default async function handler(request, response) {
         7. SELAGEM FINAL: As seções "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA" são o encerramento absoluto. Nada deve ser escrito após elas.
         8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
 
-        --- MANDATO DE VOLUME INTELIGENTE (v121.0 - PROTETOR ANTI-CORTE DE CONTEÚDO) ---
-        ${isUpgrade ? `1. VOLUME COUBERTO DE ATUALIZAÇÃO (ALVO FLEXÍVEL COM GORDURA PORTÁTIL: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Como esta é uma atualização/upgrade de conteúdo preexistente que receberá novas estruturas complexas (Glossário, Pérolas de Ouro, citações), a integridade é prioritária. NUNCA, sob hipótese alguma, corte ou resuma a exegese ou interrompa a resposta no meio. Se precisar expandir para manter a consistência científica, sinta-se totalmente livre para usar a margem extra ("gordura") de até +${toleranceLimit} palavras além do tamanho original.
-        2. QUOTA FINAL PERMITIDA: O texto final completo deve conter entre ${baseWordCount} e ${baseWordCount + toleranceLimit} palavras.` : `1. EQUILÍBRIO E CONCISÃO (ALVO EQUILIBRADO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Planeje equilibradamente o tamanho do seu texto. O texto final gerado deve estar confortavelmente contido no intervalo de ${baseWordCount} a ${baseWordCount + toleranceLimit} palavras.
+        --- MANDATO DE VOLUME INTELIGENTE E RESTRITO (ALVO RIGOROSO) ---
+        ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Esta é uma atualização de conteúdo preexistente. O usuário definiu que o tamanho desejado mais a "gordura" máxima deve parar em ${baseWordCount + toleranceLimit} palavras. 
+        2. COMPACTAÇÃO INTELIGENTE: Como você precisará adicionar novas estruturas (Glossário, Pérolas de Ouro, etc), você OBRIGATORIAMENTE DEVE CONDENSAR e ENXUGAR os parágrafos originais. Não permita que o texto inche.
+        3. QUOTA FINAL PERMITIDA: O texto final completo NUNCA deve ultrapassar ${baseWordCount + toleranceLimit} palavras. Não ignore esta instrução.` : `1. EQUILÍBRIO E CONCISÃO (ALVO EQUILIBRADO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Planeje equilibradamente o tamanho do seu texto. O texto final gerado deve estar confortavelmente contido no intervalo de ${baseWordCount} a ${baseWordCount + toleranceLimit} palavras.
         2. QUOTA DE CRIAÇÃO DO ALUNO: O texto final deve conter entre ${wordCountTarget} palavras.`}
         3. INTEGRALIDADE ACADÊMICA: É terminantemente proibido omitir a explicação de qualquer versículo bíblico ou deixar a conclusão cortada. Conclua todas as seções e flua magnificamente.
 
@@ -556,9 +557,9 @@ export default async function handler(request, response) {
                     4. Injetou referências bíblicas conexas (ex: Jo 1:1, Sl 23:1) correndo inline dentro dos parágrafos?
                     5. As curiosidades estão numeradas?
                     6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
-                    7. EVITAR CORTES BRUTAIS: Para cumprir a meta de palavras de forma saudável sem fazer um corte abrupto no meio, use a margem ("gordura") extra de até +${toleranceLimit} palavras no upgrade para emoldurar até o final com começo, meio e fim perfeitos.
+                    7. COMPACTAÇÃO OBRIGATÓRIA: Para adicionar novas Pérolas e Glossários sem explodir o tamanho, reescreva e reduza os excessos da aula atual. O tamanho FINAL É RESTRITO a no MÁXIMO ${baseWordCount + toleranceLimit} palavras totais.
                     
-                    Reescreva, aprimore e expanda exaustivamente a seguinte aula existente do aluno, aplicando a estrutura padrão, garantindo que o volume total se enquadre perfeitamente na meta estendida de ${baseWordCount} a ${baseWordCount + toleranceLimit} palavras!
+                    Reescreva e aprimore a seguinte aula existente do aluno, aplicando a estrutura padrão. ATENÇÃO: COMPACTE DE FORMA INTELIGENTE E NÃO EXCEDA O LIMITE DE PALAVRAS ESTABELECIDO (${baseWordCount + toleranceLimit})!
                     
                     AULA ATUAL:
                     """
