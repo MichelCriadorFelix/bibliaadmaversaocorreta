@@ -157,7 +157,7 @@ export default async function handler(request, response) {
                 let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 1000; // Padrão 2 páginas se não especificado
                 
                 const isUpgrade = taskType === 'upgrade_teacher_ebd';
-                const toleranceLimit = isUpgrade ? 800 : 350;
+                const toleranceLimit = isUpgrade ? 600 : 350;
                 let wordCountTarget = `${baseWordCount} a ${baseWordCount + toleranceLimit}`;
                 
                 if (depthLevel === 'padrao') {
@@ -310,7 +310,9 @@ export default async function handler(request, response) {
             else if (taskType === 'thematic_ebd' || taskType === 'upgrade_thematic_ebd') {
                 let depthInstruction = "";
                 let baseWordCount = targetPages ? parseInt(targetPages) * 800 : 4500;
-                let wordCountTarget = `${baseWordCount} a ${baseWordCount + 1000}`;
+                const isUpgrade = taskType === 'upgrade_thematic_ebd';
+                const toleranceLimit = isUpgrade ? 600 : 1000;
+                let wordCountTarget = `${baseWordCount} a ${baseWordCount + toleranceLimit}`;
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
@@ -443,7 +445,7 @@ export default async function handler(request, response) {
                 
                 // Margem de flexibilidade (gordura portátil) para evitar bugs e cortes abruptos de conteúdo
                 const isUpgrade = taskType === 'upgrade_ebd';
-                const toleranceLimit = isUpgrade ? 1200 : 450;
+                const toleranceLimit = isUpgrade ? 600 : 450;
                 let wordCountTarget = `${baseWordCount} a ${baseWordCount + toleranceLimit}`;
                 
                 if (depthLevel === 'padrao') {
@@ -483,7 +485,7 @@ export default async function handler(request, response) {
         8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
 
         --- MANDATO DE VOLUME INTELIGENTE (v121.0 - PROTETOR ANTI-CORTE DE CONTEÚDO) ---
-        ${isUpgrade ? `1. VOLUME COUBERTO DE ATUALIZAÇÃO (ALVO FLEXÍVEL COM GORDURA PORTÁTIL: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Como esta é uma atualização/upgrade de conteúdo preexistente que receberá novas estruturas complexas (Glossário, Pérolas de Ouro, citações), a integridade é prioritária. NUNCA, sob hipótese alguma, corte ou resuma a exegese ou interrompa a resposta no meio. Se precisar expandir para manter a consistência científica, sinta-se totalmente livre para usar a margem extra ("gordura") de até +1200 palavras além do tamanho original.
+        ${isUpgrade ? `1. VOLUME COUBERTO DE ATUALIZAÇÃO (ALVO FLEXÍVEL COM GORDURA PORTÁTIL: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Como esta é uma atualização/upgrade de conteúdo preexistente que receberá novas estruturas complexas (Glossário, Pérolas de Ouro, citações), a integridade é prioritária. NUNCA, sob hipótese alguma, corte ou resuma a exegese ou interrompa a resposta no meio. Se precisar expandir para manter a consistência científica, sinta-se totalmente livre para usar a margem extra ("gordura") de até +${toleranceLimit} palavras além do tamanho original.
         2. QUOTA FINAL PERMITIDA: O texto final completo deve conter entre ${baseWordCount} e ${baseWordCount + toleranceLimit} palavras.` : `1. EQUILÍBRIO E CONCISÃO (ALVO EQUILIBRADO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): Planeje equilibradamente o tamanho do seu texto. O texto final gerado deve estar confortavelmente contido no intervalo de ${baseWordCount} a ${baseWordCount + toleranceLimit} palavras.
         2. QUOTA DE CRIAÇÃO DO ALUNO: O texto final deve conter entre ${wordCountTarget} palavras.`}
         3. INTEGRALIDADE ACADÊMICA: É terminantemente proibido omitir a explicação de qualquer versículo bíblico ou deixar a conclusão cortada. Conclua todas as seções e flua magnificamente.
@@ -554,7 +556,7 @@ export default async function handler(request, response) {
                     4. Injetou referências bíblicas conexas (ex: Jo 1:1, Sl 23:1) correndo inline dentro dos parágrafos?
                     5. As curiosidades estão numeradas?
                     6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
-                    7. EVITAR CORTES BRUTAIS: Para cumprir a meta de palavras de forma saudável sem fazer um corte abrupto no meio, use a margem ("gordura") extra de até +1200 palavras no upgrade para emoldurar até o final com começo, meio e fim perfeitos.
+                    7. EVITAR CORTES BRUTAIS: Para cumprir a meta de palavras de forma saudável sem fazer um corte abrupto no meio, use a margem ("gordura") extra de até +${toleranceLimit} palavras no upgrade para emoldurar até o final com começo, meio e fim perfeitos.
                     
                     Reescreva, aprimore e expanda exaustivamente a seguinte aula existente do aluno, aplicando a estrutura padrão, garantindo que o volume total se enquadre perfeitamente na meta estendida de ${baseWordCount} a ${baseWordCount + toleranceLimit} palavras!
                     
