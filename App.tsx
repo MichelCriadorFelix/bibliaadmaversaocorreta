@@ -223,6 +223,18 @@ export default function App() {
                 }
             }
 
+            const isSecEmail = (e: string) => {
+                const l = (e || '').toLowerCase();
+                return l.includes('chelseano') || l.includes('wendell') || l.includes('nicole');
+            };
+
+            if (isSecEmail(mergedProfile.user_email) && mergedProfile.role !== 'secretary' && mergedProfile.role !== 'admin') {
+                mergedProfile.role = 'secretary';
+                if (mergedProfile.id) {
+                    await db.entities.ReadingProgress.update(mergedProfile.id, { role: 'secretary' });
+                }
+            }
+
             setUserProgress(mergedProfile);
             
             // Ativa Admin se o perfil no banco tiver a role correspondente
@@ -286,6 +298,11 @@ export default function App() {
         
         const existingUser = users.length > 0 ? users[0] : null;
 
+        const isSecEmail = (e: string) => {
+            const l = (e || '').toLowerCase();
+            return l.includes('chelseano') || l.includes('wendell') || l.includes('nicole');
+        };
+
         if (isRegister) {
             if (existingUser) {
                 return "Usuário já existe com este nome. Tente entrar.";
@@ -300,7 +317,7 @@ export default function App() {
                 active_plans: [],
                 ebd_read: [],
                 total_ebd_read: 0,
-                role: 'user'
+                role: isSecEmail(email) ? 'secretary' : 'user'
             });
             setUserProgress(newUser);
         } else {
@@ -314,6 +331,13 @@ export default function App() {
 
             if (existingUser.password_pin && existingUser.password_pin !== password) {
                 return "Senha incorreta.";
+            }
+
+            if (isSecEmail(existingUser.user_email) && existingUser.role !== 'secretary' && existingUser.role !== 'admin') {
+                existingUser.role = 'secretary';
+                if (existingUser.id) {
+                    await db.entities.ReadingProgress.update(existingUser.id, { role: 'secretary' });
+                }
             }
 
             const realCount = existingUser.chapters_read ? existingUser.chapters_read.length : 0;

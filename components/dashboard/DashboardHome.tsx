@@ -52,8 +52,13 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
   const [showAttendance, setShowAttendance] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
 
-  // Verificação de Permissão da Secretária (Nicole ou quem tiver a role)
-  const isSecretary = userProgress?.role === 'secretary' || userProgress?.role === 'admin';
+  // Verificação de Permissão da Secretária (Nicole, Chelseano, Wendell ou quem tiver a role)
+  const userEmailLower = (userProgress?.user_email || user?.user_email || '').toLowerCase();
+  const isSecretary = userProgress?.role === 'secretary' || 
+                      userProgress?.role === 'admin' ||
+                      userEmailLower.includes('nicole') ||
+                      userEmailLower.includes('chelseano') ||
+                      userEmailLower.includes('wendell');
   const canManageAttendance = isAdmin || isSecretary;
 
   useEffect(() => {

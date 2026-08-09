@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ShieldCheck, RefreshCw, Loader2, Upload, Download, Server, HardDrive, Flag, CheckCircle, XCircle, MessageSquare, Languages, GraduationCap, Calendar, CloudUpload, Wand2, StopCircle, Trash2, AlertTriangle, Save, Lock, Unlock, KeyRound, Search, Cloud, Activity, Zap, Battery, UserX, Edit, Wifi, WifiOff, Brain, Eye, EyeOff, Wrench, LayoutGrid, Check } from 'lucide-react';
+import { ChevronLeft, ShieldCheck, RefreshCw, Loader2, Upload, Download, Server, HardDrive, Flag, CheckCircle, XCircle, MessageSquare, Languages, GraduationCap, Calendar, CloudUpload, Wand2, StopCircle, Trash2, AlertTriangle, Save, Lock, Unlock, KeyRound, Search, Cloud, Activity, Zap, Battery, UserX, Edit, Wifi, WifiOff, Brain, Eye, EyeOff, Wrench, LayoutGrid, Check, ClipboardList, UserCheck } from 'lucide-react';
 import { generateContent } from '../../services/geminiService';
 import { BIBLE_BOOKS, generateChapterKey, generateVerseKey, TOTAL_CHAPTERS } from '../../constants';
 import { db, bibleStorage } from '../../services/database';
@@ -255,7 +255,21 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       setLoadingUsers(true);
       try {
           const data = await db.entities.ReadingProgress.list(); 
-          setUsersList(data || []);
+          
+          // Auto-upgrade designated secretaries if needed
+          const updatedList = (data || []).map((u: any) => {
+              const emailLower = (u.user_email || '').toLowerCase().trim();
+              const isSec = emailLower.includes('chelseano') || emailLower.includes('wendell') || emailLower.includes('nicole');
+              if (isSec && u.role !== 'secretary' && u.role !== 'admin') {
+                  u.role = 'secretary';
+                  if (u.id) {
+                      db.entities.ReadingProgress.update(u.id, { role: 'secretary' }).catch(() => {});
+                  }
+              }
+              return u;
+          });
+
+          setUsersList(updatedList);
       } catch(e) {
           onShowToast("Erro ao carregar usuários.", "error");
       } finally {
@@ -275,6 +289,47 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
   };
 
   // --- GESTÃO DE USUÁRIOS (ATUALIZADA) ---
+
+  const handleChangeUserRole = async (user: UserProgress) => {
+      const currentRole = user.role || 'user';
+      const roleMap: Record<string, string> = {
+          'user': 'Aluno',
+          'secretary': 'Secretário(a)',
+          'admin': 'Administrador'
+      };
+      
+      const choice = window.prompt(
+          `Alterar função de ${user.user_name}:\n` +
+          `Função atual: ${roleMap[currentRole] || currentRole}\n\n` +
+          `Digite o número da nova função:\n` +
+          `1 - Aluno\n` +
+          `2 - Secretário(a)\n` +
+          `3 - Administrador`,
+          currentRole === 'secretary' ? '2' : currentRole === 'admin' ? '3' : '1'
+      );
+
+      if (!choice) return; // Cancelou
+
+      let targetRole = currentRole;
+      if (choice === '1' || choice.toLowerCase() === 'aluno' || choice.toLowerCase() === 'user') {
+          targetRole = 'user';
+      } else if (choice === '2' || choice.toLowerCase().includes('secretar') || choice.toLowerCase() === 'secretary') {
+          targetRole = 'secretary';
+      } else if (choice === '3' || choice.toLowerCase().includes('admin')) {
+          targetRole = 'admin';
+      } else {
+          onShowToast("Opção inválida. Digite 1, 2 ou 3.", "error");
+          return;
+      }
+
+      try {
+          await db.entities.ReadingProgress.update(user.id!, { role: targetRole });
+          setUsersList(prev => prev.map(u => u.id === user.id ? { ...u, role: targetRole } : u));
+          onShowToast(`Função de ${user.user_name} alterada para ${roleMap[targetRole]}.`, "success");
+      } catch(e) {
+          onShowToast("Erro ao atualizar função do usuário.", "error");
+      }
+  };
 
   const toggleUserBlock = async (user: UserProgress) => {
       const newStatus = !user.is_blocked;
@@ -1526,7 +1581,17 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                             {filteredUsers.map(user => (
                                 <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
                                     <td className="p-3">
-                                        <div className="font-bold dark:text-white">{user.user_name}</div>
+                                        <div className="font-bold dark:text-white flex items-center gap-2 flex-wrap">
+                                            <span>{user.user_name}</span>
+                                            {user.role === 'admin' && (
+                                                <span className="bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 text-[10px] font-black px-1.5 py-0.5 rounded uppercase">Admin</span>
+                                            )}
+                                            {user.role === 'secretary' && (
+                                                <span className="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 text-[10px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
+                                                    <ClipboardList className="w-3 h-3"/> Secretária
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="text-xs text-gray-400">{user.user_email}</div>
                                         {user.reset_requested && (
                                             <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-800 text-[10px] px-2 py-0.5 rounded-full mt-1">
@@ -1542,7 +1607,8 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                                         )}
                                     </td>
                                     <td className="p-3 text-right">
-                                        <div className="flex justify-end gap-2">
+                                        <div className="flex justify-end gap-1.5">
+                                            <button onClick={() => handleChangeUserRole(user)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40 rounded" title="Alterar Função (Aluno / Secretário / Admin)"><UserCheck className="w-4 h-4" /></button>
                                             <button onClick={() => handleEditPoints(user)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded" title="Editar Pontos do Quiz"><GraduationCap className="w-4 h-4" /></button>
                                             <button onClick={() => handleModifyPassword(user)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Modificar Senha"><KeyRound className="w-4 h-4" /></button>
                                             <button onClick={() => toggleUserBlock(user)} className={`p-1.5 rounded ${user.is_blocked ? 'text-green-600 hover:bg-green-50' : 'text-yellow-600 hover:bg-yellow-50'}`} title={user.is_blocked ? "Desbloquear" : "Bloquear"}>{user.is_blocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}</button>
