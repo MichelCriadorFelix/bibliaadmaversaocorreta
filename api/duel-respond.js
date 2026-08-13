@@ -53,14 +53,24 @@ export default async function handler(req, res) {
   // Avisa o remetente em tempo real sobre a resposta
   if (invite.senderEmail) {
     try {
-      const channel = supabase.channel(`adma_user_${invite.senderEmail.toLowerCase().trim()}`);
-      await channel.subscribe();
-      await channel.send({
-        type: 'broadcast',
-        event: status === 'accepted' ? 'duel_accepted' : 'duel_declined',
-        payload: { invite },
+      const broadcastRes = await fetch(`${supabaseUrl}/realtime/v1/api/broadcast`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
+          messages: [{
+            topic: `adma_user_${invite.senderEmail.toLowerCase().trim()}`,
+            event: status === 'accepted' ? 'duel_accepted' : 'duel_declined',
+            payload: { invite },
+          }],
+        }),
       });
-      await supabase.removeChannel(channel);
+      if (!broadcastRes.ok) {
+        console.error('Erro no broadcast REST de resposta:', await broadcastRes.text());
+      }
     } catch (chanErr) {
       console.error('Erro ao enviar broadcast de resposta do convite:', chanErr);
     }

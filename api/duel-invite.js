@@ -55,12 +55,26 @@ export default async function handler(req, res) {
     console.error('Erro na persistência do convite:', err);
   }
 
-  // Entrega em tempo real ao destinatário via Realtime Broadcast
+  // Entrega em tempo real via REST Broadcast API (sem WebSocket, sem race condition)
   try {
-    const channel = supabase.channel(`adma_user_${invite.receiverEmail}`);
-    await channel.subscribe();
-    await channel.send({ type: 'broadcast', event: 'duel_invite', payload: { invite } });
-    await supabase.removeChannel(channel);
+    const broadcastRes = await fetch(`${supabaseUrl}/realtime/v1/api/broadcast`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+      },
+      body: JSON.stringify({
+        messages: [{
+          topic: `adma_user_${invite.receiverEmail}`,
+          event: 'duel_invite',
+          payload: { invite },
+        }],
+      }),
+    });
+    if (!broadcastRes.ok) {
+      console.error('Erro no broadcast REST:', await broadcastRes.text());
+    }
   } catch (chanErr) {
     console.error('Erro ao enviar broadcast do convite:', chanErr);
   }
