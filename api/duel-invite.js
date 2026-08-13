@@ -25,9 +25,13 @@ export default async function handler(req, res) {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // "Bíblia Geral" usa perguntas de TODOS os livros já cadastrados.
+  // "Bíblia Geral" ou "Bíblia Completa" usa perguntas de TODOS os livros já cadastrados.
   // Qualquer outro livro filtra só pelo prefixo do chapter_key dele.
-  const isGeneral = book.toLowerCase().includes('geral') || book.toLowerCase().includes('bíblia toda');
+  const isGeneral = 
+    book.toLowerCase().includes('geral') || 
+    book.toLowerCase().includes('bíblia toda') || 
+    book.toLowerCase().includes('completa') || 
+    book.toLowerCase().includes('todos os livros');
   const bookPrefix = book.toLowerCase().trim().replace(/\s+/g, '_');
 
   let query = supabase
