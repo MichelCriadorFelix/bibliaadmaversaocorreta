@@ -193,7 +193,7 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                     </div>
                                     <p className="text-[10px] text-gray-500 mt-2">
                                         {thinkingLevel === 'minimal' && 'Sem tempo de ponderação (instantâneo). Bom para correções gramaticais ou rápidas adições.'}
-                                        {thinkingLevel === 'low' && 'O Gemini 3.5 pensa brevemente antes de começar a responder. Geração veloz.'}
+                                        {thinkingLevel === 'low' && 'O Gemini 3.7 pensa brevemente antes de começar a responder. Geração veloz.'}
                                         {thinkingLevel === 'medium' && 'Tempo de raciocínio intermediário equilibrado para garantir que referências fundamentais sejam citadas.'}
                                         {thinkingLevel === 'high' && 'Raciocínio máximo habilitado (Padrão Ouro). O Gemini realiza um debate mental completo na busca teológica e estrutural antes de emitir a palavra final.'}
                                     </p>

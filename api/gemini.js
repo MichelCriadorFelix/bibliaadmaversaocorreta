@@ -579,15 +579,8 @@ export default async function handler(request, response) {
                 }
             }
 
-            // Seleção de Modelo baseada nas diretrizes
-            let modelToUse = 'gemini-3.5-flash';
-            
-            // Usa o preview para limites maiores no processamento em lote
-            if (taskType === 'commentary' || taskType === 'dictionary') {
-                modelToUse = 'gemini-3-flash-preview';
-            } else if (taskType === 'get_bible_verses') {
-                modelToUse = 'gemini-3.5-flash';
-            }
+            // Seleção de Modelo Unificada: Gemini 3.7 Flash em 100% das tarefas
+            const modelToUse = 'gemini-3.7-flash';
 
             const config = {
                 temperature: 0.3, // Menor temperatura para buscas mais precisas e rápidas

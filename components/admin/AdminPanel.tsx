@@ -796,7 +796,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                   addLog(`⚠️ Erro ao pré-carregar itens existentes: ${e.message}`);
               }
 
-              // Lote sequencial (1 por vez) evite o limite de 20 RPM do Gemini 3.5 Flash e contenha concorrências
+              // Lote sequencial (1 por vez) para respeitar limites de RPM do Gemini 3.7 Flash e conter concorrências
               const CHUNK_SIZE = isTurboMode ? 10 : 1; 
               
               for (let i = 0; i < verses.length; i += CHUNK_SIZE) {

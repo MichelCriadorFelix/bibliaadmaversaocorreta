@@ -45,7 +45,7 @@ export default async function handler(request, response) {
 
     const checkKey = async (keyEntry) => {
         const start = Date.now();
-        let usedModel = "gemini-3.5-flash";
+        let usedModel = "gemini-3.7-flash";
 
         // Verifica na memória global se esta chave já está marcada como bloqueada pela aplicação (gemini.js)
         if (global.exhaustedKeys && global.exhaustedKeys.has(keyEntry.key)) {
@@ -69,13 +69,11 @@ export default async function handler(request, response) {
             const ai = new GoogleGenAI({ apiKey: keyEntry.key });
             
             const performCall = async () => {
-                // O teste real DEVE usar generateContent pois o models.get() não gasta a quota de geração
-                // e gera um falso positivo de que a chave está "ativa".
-                // Usamos gemini-1.5-flash pois é muito rápido e gasta pouquíssima quota no teste
+                // Testa diretamente no modelo oficial da aplicação (gemini-3.7-flash)
                 const res = await ai.models.generateContent({
-                    model: "gemini-1.5-flash",
+                    model: "gemini-3.7-flash",
                     contents: [{ role: "user", parts: [{ text: "hi" }] }],
-                    config: { maxOutputTokens: 1 }
+                    config: { maxOutputTokens: 1, thinkingConfig: { thinkingLevel: 'minimal' } }
                 });
                 return res;
             };
@@ -93,7 +91,7 @@ export default async function handler(request, response) {
                 status: 'active',
                 latency: Date.now() - start,
                 msg: 'OK',
-                model: "gemini-1.5-flash"
+                model: "gemini-3.7-flash"
             };
 
         } catch (e) {
