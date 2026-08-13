@@ -11,6 +11,8 @@ import keysStatusHandler from './api/keys-status.js';
 import storageHandler from './api/storage.js';
 import ttsHandler from './api/tts.js';
 import presenceHandler from './api/presence.js';
+import duelInviteHandler from './api/duel-invite.js';
+import duelRespondHandler from './api/duel-respond.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -72,6 +74,25 @@ async function startServer() {
     } catch (error: any) {
       console.error('Error in /api/presence:', error);
       res.status(500).json({ error: error.message || 'Presence server error' });
+    }
+  });
+
+  // --- ROTAS DE CONVITES E RESPOSTAS DE DUELO ---
+  app.all('/api/duel-invite', async (req, res) => {
+    try {
+      await duelInviteHandler(req, res);
+    } catch (error: any) {
+      console.error('Error in /api/duel-invite:', error);
+      res.status(500).json({ error: error.message || 'Duel invite server error' });
+    }
+  });
+
+  app.all('/api/duel-respond', async (req, res) => {
+    try {
+      await duelRespondHandler(req, res);
+    } catch (error: any) {
+      console.error('Error in /api/duel-respond:', error);
+      res.status(500).json({ error: error.message || 'Duel respond server error' });
     }
   });
 

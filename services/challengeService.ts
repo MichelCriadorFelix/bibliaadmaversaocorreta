@@ -478,7 +478,7 @@ export const challengeService = {
         return pool.sort(() => 0.5 - Math.random()).slice(0, count);
     },
 
-    // Enviar convite de duelo
+    // Enviar convite de duelo (Persistência Supabase + Realtime Broadcast)
     sendInvite: async (params: {
         senderEmail: string;
         senderName: string;
@@ -487,63 +487,25 @@ export const challengeService = {
         book: string;
     }): Promise<DuelInvite> => {
         const questions = await challengeService.generateDuelQuestions(params.book, 10);
-        const now = new Date();
-        const expires = new Date(now.getTime() + 60 * 1000); // 60 segundos para aceitar
 
-        const invite: DuelInvite = {
-            id: `duel_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-            senderEmail: params.senderEmail.toLowerCase().trim(),
-            senderName: params.senderName,
-            receiverEmail: params.receiverEmail.toLowerCase().trim(),
-            receiverName: params.receiverName,
-            book: params.book,
-            questionsCount: 10,
-            status: 'pending',
-            questions,
-            createdAt: now.toISOString(),
-            expiresAt: expires.toISOString(),
-        };
-
-        // Salva localmente e emite evento
-        const existing = JSON.parse(localStorage.getItem(LOCAL_DUEL_STORAGE) || '[]');
-        existing.push(invite);
-        localStorage.setItem(LOCAL_DUEL_STORAGE, JSON.stringify(existing));
-
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('adma_duel_invite', { detail: invite }));
-        }
-
-        return invite;
+        const res = await fetch('/api/duel-invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...params, questions }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha ao enviar convite.');
+        return data.invite;
     },
 
-    // Buscar convites pendentes para o usuário logado
-    getPendingInvites: (userEmail: string): DuelInvite[] => {
-        if (!userEmail) return [];
-        const cleanEmail = userEmail.toLowerCase().trim();
-        const stored: DuelInvite[] = JSON.parse(localStorage.getItem(LOCAL_DUEL_STORAGE) || '[]');
-        const now = new Date().getTime();
-
-        return stored.filter(inv => 
-            inv.receiverEmail === cleanEmail && 
-            inv.status === 'pending' && 
-            new Date(inv.expiresAt).getTime() > now
-        );
-    },
-
-    // Aceitar, Recusar ou Expirar convite
+    // Aceitar, Recusar ou Expirar convite (Persistência Supabase + Realtime Broadcast)
     respondInvite: async (inviteId: string, status: 'accepted' | 'declined' | 'expired'): Promise<boolean> => {
-        const stored: DuelInvite[] = JSON.parse(localStorage.getItem(LOCAL_DUEL_STORAGE) || '[]');
-        const index = stored.findIndex(i => i.id === inviteId);
-        if (index >= 0) {
-            stored[index].status = status;
-            localStorage.setItem(LOCAL_DUEL_STORAGE, JSON.stringify(stored));
-            
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('adma_duel_response', { detail: stored[index] }));
-            }
-            return true;
-        }
-        return false;
+        const res = await fetch('/api/duel-respond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inviteId, status }),
+        });
+        return res.ok;
     },
 
     // Salvar resultado do duelo e atribuir XP

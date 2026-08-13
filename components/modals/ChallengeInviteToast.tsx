@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Check, X, Clock, Sparkles } from 'lucide-react';
 import { DuelInvite, challengeService } from '../../services/challengeService';
+import { getSupabase } from '../../services/presenceService';
 
 interface ChallengeInviteToastProps {
     userEmail: string;
@@ -15,38 +16,34 @@ export default function ChallengeInviteToast({
     onShowToast
 }: ChallengeInviteToastProps) {
     const [currentInvite, setCurrentInvite] = useState<DuelInvite | null>(null);
-    const [timeLeft, setTimeLeft] = useState(45);
+    const [timeLeft, setTimeLeft] = useState(60);
 
     useEffect(() => {
         if (!userEmail) return;
+        const supabase = getSupabase();
+        if (!supabase) {
+            console.warn('[ChallengeInviteToast] Supabase indisponível — convites em tempo real desabilitados.');
+            return;
+        }
 
-        // Listener de eventos para convites novos
-        const handleInviteEvent = (e: any) => {
-            const invite: DuelInvite = e.detail;
-            if (invite && invite.receiverEmail.toLowerCase() === userEmail.toLowerCase().trim()) {
-                setCurrentInvite(invite);
-                setTimeLeft(45);
-            }
+        const cleanEmail = userEmail.toLowerCase().trim();
+        const channel = supabase.channel(`adma_user_${cleanEmail}`);
+
+        channel
+            .on('broadcast', { event: 'duel_invite' }, ({ payload }) => {
+                if (payload?.invite) {
+                    setCurrentInvite(payload.invite);
+                    setTimeLeft(60);
+                }
+            })
+            .subscribe();
+
+        return () => { 
+            supabase.removeChannel(channel); 
         };
+    }, [userEmail]);
 
-        window.addEventListener('adma_duel_invite', handleInviteEvent);
-
-        // Checagem periódica de convites no storage
-        const checkInterval = setInterval(() => {
-            const pendings = challengeService.getPendingInvites(userEmail);
-            if (pendings.length > 0 && !currentInvite) {
-                setCurrentInvite(pendings[0]);
-                setTimeLeft(45);
-            }
-        }, 3000);
-
-        return () => {
-            window.removeEventListener('adma_duel_invite', handleInviteEvent);
-            clearInterval(checkInterval);
-        };
-    }, [userEmail, currentInvite]);
-
-    // Timer de 45 segundos para expirar o convite
+    // Timer de 60 segundos para expirar o convite
     useEffect(() => {
         if (!currentInvite) return;
 
@@ -93,7 +90,7 @@ export default function ChallengeInviteToast({
                     <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/60 overflow-hidden">
                         <div 
                             className="h-full bg-gradient-to-r from-amber-500 to-red-500 transition-all duration-1000"
-                            style={{ width: `${(timeLeft / 45) * 100}%` }}
+                            style={{ width: `${(timeLeft / 60) * 100}%` }}
                         />
                     </div>
 

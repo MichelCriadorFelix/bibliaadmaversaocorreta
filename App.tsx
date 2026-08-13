@@ -19,6 +19,7 @@ import NetworkStatus from './components/ui/NetworkStatus';
 import { db, syncManager } from './services/database';
 import { AppConfig, DynamicModule } from './types';
 import { DuelInvite, challengeService } from './services/challengeService';
+import { getSupabase } from './services/presenceService';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -64,6 +65,11 @@ export default function App() {
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
   const [activeModule, setActiveModule] = useState<DynamicModule | null>(null);
   const [activeDuelInvite, setActiveDuelInvite] = useState<DuelInvite | null>(null);
+
+  const showToast = useCallback((msg: string, type: 'success'|'error'|'info') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast({ msg: '', type: 'info' }), 5000);
+  }, []);
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -201,6 +207,36 @@ export default function App() {
       window.removeEventListener('beforeunload', handleUnload);
     };
   }, [isAuthenticated, user, userProgress, view]);
+
+  // Escuta respostas de duelo (Aceito / Recusado) no canal pessoal em tempo real (Padrão Shokmah)
+  useEffect(() => {
+    const activeEmail = user?.user_email || user?.email || userProgress?.user_email;
+    if (!activeEmail) return;
+
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    const cleanEmail = activeEmail.toLowerCase().trim();
+    const userChannel = supabase.channel(`adma_user_${cleanEmail}`);
+
+    userChannel
+      .on('broadcast', { event: 'duel_accepted' }, ({ payload }) => {
+        if (payload?.invite) {
+          showToast(`${payload.invite.receiverName || 'Oponente'} aceitou o duelo! Entrando na Arena...`, 'success');
+          setActiveDuelInvite(payload.invite);
+        }
+      })
+      .on('broadcast', { event: 'duel_declined' }, ({ payload }) => {
+        if (payload?.invite) {
+          showToast(`${payload.invite.receiverName || 'Oponente'} recusou o convite de duelo.`, 'info');
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(userChannel);
+    };
+  }, [user, userProgress, showToast]);
 
   const loadProgress = async (email: string, nameFallback?: string) => {
     try {
@@ -428,11 +464,6 @@ export default function App() {
           setView('dashboard');
       }
   };
-
-  const showToast = useCallback((msg: string, type: 'success'|'error'|'info') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast({ msg: '', type: 'info' }), 5000);
-  }, []);
 
   const handleAdminSuccess = useCallback(() => {
     setIsAdmin(true);
