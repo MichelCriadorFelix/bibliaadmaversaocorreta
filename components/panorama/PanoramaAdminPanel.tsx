@@ -223,7 +223,7 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                         <div className="absolute right-0 text-[10px] text-gray-400 font-bold">10</div>
                                     </div>
                                     <p className="text-[10px] text-gray-500 mt-2">
-                                        A IA tentará gerar conteúdo suficiente para preencher aproximadamente {targetPages} páginas ({targetPages * 800} palavras).
+                                        A IA tentará gerar conteúdo suficiente para preencher aproximadamente {targetPages} páginas (~{targetPages * 600} palavras).
                                     </p>
                                 </div>
                             </div>

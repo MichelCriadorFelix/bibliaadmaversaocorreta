@@ -153,11 +153,11 @@ export default async function handler(request, response) {
             // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR (NOVO v123.0 - CIRÚRGICO) ---
             else if (taskType === 'teacher_ebd' || taskType === 'upgrade_teacher_ebd') {
                 let depthInstruction = "";
-                let baseWordCount = targetPages ? parseInt(targetPages) * 500 : 1000; // Padrão 2 páginas se não especificado
-                
-                const isUpgrade = taskType === 'upgrade_teacher_ebd';
-                const toleranceLimit = isUpgrade ? 600 : 350;
-                let wordCountTarget = `${baseWordCount} a ${baseWordCount + toleranceLimit}`;
+                const pages = targetPages ? parseInt(targetPages) : 3;
+                const baseWordCount = pages * 600;
+                const minWords = Math.round(baseWordCount * 0.85);
+                const maxWords = Math.round(baseWordCount * 1.15);
+                const wordCountTarget = `${minWords} a ${maxWords}`;
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial, fornecendo orientações práticas e diretas ao ponto.";
@@ -169,9 +169,9 @@ export default async function handler(request, response) {
 
                 let volumeInstruction = "";
                 if (isUpgrade) {
-                    volumeInstruction = `MANDATO DE VOLUME CIRÚRGICO (ALVO MÁXIMO: ${baseWordCount + toleranceLimit} PALAVRAS): Gire em torno da escala de páginas definida no painel. NÃO expanda desenfreadamente. COMPACTE o guia se ele estiver ultrapassando essa meta. É proibido cortar seções, resuma o conteúdo se precisar.`;
+                    volumeInstruction = `MANDATO DE VOLUME CIRÚRGICO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL): O usuário solicitou rigorosamente ${pages} páginas (~${baseWordCount} palavras). NÃO ultrapasse ${maxWords} palavras. Se o texto existente for longo, COMPACTE e resuma para se adequar a esta meta.`;
                 } else {
-                    volumeInstruction = `MANDATO DE VOLUME RIGOROSO (MÁXIMO: ${baseWordCount + toleranceLimit} PALAVRAS): Enquadre o resumo e roadmap rigorosamente no teto máximo de ${baseWordCount + toleranceLimit} palavras totais, de forma perfeitamente polida e concisa.`;
+                    volumeInstruction = `MANDATO DE VOLUME RIGOROSO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL): Enquadre o resumo e roadmap rigorosamente na meta de ${pages} páginas (~${baseWordCount} palavras), entre ${minWords} e ${maxWords} palavras totais.`;
                 }
 
                 // Detecta se há uma aula extensa colada no prompt (como texto da lição do aluno)
@@ -183,7 +183,7 @@ export default async function handler(request, response) {
                     DIRETRIZES DE OURO CRÍTICAS:
                     1. NÃO crie uma aula paralela do zero, não reescreva a teoria inteira e não copie longamente o texto colado. O professor já tem o texto da aula; ele precisa de um MANUAL PEDAGÓGICO DE PALESTRAÇÃO.
                     2. Gere uma orientação didática polida com foco em: Como prender a atenção do aluno, como estruturar o tempo, explicações simplificadas de termos complexos e aplicações.
-                    3. Respeite rigidamente a meta de tamanho solicitada (visando de 1 a 5 páginas conforme selecionado, ex: ~${baseWordCount} a ${baseWordCount + toleranceLimit} palavras total).
+                    3. Respeite rigidamente a meta de tamanho solicitada (${pages} páginas, exatamente entre ${wordCountTarget} palavras totais).
                     
                     ESTRUTURA OBRIGATÓRIA DO GUIA DO MESTRE:
                     *   **Título Principal**: GUIA DO MESTRE: RESUMO E ROADMAP DA AULA
@@ -205,14 +205,14 @@ export default async function handler(request, response) {
                     ${volumeInstruction}`;
 
                     if (isUpgrade) {
-                        enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO - RESUMO E ROADMAP DO PROFESSOR: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Analise a lição/artigo abaixo e o guia existente. Atualize e reestruture o Guia do Mestre para focar cirurgicamente no roteiro de dinâmica, ponte didática, pérolas de ilustração e cronograma.
+                        enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO - RESUMO E ROADMAP DO PROFESSOR: EXATAMENTE ${wordCountTarget} PALAVRAS]: Analise a lição/artigo abaixo e o guia existente. Atualize e reestruture o Guia do Mestre para focar cirurgicamente no roteiro de dinâmica, ponte didática, pérolas de ilustração e cronograma.
                         
                         AULA / MANUSCRITO BASE & GUIA EXISTENTE:
                         """
                         ${prompt}
                         """`;
                     } else {
-                        enhancedPrompt = `[MODO GUIA DO MESTRE - RESUMO E ROADMAP DO PROFESSOR: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Analise atentamente a aula colada abaixo e gere o Guia do Mestre baseado nela. Siga estritamente a estrutura do Padrão Ouro estabelecida (Resumo Cirúrgico, Roadmap de Tempos, Ponte Didática, Pérolas e Discussão em Classe).
+                        enhancedPrompt = `[MODO GUIA DO MESTRE - RESUMO E ROADMAP DO PROFESSOR: EXATAMENTE ${wordCountTarget} PALAVRAS]: Analise atentamente a aula colada abaixo e gere o Guia do Mestre baseado nela. Siga estritamente a estrutura do Padrão Ouro estabelecida (Resumo Cirúrgico, Roadmap de Tempos, Ponte Didática, Pérolas e Discussão em Classe).
                         
                         AULA / MANUSCRITO COLADO:
                         """
@@ -232,14 +232,14 @@ export default async function handler(request, response) {
                     ${volumeInstruction}`;
 
                     if (isUpgrade) {
-                        enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO - GUIA DO MESTRE: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS]: Atualize o guia do mestre para ampliar as dinâmicas pedagógicas e pontes didáticas.
+                        enhancedPrompt = `[MODO UPGRADE PEDAGÓGICO - GUIA DO MESTRE: EXATAMENTE ${wordCountTarget} PALAVRAS]: Atualize o guia do mestre para ampliar as dinâmicas pedagógicas e pontes didáticas.
                         
                         CONTEÚDO EXISTENTE PARA UPGRADE:
                         """
                         ${prompt}
                         """`;
                     } else {
-                        enhancedPrompt = `[MODO GUIA DO MESTRE - ALVO RIGOROSO: MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS]: Gere um guia estratégico de ministração de aula do professor para o seguinte tema/capítulo: "${prompt}". Seja conciso e não exceda este limite.`;
+                        enhancedPrompt = `[MODO GUIA DO MESTRE - ALVO RIGOROSO: ${wordCountTarget} PALAVRAS]: Gere um guia estratégico de ministração de aula do professor para o seguinte tema/capítulo: "${prompt}". Seja conciso e não exceda este limite.`;
                     }
                 }
             }
@@ -308,24 +308,26 @@ export default async function handler(request, response) {
             // --- LÓGICA DE EBD TEMÁTICA (SÉRIE OURO - APOSTILA DIDÁTICA PREMIUM v117.0 PhD IMPLÍCITO) ---
             else if (taskType === 'thematic_ebd' || taskType === 'upgrade_thematic_ebd') {
                 let depthInstruction = "";
-                let baseWordCount = targetPages ? parseInt(targetPages) * 800 : 4500;
+                const pages = targetPages ? parseInt(targetPages) : 4;
+                const baseWordCount = pages * 600;
+                const minWords = Math.round(baseWordCount * 0.85);
+                const maxWords = Math.round(baseWordCount * 1.15);
+                const wordCountTarget = `${minWords} a ${maxWords}`;
                 const isUpgrade = taskType === 'upgrade_thematic_ebd';
-                const toleranceLimit = isUpgrade ? 600 : 1000;
-                let wordCountTarget = `${baseWordCount} a ${baseWordCount + toleranceLimit}`;
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial. Cada explicação deve ser densa and informativa.";
+                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial. Cada explicação deve ser densa e informativa.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM tópico deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do tema. Não resuma nada. Cada tópico deve ter no mínimo 600 palavras de explicação.";
+                    depthInstruction = "Análise teológica e histórica profunda, explorando teorias relevantes, contexto bíblico e significados originais com alta erudição, respeitando rigorosamente a escala de páginas solicitada.";
                 }
 
                 systemInstruction = `
-                    ATUE COMO: Um PhD em Teologia, História Eclesiástica e Educação Cristã (Nível Professor Michel Felix). Você está ATUALIZANDO uma APOSTILA DIDÁTICA "SÉRIE OURO" existente usando o modelo Gemini 3.5 Flash de última geração. Use o texto de base fornecido pelo usuário e aplique as diretrizes completas de redação do Professor de forma totalmente implícita.
+                    ATUE COMO: Um PhD em Teologia, História Eclesiástica e Educação Cristã (Nível Professor Michel Felix). Você está ${isUpgrade ? 'ATUALIZANDO' : 'GERANDO'} uma APOSTILA DIDÁTICA "SÉRIE OURO" existente usando o modelo Gemini 3.7 Flash. Use o texto de base fornecido pelo usuário e aplique as diretrizes completas de redação do Professor de forma totalmente implícita.
                     ESTILO DE ATUAÇÃO: O conhecimento, a erudição e a didática do Professor devem ser aplicados de forma TOTALMENTE IMPLÍCITA. Você não é o sujeito da aula, o conteúdo é.
                     
-                    OBJETIVO: Escrever uma APOSTILA DIDÁTICA "SÉRIE OURO" (Extensa, Profunda, Clara e Magistral).
+                    OBJETIVO: Escrever uma APOSTILA DIDÁTICA "SÉRIE OURO" (Profunda, Clara, Magistral e Fiel ao Volume Solicitado).
                     
                     INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
 
@@ -351,13 +353,11 @@ export default async function handler(request, response) {
                     6. RIGOR HISTÓRICO E HONESTIDADE INTELECTUAL (CRÍTICO): Use as fontes primárias APENAS para elucidar o contexto histórico, cultural ou linguístico. É ESTRITAMENTE PROIBIDO forçar a fonte a endossar a sua teologia ou usar anacronismos (ex: dizer que Josefo refutava o gnosticismo). Deixe a fonte falar por si mesma, mesmo que a visão dela seja diferente da nossa. A Pérola de Ouro serve para trazer robustez histórica, não para validar forçadamente o seu argumento.
                     7. MENÇÕES SEM CITAÇÃO: Se você for APENAS MENCIONAR um autor ou obra, sem fazer uma citação específica de um texto, NÃO use o formato {{ }}. Em vez disso, use o formato de Glossário: [[Flávio Josefo | Historiador judeu do século I...]].
 
-                    --- MANDATO DE VOLUME (CRÍTICO - ALVO EXATO: ${targetPages} PÁGINAS) ---
-                    1. META OBRIGATÓRIA: O texto FINAL deve ter ENTRE ${wordCountTarget} PALAVRAS para preencher EXATAMENTE as ${targetPages} páginas solicitadas.
-                    2. ALVO DE PÁGINAS: O usuário selecionou ${targetPages} páginas. Você DEVE gerar conteúdo suficiente para preencher esse volume exato. Não pare de escrever até atingir a meta de palavras. Se você gerar menos, o sistema de paginação falhará em mostrar o que o usuário pediu.
-                    3. PROIBIDO RESUMIR: Se o assunto acabar, aprofunde-se na etimologia, no contexto histórico, nas divergências teológicas (refutando-as) e na aplicação prática.
-                    4. DENSIDADE: Cada subtópico deve ser um "mini-livro". Não escreva parágrafos curtos. Escreva tratados. Explique o "porquê", o "como" e o "para que".
-                    5. EXPLICAÇÕES ROBUSTAS: Cada ponto deve ter uma explicação detalhada. Evite frases curtas. Use parágrafos longos e bem fundamentados.
-                    6. OBEDIÊNCIA: Se o usuário pediu ${targetPages} páginas, entregue conteúdo para ${targetPages} páginas. Nem 1 a menos.
+                    --- MANDATO DE VOLUME (CRÍTICO - ALVO EXATO: ${pages} PÁGINAS = ${wordCountTarget} PALAVRAS) ---
+                    1. META OBRIGATÓRIA: O texto FINAL deve ter RIGOROSAMENTE ENTRE ${wordCountTarget} PALAVRAS para preencher EXATAMENTE as ${pages} páginas solicitadas.
+                    2. NÃO EXCEDA ${maxWords} PALAVRAS e NÃO produza menos que ${minWords} palavras.
+                    3. Se o assunto for curto, aprofunde-se na etimologia e contexto; se for extenso, sintetize e seja direto para caber no alvo de palavras.
+                    4. OBEDIÊNCIA: O usuário pediu ${pages} páginas (~${baseWordCount} palavras). Entregue essa metragem com precisão.
 
                     --- DIRETRIZES DE LINGUAGEM E TOM (CRÍTICO v117.0 - CLAREZA TOTAL) ---
                     1. PROIBIÇÃO DE ARCAÍSMOS E PALAVRAS DIFÍCEIS: É ESTRITAMENTE PROIBIDO usar palavras antigas, pouco usuais, jargões acadêmicos desnecessários ou frases cerimoniais. Nossos alunos são humildes e precisam de clareza absoluta.
@@ -385,33 +385,25 @@ export default async function handler(request, response) {
                        - Evite o academicismo estéril. O objetivo é a compreensão total.
 
                     --- DIRETRIZES DE COMANDO DO USUÁRIO (O QUE ENSINAR) ---
-                    O prompt do usuário contém a EMENTA OBRIGATÓRIA ou a aula atual a ser atualizada. Siga rigorosamente os tópicos existentes, expandindo-os e os reescrevendo em profundidade sob o novo modelo Gemini 3.5 Flash para atingir o volume de ${baseWordCount} palavras.
+                    O prompt do usuário contém a EMENTA OBRIGATÓRIA ou a aula atual a ser atualizada. Siga rigorosamente os tópicos existentes, adaptando o tamanho para atingir exatamente a meta de ${baseWordCount} palavras (${pages} páginas).
 
                     --- REGRA DE OURO DE ENUMERAÇÃO (CRÍTICO) ---
                     JAMAIS faça listas em linha (ex: "A, B e C"). 
-                    Crie listas numeradas (1., 2., 3...) com parágrafos explicativos robustos para cada item.
+                    Crie listas numeradas (1., 2., 3...) com parágrafos explicativos claros para cada item.
 
-                    --- ESTRUTURA PADRONIZADA (PARA ATINGIR ${baseWordCount} PALAVRAS) ---
+                    --- ESTRUTURA PADRONIZADA ---
                     
                     1. TÍTULO DO TEMA (Use # TÍTULO em Maiúsculo).
-                    
-                    2. INTRODUÇÃO (Mínimo 400 palavras - Contextualize o problema histórico, a relevância atual, a etimologia principal e a tese central).
-                    
-                    3. DESENVOLVIMENTO (O Coração da Aula - Mínimo ${depthLevel === 'padrao' ? '1500' : depthLevel === 'estendido' ? '2500' : '4000'} palavras):
-                       - Use ## TÍTULO DO TÓPICO
-                       - Dentro dos tópicos, use ### SUBTÓPICOS para as listas enumeradas explicativas.
-                       - CADA item de uma lista deve ter uma explicação robusta de pelo menos 200 palavras.
-                    
-                    4. APLICAÇÃO PRÁTICA (COMO VIVER ISSO?):
-                       - Passos práticos enumerados e claros.
-                    
+                    2. INTRODUÇÃO (Contextualize o problema histórico, a relevância atual e a tese central).
+                    3. DESENVOLVIMENTO (Use ## TÍTULO DO TÓPICO e ### SUBTÓPICOS).
+                    4. APLICAÇÃO PRÁTICA (Passos práticos enumerados e claros).
                     5. CONCLUSÃO (Solene, Apelativa e Resumitiva, focada na glória de Deus e na prática).
                 `;
                 
                 if (taskType === 'upgrade_thematic_ebd') {
-                    enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RESTRITO: MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS - MODELO GEMINI 3.5 FLASH]:
+                    enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RESTRITO: EXATAMENTE ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
                     Analise e reescreva a seguinte apostila existente, elevando sua densidade acadêmica e enriquecendo a explicação.
-                    CRÍTICO: Você DEVE aplicar rigorosamente as regras de Glossário, Tradição e Fontes Primárias, MAS MANTENDO O TEXTO DENTRO DA META. Compacte o que já existe se for necessário, enxugue prolixidades. O teto máximo não deve ser violado!
+                    CRÍTICO: Você DEVE aplicar rigorosamente as regras de Glossário, Tradição e Fontes Primárias, MANTENDO O TEXTO RIGOROSAMENTE DENTRO DA META DE ${wordCountTarget} PALAVRAS. Compacte o que já existe se for necessário, enxugue prolixidades.
                     
                     APOSTILA ATUAL:
                     """
@@ -420,46 +412,46 @@ export default async function handler(request, response) {
                     
                     INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     - Comece com o TÍTULO em letras maiúsculas (Use #).
-                    - Atualize o conteúdo existente. COMPACTE as partes redundantes ou prolixas OBRIGATORIAMENTE para garantir que o tamanho final não fique excessivo e estoure a meta.
+                    - Atualize o conteúdo existente. COMPACTE as partes redundantes ou prolixas OBRIGATORIAMENTE para garantir que o tamanho final fique entre ${minWords} e ${maxWords} palavras.
                     - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
                     - CITE A BÍBLIA CONSTANTEMENTE.
-                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter no máximo ${baseWordCount + toleranceLimit} palavras totais. NUNCA exceda ${baseWordCount + toleranceLimit} palavras!`;
+                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras. NUNCA exceda ${maxWords} palavras!`;
                 } else {
-                    enhancedPrompt = `[GERAR APOSTILA DIDÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS - LINGUAGEM CLARA E PhD IMPLÍCITO]:
+                    enhancedPrompt = `[GERAR APOSTILA DIDÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
                     
                     EMENTA/TÓPICOS OBRIGATÓRIOS DEFINIDOS PELO RESPONSÁVEL:
                     "${prompt}"
                     
                     INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     - Comece com o TÍTULO em letras maiúsculas (Use #).
-                    - Siga rigorosamente a ementa acima, gerando uma aula completa de nível PhD, MAS OBRIGATORIAMENTE RESTRITA AO LIMITE MÁXIMO DE PALAVRAS.
+                    - Siga rigorosamente a ementa acima, gerando uma aula completa de nível PhD, MAS OBRIGATORIAMENTE RESTRITA AO INTERVALO DE ${wordCountTarget} PALAVRAS.
                     - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
                     - CITE A BÍBLIA CONSTANTEMENTE.
-                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter no máximo ${baseWordCount + toleranceLimit} palavras. NUNCA exceda ${baseWordCount + toleranceLimit} palavras.`;
+                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras. NUNCA exceda ${maxWords} palavras.`;
                 }
             }
             // --- LÓGICA PARA CONTEÚDO DO ALUNO (PADRÃO - EBD PANORAMA) ---
             else if (taskType === 'ebd' || taskType === 'upgrade_ebd') {
                 let depthInstruction = "";
-                let baseWordCount = targetPages ? parseInt(targetPages) * 800 : 4000;
-                
-                // Margem de flexibilidade (gordura portátil) para evitar bugs e cortes abruptos de conteúdo
+                const pages = targetPages ? parseInt(targetPages) : 3;
+                const baseWordCount = pages * 600; // 600 palavras por página real (padrão de diagramação)
+                const minWords = Math.round(baseWordCount * 0.85);
+                const maxWords = Math.round(baseWordCount * 1.15);
+                const wordCountTarget = `${minWords} a ${maxWords}`;
                 const isUpgrade = taskType === 'upgrade_ebd';
-                const toleranceLimit = isUpgrade ? 600 : 450;
-                let wordCountTarget = `${baseWordCount} a ${baseWordCount + toleranceLimit}`;
                 
                 if (depthLevel === 'padrao') {
-                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os versículos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
+                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os versículos de forma clara e sucinta, sem se estender excessivamente em teorias secundárias.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada grupo de versículos. Não seja superficial. Cada explicação deve ser densa e informativa.";
+                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada grupo de versículos com boa densidade informativa.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "ANÁLISE EXAUSTIVA E PROFUNDA OBRIGATÓRIA. Explore todas as teorias relevantes, debates teológicos, contexto histórico detalhado e o significado das palavras nos idiomas originais (hebraico/grego). NENHUM versículo ou grupo de versículos deve ter uma explicação superficial de uma ou duas linhas. Cada ponto deve ser dissecado exaustivamente para garantir que o aluno compreenda a profundidade do texto. Não resuma nada. Cada explicação de versículo deve ter no mínimo 350 palavras.";
+                    depthInstruction = "Análise exegética e teológica aprofundada com idiomas originais (hebraico/grego), debates teológicos e contexto histórico detalhado, dimensionada com precisão para cobrir o capítulo dentro da meta estrita de palavras.";
                 }
 
                 // --- LÓGICA DE INTRODUÇÃO SELETIVA (100% FIEL AO PEDIDO DO ADMIN) ---
                 const introInstruction = (chapter === 1) 
-                    ? "2. INTRODUÇÃO GERAL:\n           Texto rico contextualizando O LIVRO (autor, data, propósito) e o cenário deste primeiro capítulo. Mínimo 400 palavras."
-                    : `2. INTRODUÇÃO DO CAPÍTULO:\n           FOCAR EXCLUSIVAMENTE no contexto imediato do capítulo ${chapter}. NÃO repita a introdução geral do livro de ${book} (autoria, data, etc), pois já foi dado nos capítulos anteriores. Vá direto ao ponto do enredo atual. Mínimo 300 palavras.`;
+                    ? "2. INTRODUÇÃO GERAL:\n           Texto rico contextualizando O LIVRO (autor, data, propósito) e o cenário deste primeiro capítulo."
+                    : `2. INTRODUÇÃO DO CAPÍTULO:\n           FOCAR EXCLUSIVAMENTE no contexto imediato do capítulo ${chapter}. NÃO repita a introdução geral do livro de ${book} (autoria, data, etc), pois já foi dado nos capítulos anteriores. Vá direto ao ponto do enredo atual.`;
 
                 // --- WRITING STYLE PROFESSOR MICHEL FELIX (ESTRUTURA SUPREMA ADMA v81.0 + v82.0 / v113.0 INJECTION) ---
                 const WRITING_STYLE = `
@@ -480,16 +472,16 @@ export default async function handler(request, response) {
                     5. INTEGRAÇÃO CONTEXTUAL (v113.0): O termo anteriormente chamado de "EXEGESE MICROSCÓPICA E EXPANSÃO DO CONTEXTO" agora deve ser referenciado como "PÉROLA DE OURO" para identificar insights periciais profundos. 
                     6. INJEÇÃO IN-LINE (v113.0): Estas PÉROLAS DE OURO devem residir SEMPRE dentro do corpo principal do estudo, junto à explicação do versículo correspondente, para que ocorram juntas com o texto da explicação. Inicie o insight com o prefix "**PÉROLA DE OURO:**" em negrito para destaque.
                     7. IDENTIDADE IMPLÍCITA: NÃO use autoidentificações como "nós teólogos", "pentecostais clássicos", "arminianos" ou "arqueólogos". Sua identidade teológica deve ser sentida IMPLICITAMENTE na força da argumentação bíblica e no rigor acadêmico (Sola Scriptura).
-        6. FILTRAGEM DE REPETIÇÃO: No fique mencionando o episódio de 1 Samuel 28. Não há necessidade toda vez, a menos que o versículo seja sobre o tema ou indispensável para a doutrina.
+        6. FILTRAGEM DE REPETIÇÃO: Não fique mencionando o episódio de 1 Samuel 28 a menos que o versículo seja sobre o tema ou indispensável para a doutrina.
         7. SELAGEM FINAL: As seções "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA" são o encerramento absoluto. Nada deve ser escrito após elas.
         8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
 
-        --- MANDATO DE VOLUME INTELIGENTE E RESTRITO (ALVO RIGOROSO) ---
-        ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS): A regra primária é não expandir excessivamente. O usuário definiu que o tamanho final somado a qualquer "gordura" deve parar estritamente antes de ${baseWordCount + toleranceLimit} palavras. 
-        2. ATUALIZAÇÃO CIRÚRGICA: Seu objetivo NÃO é reescrever do zero, mas tomar o texto existente e ATUALIZAR (melhorando formatação e inserindo novas estruturas). Use a margem de gordura de forma cirúrgica. Se a aula original já for longa, COMPACTE e enxugue parágrafos redundantes em vez de adicionar mais texto.
-        3. QUOTA FINAL PERMITIDA: O texto COMPLETO (incluindo todas as estruturas) NÃO pode ultrapassar ${baseWordCount + toleranceLimit} palavras totais.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS): O usuário definiu um alvo claro. Você tem uma "gordura" máxima de até ${toleranceLimit} palavras adicionais se for absolutamente necessário para concluir o raciocínio sem cortes.
-        2. QUOTA FINAL PERMITIDA: O texto final completo NUNCA deve ultrapassar ${baseWordCount + toleranceLimit} palavras totais. Planeje o tamanho do seu texto estruturalmente para respeitar este limite de forma rígida.`}
-        3. INTEGRALIDADE ACADÊMICA: É terminantemente proibido omitir a explicação de qualquer versículo bíblico ou deixar a conclusão cortada. Conclua todas as seções e flua magnificamente.
+        --- MANDATO DE VOLUME EXATO E RESTRITO (${pages} PÁGINAS = ${wordCountTarget} PALAVRAS) ---
+        ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): O usuário definiu rigorosamente ${pages} páginas (~${baseWordCount} palavras). Não expanda desenfreadamente.
+        2. ATUALIZAÇÃO CIRÚRGICA: Mantenha o texto existente e aplique atualizações pontuais (glossários [[Termo|Explicação]], referências {{Autor|Ref|Busca}} e pérolas de ouro). Se a aula já for longa, COMPACTE e enxugue parágrafos redundantes para manter o tamanho estritamente dentro da faixa de ${wordCountTarget} palavras.
+        3. QUOTA FINAL PERMITIDA: O texto final NUNCA deve ultrapassar ${maxWords} palavras totais e nem ficar abaixo de ${minWords} palavras.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): O usuário selecionou ${pages} páginas (~${baseWordCount} palavras). Planeje o tamanho do texto estruturalmente para respeitar este limite com precisão cirúrgica.
+        2. QUOTA FINAL PERMITIDA: O texto final completo NUNCA deve ultrapassar ${maxWords} palavras totais e nem ficar abaixo de ${minWords} palavras.`}
+        3. INTEGRALIDADE ACADÊMICA: Cubra os versículos do capítulo de forma proporcional ao espaço disponível. Não omita a conclusão nem deixe seções cortadas.
 
         --- BLINDAGEM ANTI-HERESIA SUPREMA (100% OBRIGATÓRIO) ---
         - 1 SAMUEL 28 (NECROMANCIA): Samuel NÃO voltou pelo poder da médium. Ensine que ou foi uma personificação demoníaca permitida por Deus ou uma intervenção soberana direta para juízo, NUNCA validando a consulta aos mortos.
@@ -508,21 +500,19 @@ export default async function handler(request, response) {
 
         --- PROTOCOLO DE SEGURANÇA TEOLÓGICA E DIDÁTICA (NÍVEL MÁXIMO - IMPLÍCITO) ---
         1. A BÍBLIA EXPLICA A BÍBLIA: Antes de formular o comentário, verifique MENTALMENTE e RIGOROSAMENTE o CONTEXTO IMEDIATO (capítulo) e o CONTEXTO REMOTO (livros históricos paralelos, profetas contemporâneos, Novo Testamento) para garantir a coerência.
-        2. PRECISÃO CRONOLÓGICA E CONTEXTUAL: Ao explicar, evite anacronismos (ex: confundir reis, das ou eventos que ainda não ocorreram na narrativa).
-        3. EXEMPLO DE RIGOR: Se o texto trata de Ezequias, verifique se Manassés já era nascido. A Bíblia diz que não. Logo, seja exato.
+        2. PRECISÃO CRONOLÓGICA E CONTEXTUAL: Ao explicar, evite anacronismos (ex: confundir reis, datas ou eventos que ainda não ocorreram na narrativa).
 
         3. DIDÁTICA DOS TEXTOS POLÊMICOS E DIFÍCEIS:
            - É EXCELENTE, DIDÁTICO e RECOMENDADO citar as principais correntes interpretativas divergentes para enriquecer a cultura do aluno (ex: "Alguns teólogos históricos interpretam como X, outros como Y...").
            - CONTUDO, você deve OBRIGATORIAMENTE concluir defendendo a interpretação Ortodoxa e Biblicamente coerente.
         
-        --- METODOLOGIA DE ENSINO (MICROSCOPIA BÍBLICO) ---
-        1. CHEGA DE RESUMOS: O aluno precisa entender o texto COMPLETAMENTE. Não faça explicações genéricas que cobrem 10 versículos de uma vez.
-        2. DENSIDADE: Extraia todo o suco do texto. Si houver uma lista de nomes, explique a relevância. Si houver uma ação detalhada, explique o motivo.
-        3. PROIBIDO TRANSCREVER O TEXTO BÍBLICO: O aluno já tem a Bíblia. NÃO escreva o versículo por extenso. Cite apenas a referência e vá direto para a EXPLICAÇÃO.
+        --- METODOLOGIA DE ENSINO ---
+        1. EXPLICAÇÃO CONTEXTUALIZADA: Agrupe os versículos em blocos temáticos claros e explique-os com profundidade proporcional ao tamanho de páginas solicitado.
+        2. PROIBIDO TRANSCREVER O TEXTO BÍBLICO: O aluno já tem a Bíblia. NÃO escreva o versículo por extenso. Cite apenas a referência e vá direto para a EXPLICAÇÃO.
 
         --- IDIOMAS ORIGINAIS E ETIMOLOGIA (INDISPENSÁVEL) ---
-        1. PALAVRAS-CHAVE: Cite os termos originais (Hebraico no AT / Grego no NT) transliterados.
-        2. SIGNIFICADOS DE NOMES: Sempre traga o significado etimológico de nomes de pessoas e lugares.
+        1. PALAVRAS-CHAVE: Cite os termos originais (Hebraico no AT / Grego no NT) transliterados quando enriquecer o texto.
+        2. SIGNIFICADOS DE NOMES: Traga o significado etimológico de nomes de pessoas e lugares chave.
 
         --- ESTRUTURA VISUAL OBRIGATÓRIA (BASEADA NO MODELO ADMA VIA MARKDOWN) ---
         1. TÍTULO PRINCIPAL (OBRIGATÓRIO O USO DE HEADER NÍVEL 1 '# '):
@@ -533,7 +523,7 @@ export default async function handler(request, response) {
         3. TÓPICOS DO ESTUDO (OBRIGATÓRIO USO DE Numeração 1., 2., 3... E HEADER NÍVEL 2 '## '):
            Exemplo:
            ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: Gn X:Y-Z)
-           (Aqui entra a explicação detalhada, versículo por versículo, sem pressa. NÃO COPIE O TEXTO BÍBLICO, APENAS EXPLIQUE).
+           (Aqui entra a explicação detalhada do bloco de versículos. NÃO COPIE O TEXTO BÍBLICO, APENAS EXPLIQUE).
            (INTEGRE AQUI A **PÉROLA DE OURO:** PARA ESTE TRECHO - PROTOCOLO v113.0 INTEGRADO CONTEXTUALMENTE COM FONTES RASTREÁVEIS).
 
         4. SEÇÕES FINAIS OBRIGATÓRIAS (SELAGEM ABSOLUTA):
@@ -544,37 +534,35 @@ export default async function handler(request, response) {
            (OBRIGATÓRIO: Liste todos os itens de forma numerada 1., 2., 3., etc).
 
         --- INSTRUÇÕES DE PAGINAÇÃO ---
-        1. Texto de TAMANHO EXAUSTIVO (Meta: ${baseWordCount} palavras).
+        1. Volume Total: EXATAMENTE ${pages} páginas (~${baseWordCount} palavras, intervalo: ${wordCountTarget} palavras).
         2. Insira <hr class="page-break"> entre os tópicos principais para dividir as páginas.
         `;
                 systemInstruction = WRITING_STYLE;
                 if (isUpgrade) {
-                    enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO v122.0 - ALVO EXATO: MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS]: 
-                    Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
-                    1. A estrutura da aula já existe. Mantenha os acertos do conteúdo existente e ATUALIZE pontualmente (formatação, glossários, pérolas de ouro).
-                    2. NÃO FAÇA UM TEXTO NOVO DO ZERO NEM EXPANTA EXAUSTIVAMENTE! O objetivo é atualizar, corrigir e enriquecer pontualmente, sendo cirúrgico.
-                    3. O volume total É RIGOROSAMENTE LIMITADO ao máximo de ${baseWordCount + toleranceLimit} palavras. Se a aula original já está próxima disso, ENXUGUE o texto e compacte prolixidades para que a inserção de novos recursos (Glossário, Pérolas) não faça o texto estourar o limite.
+                    enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO - ALVO EXATO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]: 
+                    Antes de emitir o texto, use seu raciocínio para checar:
+                    1. A estrutura da aula já existe. Mantenha os acertos do conteúdo existente e ATUALIZE pontualmente (formatação, glossários [[Termo|Definição]], fontes {{Autor|Ref|Comando}} e pérolas de ouro).
+                    2. NÃO FAÇA UM TEXTO NOVO DO ZERO NEM EXPANDA DESMEDIDAMENTE! O objetivo é atualizar, enriquecer e formatar.
+                    3. O volume total É RIGOROSAMENTE LIMITADO a ${wordCountTarget} palavras (${pages} páginas). Se a aula original for longa, ENXUGUE o texto e compacte prolixidades para que o total final permaneça estritamente entre ${minWords} e ${maxWords} palavras.
                     4. Injetou o Glossário interativo em formato [[Palavra|Explicação didática]]?
                     5. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
                     6. As curiosidades estão numeradas e a selagem final está presente?
                     
-                    Reescreva e aprimore a seguinte aula existente do aluno. ATENÇÃO: NÃO SEJA PROLIXO E NÃO EXCEDA O MÁXIMO DE ${baseWordCount + toleranceLimit} PALAVRAS!
+                    Reescreva e aprimore a seguinte aula existente do aluno. ATENÇÃO: SEJA PRECISO NO METRADO E NÃO EXCEDA ${maxWords} PALAVRAS!
                     
-                    AULA ATUAL (REESCREVA MANTENDO CONCISÃO):
+                    AULA ATUAL (REESCREVA MANTENDO CONCISÃO E ADEQUAÇÃO AO TAMANHO):
                     """
                     ${prompt}
                     """`;
                 } else {
-                    enhancedPrompt = `[MANDATO DE VOLUME RIGOROSO v121.0 - ALVO EXATO: ENTRE ${baseWordCount} E ${baseWordCount + toleranceLimit} PALAVRAS MAX]: 
-                    Antes de emitir o texto, use seu orçamento de raciocínio para checar ITEM POR ITEM:
-                    1. O volume total é RIGOROSAMENTE limitado ao máximo de ${baseWordCount + toleranceLimit} palavras. Pare a geração de detalhes excessivos e compacte sua análise se perceber que vai estourar esse limite.
-                    2. Cobri 100% dos versículos do capítulo com exegese? (Você precisa ser criativo para cobrir os versículos dentro do limite máximo de palavras, seja conciso e direto ao ponto).
+                    enhancedPrompt = `[MANDATO DE VOLUME RIGOROSO - ALVO EXATO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]: 
+                    Antes de emitir o texto, use seu raciocínio para calibrar o volume:
+                    1. O volume total é RIGOROSAMENTE limitado ao intervalo de ${wordCountTarget} palavras. Pare a geração de detalhes excessivos e sintetize se perceber que vai ultrapassar ${maxWords} palavras.
+                    2. Cubra os versículos do capítulo de forma proporcional dentro da meta exata de ${pages} páginas.
                     3. Injetou a Pérola de Ouro (Josefo, Talmud, etc) DENTRO de cada tópico?
-                    4. Injetou referências bíblicas por extenso no meio dos parágrafos?
+                    4. Injetou referências bíblicas no meio dos parágrafos?
                     5. As curiosidades estão numeradas?
-                    6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?
-                    
-                    RESPEITE O MÁXIMO DE PALAVRAS ESTABELECIDO. O USUÁRIO SOLICITOU UM TETO DE ${baseWordCount + toleranceLimit} PALAVRAS. CONDENSE SEU TEXTO E SEJA DIRETO PARA CUMPRIR A META, SEM DEIXAR CORTADO!\n\n${prompt}`;
+                    6. A selagem final (Tipologia/Arqueologia) está presente no fim do texto?`;
                 }
             }
 
