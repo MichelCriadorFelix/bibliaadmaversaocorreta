@@ -463,7 +463,68 @@ export const challengeService = {
             pool = [...BOOK_QUESTIONS_DB[bookKey]];
         }
 
-        // Tenta também agregar de outros livros se for Bíblia Geral ou precisar completar
+        // Se tivermos as perguntas estáticas suficientes, retornamos elas e misturamos
+        if (pool.length >= count) {
+             return pool.sort(() => 0.5 - Math.random()).slice(0, count);
+        }
+
+        // Se não tiver perguntas estáticas (ex: outros livros), nós geramos VIA AI.
+        try {
+             // Chamada para a API Gemini (a mesma que gera os quizzes da aula EBD)
+             // Pediremos para gerar sobre o livro específico, no modelo do QuizQuestion
+             const prompt = `Gere ${count} perguntas de múltipla escolha difíceis e teológicas sobre o livro bíblico de ${book}, retirando conteúdo do seu conhecimento de Teologia Panorâmica do Professor Michel Felix. Retorne EXATAMENTE um array JSON seguindo o schema.`;
+             const schema = {
+                 type: "ARRAY",
+                 description: "Array of quiz questions",
+                 items: {
+                     type: "OBJECT",
+                     properties: {
+                         text: { type: "STRING", description: "O enunciado da pergunta" },
+                         chapterRef: { type: "STRING", description: "Referência do capítulo, ex: Gênesis 1" },
+                         options: { 
+                             type: "ARRAY", 
+                             items: { type: "STRING" },
+                             description: "Exatamente 4 opções de resposta"
+                         },
+                         correctOptionIndex: { type: "INTEGER", description: "O índice da resposta correta (0 a 3)" }
+                     },
+                     required: ["text", "chapterRef", "options", "correctOptionIndex"]
+                 }
+             };
+
+             const res = await fetch('/api/gemini', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ prompt, schema, taskType: 'general' })
+             });
+
+             if (res.ok) {
+                 const data = await res.json();
+                 let generatedQuestions = [];
+                 try {
+                     generatedQuestions = JSON.parse(data.text);
+                 } catch (e) {
+                     // caso a api não mande um json limpo, pode acontecer com taskType general se n respeitar o schema
+                 }
+                 
+                 if (Array.isArray(generatedQuestions) && generatedQuestions.length > 0) {
+                     const formattedQuestions = generatedQuestions.map((q: any, i: number) => ({
+                         id: `ai_${book.replace(/\s+/g, '_')}_${Date.now()}_${i}`,
+                         text: q.text,
+                         chapterRef: q.chapterRef,
+                         options: q.options,
+                         correctOptionIndex: q.correctOptionIndex
+                     }));
+                     
+                     // Adiciona ao pool e garante que temos o número certo
+                     pool = [...pool, ...formattedQuestions];
+                 }
+             }
+        } catch (e) {
+             console.error("Falha ao gerar perguntas com IA para o livro", book, e);
+        }
+
+        // Fallback: se a IA falhar e não houver perguntas daquele livro, agrega de outros livros
         if (pool.length < count) {
             Object.values(BOOK_QUESTIONS_DB).forEach(list => {
                 list.forEach(q => {
