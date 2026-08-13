@@ -2,81 +2,48 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Check, X, Clock, Sparkles } from 'lucide-react';
 import { DuelInvite, challengeService } from '../../services/challengeService';
-import { getSupabase } from '../../services/presenceService';
 
 interface ChallengeInviteToastProps {
-    userEmail: string;
+    invite: DuelInvite;
     onAcceptInvite: (invite: DuelInvite) => void;
+    onDismiss: () => void;
     onShowToast?: (msg: string, type: 'info' | 'success' | 'error') => void;
 }
 
 export default function ChallengeInviteToast({
-    userEmail,
+    invite,
     onAcceptInvite,
+    onDismiss,
     onShowToast
 }: ChallengeInviteToastProps) {
-    const [currentInvite, setCurrentInvite] = useState<DuelInvite | null>(null);
     const [timeLeft, setTimeLeft] = useState(60);
-
-    useEffect(() => {
-        if (!userEmail) return;
-        const supabase = getSupabase();
-        if (!supabase) {
-            console.warn('[ChallengeInviteToast] Supabase indisponível — convites em tempo real desabilitados.');
-            return;
-        }
-
-        const cleanEmail = userEmail.toLowerCase().trim();
-        const channel = supabase.channel(`adma_user_${cleanEmail}`);
-
-        channel
-            .on('broadcast', { event: 'duel_invite' }, ({ payload }) => {
-                console.log('[ChallengeInviteToast] Convite recebido via broadcast:', payload);
-                if (payload?.invite) {
-                    setCurrentInvite(payload.invite);
-                    setTimeLeft(60);
-                }
-            })
-            .subscribe((status, err) => {
-                console.log('[ChallengeInviteToast] Status do canal', `adma_user_${cleanEmail}`, ':', status, err || '');
-            });
-
-        return () => { 
-            supabase.removeChannel(channel); 
-        };
-    }, [userEmail]);
 
     // Timer de 60 segundos para expirar o convite
     useEffect(() => {
-        if (!currentInvite) return;
-
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
                 if (prev <= 1) {
                     clearInterval(timer);
-                    challengeService.respondInvite(currentInvite.id, 'expired');
-                    setCurrentInvite(null);
+                    challengeService.respondInvite(invite.id, 'expired');
+                    onDismiss();
                     return 0;
                 }
                 return prev - 1;
             });
         }, 1000);
-
         return () => clearInterval(timer);
-    }, [currentInvite]);
-
-    if (!currentInvite) return null;
+    }, [invite.id, onDismiss]);
 
     const handleAccept = async () => {
-        await challengeService.respondInvite(currentInvite.id, 'accepted');
-        onAcceptInvite(currentInvite);
-        setCurrentInvite(null);
+        await challengeService.respondInvite(invite.id, 'accepted');
+        onAcceptInvite(invite);
+        onDismiss();
         if (onShowToast) onShowToast('Duelo aceito! Preparando arena...', 'success');
     };
 
     const handleDecline = async () => {
-        await challengeService.respondInvite(currentInvite.id, 'declined');
-        setCurrentInvite(null);
+        await challengeService.respondInvite(invite.id, 'declined');
+        onDismiss();
         if (onShowToast) onShowToast('Convite de duelo recusado.', 'info');
     };
 
@@ -101,19 +68,17 @@ export default function ChallengeInviteToast({
                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-red-700 flex items-center justify-center shrink-0 shadow-lg text-white animate-pulse">
                             <Swords className="w-6 h-6" />
                         </div>
-
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 text-amber-400 font-cinzel text-xs font-bold uppercase tracking-wider">
                                 <Sparkles className="w-3.5 h-3.5" /> Desafio de Duelo!
                             </div>
                             <h4 className="font-bold text-sm text-white truncate">
-                                {currentInvite.senderName}
+                                {invite.senderName}
                             </h4>
                             <p className="text-[11px] text-gray-300">
-                                Livro: <span className="font-semibold text-[#C5A059]">{currentInvite.book}</span> (10 Perguntas)
+                                Livro: <span className="font-semibold text-[#C5A059]">{invite.book}</span> (10 Perguntas)
                             </p>
                         </div>
-
                         <div className="flex items-center gap-1.5 shrink-0">
                             <button
                                 onClick={handleAccept}

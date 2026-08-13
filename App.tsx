@@ -65,6 +65,7 @@ export default function App() {
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
   const [activeModule, setActiveModule] = useState<DynamicModule | null>(null);
   const [activeDuelInvite, setActiveDuelInvite] = useState<DuelInvite | null>(null);
+  const [incomingDuelInvite, setIncomingDuelInvite] = useState<DuelInvite | null>(null);
 
   const showToast = useCallback((msg: string, type: 'success'|'error'|'info') => {
     setToast({ msg, type });
@@ -208,18 +209,26 @@ export default function App() {
     };
   }, [isAuthenticated, user, userProgress, view]);
 
-  // Escuta respostas de duelo (Aceito / Recusado) no canal pessoal em tempo real (Padrão Shokmah)
+  // ÚNICO canal pessoal por usuário — escuta TODOS os eventos de duelo.
+  // Depende apenas do e-mail (string primitiva), não do objeto inteiro,
+  // para não recriar o canal a cada atualização de progresso no app.
+  const activeEmailForDuel = user?.user_email || user?.email || userProgress?.user_email || '';
+
   useEffect(() => {
-    const activeEmail = user?.user_email || user?.email || userProgress?.user_email;
-    if (!activeEmail) return;
+    if (!activeEmailForDuel) return;
 
     const supabase = getSupabase();
     if (!supabase) return;
 
-    const cleanEmail = activeEmail.toLowerCase().trim();
+    const cleanEmail = activeEmailForDuel.toLowerCase().trim();
     const userChannel = supabase.channel(`adma_user_${cleanEmail}`);
 
     userChannel
+      .on('broadcast', { event: 'duel_invite' }, ({ payload }) => {
+        if (payload?.invite) {
+          setIncomingDuelInvite(payload.invite);
+        }
+      })
       .on('broadcast', { event: 'duel_accepted' }, ({ payload }) => {
         if (payload?.invite) {
           showToast(`${payload.invite.receiverName || 'Oponente'} aceitou o duelo! Entrando na Arena...`, 'success');
@@ -231,12 +240,14 @@ export default function App() {
           showToast(`${payload.invite.receiverName || 'Oponente'} recusou o convite de duelo.`, 'info');
         }
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[App] Status do canal de duelo', `adma_user_${cleanEmail}`, ':', status, err || '');
+      });
 
     return () => {
       supabase.removeChannel(userChannel);
     };
-  }, [user, userProgress, showToast]);
+  }, [activeEmailForDuel, showToast]);
 
   const loadProgress = async (email: string, nameFallback?: string) => {
     try {
@@ -590,10 +601,11 @@ export default function App() {
           <BibleSearch isOpen={showSearch} onClose={() => setShowSearch(false)} onNavigate={handleNavigate} />
           
           {/* TOAST FLUTUANTE DE CONVITE DE DUELO */}
-          {user && (
+          {user && incomingDuelInvite && (
               <ChallengeInviteToast
-                  userEmail={user.user_email}
-                  onAcceptInvite={(invite) => setActiveDuelInvite(invite)}
+                  invite={incomingDuelInvite}
+                  onAcceptInvite={(invite) => { setActiveDuelInvite(invite); setIncomingDuelInvite(null); }}
+                  onDismiss={() => setIncomingDuelInvite(null)}
                   onShowToast={showToast}
               />
           )}

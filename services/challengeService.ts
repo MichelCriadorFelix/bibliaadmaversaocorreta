@@ -486,9 +486,10 @@ export const challengeService = {
                              items: { type: "STRING" },
                              description: "Exatamente 4 opções de resposta"
                          },
-                         correctOptionIndex: { type: "INTEGER", description: "O índice da resposta correta (0 a 3)" }
+                         correctIndex: { type: "INTEGER", description: "O índice da resposta correta (0 a 3)" },
+                         proofText: { type: "STRING", description: "Texto comprovando a resposta" }
                      },
-                     required: ["text", "chapterRef", "options", "correctOptionIndex"]
+                     required: ["text", "chapterRef", "options", "correctIndex", "proofText"]
                  }
              };
 
@@ -513,7 +514,8 @@ export const challengeService = {
                          text: q.text,
                          chapterRef: q.chapterRef,
                          options: q.options,
-                         correctOptionIndex: q.correctOptionIndex
+                         correctIndex: q.correctIndex,
+                         proofText: q.proofText
                      }));
                      
                      // Adiciona ao pool e garante que temos o número certo
