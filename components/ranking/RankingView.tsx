@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Trophy, Medal, Crown, User, Loader2, BookOpen, GraduationCap, X, Flame, Star, Shield, RefreshCw, Brain, Swords, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trophy, Medal, Crown, User, Loader2, BookOpen, GraduationCap, X, Flame, Star, Shield, RefreshCw, Brain, Swords, Users, Radio } from 'lucide-react';
 import { db } from '../../services/database';
 import { AnimatePresence, motion } from 'framer-motion';
 import { challengeService } from '../../services/challengeService';
+import { presenceService } from '../../services/presenceService';
 import ArenaLobbyModal from '../modals/ArenaLobbyModal';
 
 export default function RankingView({ onBack, userProgress, onStartDuel, onShowToast }: any) {
@@ -11,10 +12,26 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
   const [activeTab, setActiveTab] = useState<'chapters' | 'ebd' | 'quiz'>('chapters');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showArenaLobby, setShowArenaLobby] = useState(false);
+  const [onlineEmails, setOnlineEmails] = useState<Set<string>>(new Set());
   
   // OTIMIZAÇÃO: Paginação para reduzir DOM
   const [page, setPage] = useState(0);
   const ITEMS_PER_PAGE = 10;
+
+  useEffect(() => {
+    // Escuta presença em tempo real via Supabase Realtime
+    const unsubscribe = presenceService.subscribeToUsers((onlineList) => {
+      const emailSet = new Set<string>();
+      onlineList.forEach(u => {
+        if (u.email) emailSet.add(u.email.toLowerCase().trim());
+      });
+      setOnlineEmails(emailSet);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -360,12 +377,27 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
         {/* BANNER ARENA DE DUELOS */}
         <div className="p-3.5 bg-gradient-to-r from-[#2a0505] via-[#4a0808] to-[#1a0202] text-white flex items-center justify-between border-b border-[#C5A059]/30 shadow-md">
             <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-[#8B0000] flex items-center justify-center text-white shadow-md">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-[#8B0000] flex items-center justify-center text-white shadow-md relative">
                     <Swords className="w-5 h-5" />
+                    {onlineEmails.size > 0 && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2a0505] animate-pulse" />
+                    )}
                 </div>
                 <div>
-                    <h4 className="font-cinzel text-xs font-black text-amber-300">Arena de Duelos (1v1)</h4>
-                    <p className="text-[10px] text-gray-300">Ver quem está online agora e desafiar para o quiz</p>
+                    <div className="flex items-center gap-2">
+                        <h4 className="font-cinzel text-xs font-black text-amber-300">Arena de Duelos (1v1)</h4>
+                        {onlineEmails.size > 0 && (
+                            <span className="text-[9px] bg-green-950/80 border border-green-500/40 text-green-400 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping" />
+                                {onlineEmails.size} {onlineEmails.size === 1 ? 'online' : 'online'}
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-[10px] text-gray-300">
+                        {onlineEmails.size > 0 
+                            ? `${onlineEmails.size} irmão(s) com a Bíblia aberta agora` 
+                            : 'Desafie irmãos online em tempo real'}
+                    </p>
                 </div>
             </div>
             <button
@@ -420,6 +452,7 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                     <div className="space-y-3">
                         {paginatedUsers.map((u, idx) => {
                             const isMe = userProgress?.user_email === u.user_email;
+                            const isOnline = u.user_email && onlineEmails.has(u.user_email.toLowerCase().trim());
                             const realPosition = (page * ITEMS_PER_PAGE) + idx;
                             
                             return (
@@ -428,8 +461,11 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                                     onClick={() => setSelectedUser(u)}
                                     className={`p-4 rounded-xl shadow-md flex items-center gap-4 ${getPositionStyle(realPosition, isMe)}`}
                                 >
-                                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center relative">
                                         {getIcon(realPosition)}
+                                        {isOnline && (
+                                            <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-black" title="Online Agora" />
+                                        )}
                                     </div>
                                     
                                     <div className="flex-1 min-w-0">
@@ -438,6 +474,11 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                                                 {formatUserName(u.user_name)}
                                             </p>
                                             {isMe && <span className="text-[10px] font-bold bg-[#C5A059] text-black px-1.5 rounded flex-shrink-0">VOCÊ</span>}
+                                            {isOnline && !isMe && (
+                                                <span className="text-[9px] font-bold bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30 px-1.5 py-0.2 rounded-full flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Online
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-2 text-xs opacity-80 font-bold uppercase tracking-wider">
                                             {activeTab === 'chapters' && <><BookOpen className="w-3 h-3"/> {u.total_chapters || 0} Capítulos</>}

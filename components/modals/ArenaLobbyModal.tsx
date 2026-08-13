@@ -5,6 +5,7 @@ import {
     BookOpen, CheckCircle2, Loader2, ArrowRight, ShieldCheck, Flame, Users
 } from 'lucide-react';
 import { OnlineUser, DuelInvite, challengeService } from '../../services/challengeService';
+import { presenceService } from '../../services/presenceService';
 
 interface ArenaLobbyModalProps {
     isOpen: boolean;
@@ -46,22 +47,27 @@ export default function ArenaLobbyModal({
     useEffect(() => {
         if (!isOpen) return;
 
-        const loadUsers = async () => {
-            try {
-                const list = await challengeService.getAvailableChallengers(currentUserEmail);
+        setLoading(true);
+        const cleanCurrent = (currentUserEmail || '').toLowerCase().trim();
+
+        // 1. Assinatura reativa no Supabase Realtime Presence Channel (como no Shokmah)
+        const unsubscribe = presenceService.subscribeToUsers((allUsers) => {
+            const opponents = allUsers.filter(u => u.email && u.email.toLowerCase() !== cleanCurrent);
+            setChallengers(opponents);
+            setLoading(false);
+        });
+
+        // 2. Chamada de backup para garantir preenchimento inicial
+        challengeService.getAvailableChallengers(currentUserEmail).then(list => {
+            if (list.length > 0) {
                 setChallengers(list);
-            } catch (e) {
-                console.error("Erro ao carregar oponentes:", e);
-            } finally {
-                setLoading(false);
             }
+            setLoading(false);
+        }).catch(() => setLoading(false));
+
+        return () => {
+            unsubscribe();
         };
-
-        loadUsers();
-        // Polling de presença em tempo real a cada 4 segundos enquanto o modal estiver aberto
-        const interval = setInterval(loadUsers, 4000);
-
-        return () => clearInterval(interval);
     }, [isOpen, currentUserEmail]);
 
     if (!isOpen) return null;

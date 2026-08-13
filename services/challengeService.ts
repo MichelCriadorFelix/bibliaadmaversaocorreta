@@ -1,4 +1,5 @@
 import { QuizQuestion } from '../types';
+import { presenceService } from './presenceService';
 
 export interface DuelInvite {
     id: string;
@@ -424,7 +425,7 @@ const BOOK_QUESTIONS_DB: Record<string, QuizQuestion[]> = {
 };
 
 export const challengeService = {
-    // Registrar presença / heartbeat do usuário online na Bíblia/App
+    // Registrar presença / heartbeat do usuário online na Bíblia/App (Supabase Realtime Channel + HTTP)
     heartbeatPresence: async (params: {
         email: string;
         name: string;
@@ -433,103 +434,21 @@ export const challengeService = {
         activity?: string;
     }) => {
         if (!params.email) return;
-        const cleanEmail = params.email.toLowerCase().trim();
-
-        // 1. Salva localmente com timestamp para sincronização instantânea em abas do mesmo dispositivo
-        try {
-            const sessionsMap = JSON.parse(localStorage.getItem('adma_online_sessions') || '{}');
-            sessionsMap[cleanEmail] = {
-                email: cleanEmail,
-                name: params.name || cleanEmail.split('@')[0],
-                level: params.level || 1,
-                rankTitle: params.rankTitle || 'Estudante da Bíblia',
-                activity: params.activity || 'Online na Bíblia',
-                lastHeartbeat: Date.now()
-            };
-            // Limpa sessões locais com mais de 35s
-            const now = Date.now();
-            Object.keys(sessionsMap).forEach(key => {
-                if (now - sessionsMap[key].lastHeartbeat > 35000) {
-                    delete sessionsMap[key];
-                }
-            });
-            localStorage.setItem('adma_online_sessions', JSON.stringify(sessionsMap));
-        } catch (e) {}
-
-        // 2. Envia para o servidor backend para sincronização entre computadores/dispositivos diferentes
-        try {
-            await fetch('/api/presence', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: cleanEmail,
-                    name: params.name,
-                    level: params.level,
-                    rankTitle: params.rankTitle,
-                    activity: params.activity
-                })
-            });
-        } catch (e) {
-            // Silencioso se offline
-        }
+        presenceService.initChannel(params);
     },
 
-    // Buscar lista de usuários REALMENTE ONLINE no momento (via /api/presence + fallback sincronizado)
+    // Buscar lista de usuários REALMENTE ONLINE no momento (Supabase Realtime + API + Fallback)
     getAvailableChallengers: async (currentUserEmail: string): Promise<OnlineUser[]> => {
         const cleanCurrent = (currentUserEmail || '').toLowerCase().trim();
-        const userMap = new Map<string, OnlineUser>();
-
-        // 1. Consulta o servidor Express
-        try {
-            const res = await fetch(`/api/presence?t=${Date.now()}`);
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data.onlineUsers)) {
-                    data.onlineUsers.forEach((u: any) => {
-                        const email = (u.email || '').toLowerCase().trim();
-                        if (email && email !== cleanCurrent) {
-                            userMap.set(email, {
-                                email: email,
-                                name: u.name || email.split('@')[0],
-                                level: u.level || 1,
-                                rankTitle: u.rankTitle || 'Estudante da Bíblia',
-                                lastSeen: 'Online agora',
-                                activity: u.activity || 'Com a Bíblia Aberta',
-                                isAvailable: true,
-                                isBot: false
-                            });
-                        }
-                    });
-                }
-            }
-        } catch (e) {
-            console.warn("Erro ao buscar presença do servidor:", e);
+        // 1. Obtém do gerenciador de Realtime Presence do Supabase
+        const realtimeUsers = presenceService.getOnlineUsers(cleanCurrent);
+        if (realtimeUsers.length > 0) {
+            return realtimeUsers;
         }
 
-        // 2. Mescla com sessões ativas locais (com tolerância de 35s)
-        try {
-            const localSessions = JSON.parse(localStorage.getItem('adma_online_sessions') || '{}');
-            const now = Date.now();
-            Object.values(localSessions).forEach((s: any) => {
-                const email = (s.email || '').toLowerCase().trim();
-                if (email && email !== cleanCurrent && (now - (s.lastHeartbeat || 0) < 35000)) {
-                    if (!userMap.has(email)) {
-                        userMap.set(email, {
-                            email: email,
-                            name: s.name || email.split('@')[0],
-                            level: s.level || 1,
-                            rankTitle: s.rankTitle || 'Estudante da Bíblia',
-                            lastSeen: 'Online agora',
-                            activity: s.activity || 'Com a Bíblia Aberta',
-                            isAvailable: true,
-                            isBot: false
-                        });
-                    }
-                }
-            });
-        } catch (e) {}
-
-        return Array.from(userMap.values());
+        // 2. Busca da API de Presença
+        const httpUsers = await presenceService.fetchHttpOnlineUsers();
+        return httpUsers.filter(u => u.email && u.email.toLowerCase() !== cleanCurrent);
     },
 
     // Gerar perguntas para um livro selecionado com referências de capítulos destacadas
