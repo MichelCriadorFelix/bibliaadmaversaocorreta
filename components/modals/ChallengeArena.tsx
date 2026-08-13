@@ -11,6 +11,7 @@ interface ChallengeArenaProps {
     invite: DuelInvite;
     currentUserEmail: string;
     currentUserName: string;
+    opponentScoreInfo: { inviteId: string, score: number, timeSeconds: number } | null;
     onClose: () => void;
     onShowToast: (msg: string, type: 'info' | 'success' | 'error') => void;
     onUpdateUserProgress?: (newProgress: any) => void;
@@ -20,6 +21,7 @@ export default function ChallengeArena({
     invite,
     currentUserEmail,
     currentUserName,
+    opponentScoreInfo,
     onClose,
     onShowToast,
     onUpdateUserProgress
@@ -32,11 +34,63 @@ export default function ChallengeArena({
     const [score, setScore] = useState(0);
     const [timeTaken, setTimeTaken] = useState(0);
     const [showExplanation, setShowExplanation] = useState(false);
+    const [xpProcessed, setXpProcessed] = useState(false);
 
     const questions = invite.questions;
     const currentQ = questions[currentIndex];
     const isSender = invite.senderEmail.toLowerCase() === currentUserEmail.toLowerCase().trim();
+    const opponentEmail = isSender ? invite.receiverEmail : invite.senderEmail;
     const opponentName = isSender ? invite.receiverName : invite.senderName;
+    
+    const isSoloDuel = opponentEmail.includes('@adma.com.br') || opponentEmail.includes('bot') || opponentEmail.toLowerCase() === currentUserEmail.toLowerCase().trim();
+    
+    // Se for duelo solo, o bot não envia score, então criamos um falso quando o player terminar
+    const effectiveOpponentScore = isSoloDuel && isFinished 
+        ? { inviteId: invite.id, score: Math.floor(questions.length * 0.4) * 10, timeSeconds: 90 } 
+        : opponentScoreInfo;
+
+    // Processa o XP APENAS quando tivermos os dois scores e apenas se houver um vencedor
+    useEffect(() => {
+        if (!isFinished || !effectiveOpponentScore || xpProcessed) return;
+
+        const processXp = async () => {
+            setXpProcessed(true);
+
+            // Duelos solos (com bot) não dão XP e não contam para o ranking de vitórias
+            if (isSoloDuel) return;
+
+            const isWinner = score > effectiveOpponentScore.score || 
+                            (score === effectiveOpponentScore.score && timeTaken < effectiveOpponentScore.timeSeconds);
+
+            const xpEarned = isWinner ? score * 2 + 50 : 0;
+            
+            try {
+                const profiles = await db.entities.ReadingProgress.filter({ user_email: currentUserEmail });
+                if (profiles && profiles.length > 0) {
+                    const userP = profiles[0];
+                    const currentWins = userP.duel_wins || 0;
+                    const currentLosses = userP.duel_losses || 0;
+                    const currentMatches = userP.duel_matches || 0;
+                    const currentQuizPoints = userP.quiz_points || 0;
+
+                    const updated = {
+                        ...userP,
+                        duel_wins: isWinner ? currentWins + 1 : currentWins,
+                        duel_losses: !isWinner ? currentLosses + 1 : currentLosses,
+                        duel_matches: currentMatches + 1,
+                        quiz_points: currentQuizPoints + xpEarned,
+                    };
+
+                    await db.entities.ReadingProgress.update(userP.id, updated);
+                    if (onUpdateUserProgress) onUpdateUserProgress(updated);
+                }
+            } catch (e) {
+                console.error("Erro ao atualizar estatísticas do duelo:", e);
+            }
+        };
+
+        processXp();
+    }, [isFinished, effectiveOpponentScore, xpProcessed, score, timeTaken, currentUserEmail, isSoloDuel, onUpdateUserProgress]);
 
     // Timer regressivo de 180 segundos
     useEffect(() => {
@@ -100,33 +154,24 @@ export default function ChallengeArena({
             timeSeconds: finalTime
         });
 
-        // Atualiza progresso do usuário no banco com XP e vitórias
+        // Envia pontuação em tempo real para o oponente
         try {
-            const profiles = await db.entities.ReadingProgress.filter({ user_email: currentUserEmail });
-            if (profiles && profiles.length > 0) {
-                const userP = profiles[0];
-                const currentWins = userP.duel_wins || 0;
-                const currentMatches = userP.duel_matches || 0;
-                const currentQuizPoints = userP.quiz_points || 0;
-
-                const isWinner = finalScore >= (totalQuestions * 10 * 0.7); // 70%+ de acerto considera vitória no modo de teste
-
-                const updated = {
-                    ...userP,
-                    duel_wins: isWinner ? currentWins + 1 : currentWins,
-                    duel_matches: currentMatches + 1,
-                    duel_losses: !isWinner ? (userP.duel_losses || 0) + 1 : (userP.duel_losses || 0),
-                    quiz_points: currentQuizPoints + finalScore,
-                };
-
-                await db.entities.ReadingProgress.update(userP.id, updated);
-                if (onUpdateUserProgress) onUpdateUserProgress(updated);
-            }
+            await fetch('/api/duel-score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    invite,
+                    userEmail: currentUserEmail,
+                    score: finalScore,
+                    timeSeconds: finalTime
+                })
+            });
         } catch (e) {
-            console.error("Erro ao atualizar estatísticas do duelo:", e);
+            console.error("Erro ao enviar broadcast de score:", e);
         }
 
-        onShowToast(`Duelo concluído! Você fez ${finalScore} pontos.`, 'success');
+        // Note: Atualização de XP agora ocorre no useEffect quando o resultado final for revelado (ambos finalizarem).
+        onShowToast(`Duelo concluído! Aguardando oponente...`, 'info');
     };
 
     const formatTime = (secs: number) => {
@@ -285,18 +330,57 @@ export default function ChallengeArena({
 
                         <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
                             <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
-                                <div className="text-[10px] text-gray-400 uppercase font-montserrat font-bold">Pontuação</div>
+                                <div className="text-[10px] text-gray-400 uppercase font-montserrat font-bold">Sua Pontuação</div>
                                 <div className="font-cinzel text-2xl font-black text-amber-400 mt-1">{score} Pts</div>
                             </div>
                             <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
-                                <div className="text-[10px] text-gray-400 uppercase font-montserrat font-bold">Tempo Gasto</div>
+                                <div className="text-[10px] text-gray-400 uppercase font-montserrat font-bold">Seu Tempo</div>
                                 <div className="font-cinzel text-2xl font-black text-white mt-1">{formatTime(timeTaken)}</div>
                             </div>
                         </div>
 
-                        <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-xs text-amber-300 font-mono">
-                            ✨ +{score * 2 + 50} XP concedidos ao seu Perfil ADMA!
-                        </div>
+                        {effectiveOpponentScore ? (
+                            <div className="mt-6 border-t border-white/10 pt-6">
+                                <h3 className="font-cinzel text-sm text-gray-300 mb-4">Desempenho de {opponentName}</h3>
+                                <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
+                                    <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
+                                        <div className="text-[10px] text-gray-400 uppercase font-montserrat font-bold">Pontuação</div>
+                                        <div className="font-cinzel text-2xl font-black text-amber-400 mt-1">{effectiveOpponentScore.score} Pts</div>
+                                    </div>
+                                    <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
+                                        <div className="text-[10px] text-gray-400 uppercase font-montserrat font-bold">Tempo Gasto</div>
+                                        <div className="font-cinzel text-2xl font-black text-white mt-1">{formatTime(effectiveOpponentScore.timeSeconds)}</div>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-6 font-cinzel text-2xl font-black">
+                                    {score > effectiveOpponentScore.score || (score === effectiveOpponentScore.score && timeTaken < effectiveOpponentScore.timeSeconds) ? (
+                                        <span className="text-emerald-400 flex justify-center items-center gap-2"><Crown className="w-8 h-8"/> VOCÊ VENCEU!</span>
+                                    ) : score < effectiveOpponentScore.score || (score === effectiveOpponentScore.score && timeTaken > effectiveOpponentScore.timeSeconds) ? (
+                                        <span className="text-red-400 flex justify-center items-center gap-2">VOCÊ PERDEU</span>
+                                    ) : (
+                                        <span className="text-blue-400 flex justify-center items-center gap-2">EMPATE TÉCNICO!</span>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mt-6 border-t border-white/10 pt-6 text-center">
+                                <div className="inline-flex items-center gap-2 text-amber-400 text-sm font-bold animate-pulse">
+                                    <RefreshCw className="w-4 h-4 animate-spin" /> Aguardando {opponentName} terminar...
+                                </div>
+                            </div>
+                        )}
+
+                        {!isSoloDuel && effectiveOpponentScore && (score > effectiveOpponentScore.score || (score === effectiveOpponentScore.score && timeTaken < effectiveOpponentScore.timeSeconds)) && (
+                            <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-xs text-amber-300 font-mono mt-4">
+                                ✨ +{score * 2 + 50} XP concedidos pela vitória!
+                            </div>
+                        )}
+                        {isSoloDuel && (
+                            <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-xs text-blue-300 font-mono mt-4">
+                                ℹ️ Duelos de treino (Solo/Bot) não concedem XP.
+                            </div>
+                        )}
 
                         <div className="pt-4">
                             <button

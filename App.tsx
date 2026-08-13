@@ -66,6 +66,7 @@ export default function App() {
   const [activeModule, setActiveModule] = useState<DynamicModule | null>(null);
   const [activeDuelInvite, setActiveDuelInvite] = useState<DuelInvite | null>(null);
   const [incomingDuelInvite, setIncomingDuelInvite] = useState<DuelInvite | null>(null);
+  const [opponentScoreInfo, setOpponentScoreInfo] = useState<{ inviteId: string, score: number, timeSeconds: number } | null>(null);
 
   const showToast = useCallback((msg: string, type: 'success'|'error'|'info') => {
     setToast({ msg, type });
@@ -227,6 +228,15 @@ export default function App() {
       .on('broadcast', { event: 'duel_invite' }, ({ payload }) => {
         if (payload?.invite) {
           setIncomingDuelInvite(payload.invite);
+        }
+      })
+      .on('broadcast', { event: 'duel_score' }, ({ payload }) => {
+        if (payload?.inviteId) {
+          setOpponentScoreInfo({
+            inviteId: payload.inviteId,
+            score: payload.score,
+            timeSeconds: payload.timeSeconds
+          });
         }
       })
       .on('broadcast', { event: 'duel_accepted' }, ({ payload }) => {
@@ -616,7 +626,8 @@ export default function App() {
                   invite={activeDuelInvite}
                   currentUserEmail={user.user_email}
                   currentUserName={user.user_name || 'Estudante'}
-                  onClose={() => setActiveDuelInvite(null)}
+                  opponentScoreInfo={opponentScoreInfo?.inviteId === activeDuelInvite.id ? opponentScoreInfo : null}
+                  onClose={() => { setActiveDuelInvite(null); setOpponentScoreInfo(null); }}
                   onShowToast={showToast}
                   onUpdateUserProgress={setUserProgress}
               />
