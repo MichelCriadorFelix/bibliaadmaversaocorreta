@@ -1,5 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
+const BIBLE_BOOKS_MAP = {
+  "gênesis": "Gênesis", "êxodo": "Êxodo", "levítico": "Levítico", "números": "Números", "deuteronômio": "Deuteronômio",
+  "josué": "Josué", "juízes": "Juízes", "rute": "Rute", "1_samuel": "1 Samuel", "2_samuel": "2 Samuel",
+  "1_reis": "1 Reis", "2_reis": "2 Reis", "1_crônicas": "1 Crônicas", "2_crônicas": "2 Crônicas",
+  "esdras": "Esdras", "neemias": "Neemias", "ester": "Ester", "jó": "Jó", "salmos": "Salmos", "provérbios": "Provérbios",
+  "eclesiastes": "Eclesiastes", "cantares": "Cantares", "isaías": "Isaías", "jeremias": "Jeremias",
+  "lamentações": "Lamentações", "ezequiel": "Ezequiel", "daniel": "Daniel", "oséias": "Oséias", "joel": "Joel",
+  "amós": "Amós", "obadias": "Obadias", "jonas": "Jonas", "miquéias": "Miquéias", "naum": "Naum", "habacuque": "Habacuque",
+  "sofonias": "Sofonias", "ageu": "Ageu", "zacarias": "Zacarias", "malaquias": "Malaquias", "mateus": "Mateus",
+  "marcos": "Marcos", "lucas": "Lucas", "joão": "João", "atos": "Atos", "romanos": "Romanos", "1_coríntios": "1 Coríntios",
+  "2_coríntios": "2 Coríntios", "gálatas": "Gálatas", "efésios": "Efésios", "filipenses": "Filipenses",
+  "colossenses": "Colossenses", "1_tessalonicenses": "1 Tessalonicenses", "2_tessalonicenses": "2 Tessalonicenses",
+  "1_timóteo": "1 Timóteo", "2_timóteo": "2 Timóteo", "tito": "Tito", "filemom": "Filemom", "hebreus": "Hebreus",
+  "tiago": "Tiago", "1_pedro": "1 Pedro", "2_pedro": "2 Pedro", "1_joão": "1 João", "2_joão": "2 João",
+  "3_joão": "3 João", "judas": "Judas", "apocalipse": "Apocalipse"
+};
+
 export default async function handler(req, res) {
   // CORS support
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -56,7 +73,29 @@ export default async function handler(req, res) {
     if (Array.isArray(quiz.questions)) {
       quiz.questions.forEach(q => {
         if (q.text && Array.isArray(q.options) && q.options.length >= 2 && typeof q.correctIndex === 'number') {
-          allQuestions.push(q);
+          // Extrai a referência do livro e capítulo
+          let chapterRef = '';
+          if (quiz.chapter_key && !quiz.chapter_key.startsWith('general_')) {
+            const parts = quiz.chapter_key.split('_');
+            if (parts.length >= 2) {
+              const chapterNum = parts[parts.length - 1];
+              const bookSlug = parts.slice(0, parts.length - 1).join('_').toLowerCase();
+              const displayName = BIBLE_BOOKS_MAP[bookSlug] || bookSlug.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+              chapterRef = `${displayName} ${chapterNum}`;
+            }
+          }
+          
+          if (!chapterRef && quiz.title) {
+            chapterRef = quiz.title
+              .replace(/Avaliação do Capítulo:\s*/i, '')
+              .replace(/Quiz:\s*/i, '')
+              .trim();
+          }
+
+          allQuestions.push({
+            ...q,
+            chapterRef: chapterRef || quiz.title || 'Geral'
+          });
         }
       });
     }

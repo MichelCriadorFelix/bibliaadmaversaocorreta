@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Swords, Clock, Trophy, ArrowLeft, CheckCircle2, XCircle, 
@@ -36,23 +36,80 @@ export default function ChallengeArena({
     const [showExplanation, setShowExplanation] = useState(false);
     const [xpProcessed, setXpProcessed] = useState(false);
 
+    // Countdown de 5s para começar junto de forma sincronizada
+    const [startCountdown, setStartCountdown] = useState(5);
+    const [isCountdownActive, setIsCountdownActive] = useState(true);
+
+    // Evitar stale closures usando Refs para timeLeft e answers
+    const timeLeftRef = useRef(180);
+    const answersRef = useRef(answers);
+
+    useEffect(() => {
+        timeLeftRef.current = timeLeft;
+    }, [timeLeft]);
+
+    useEffect(() => {
+        answersRef.current = answers;
+    }, [answers]);
+
     const questions = invite.questions;
     const currentQ = questions[currentIndex];
     const isSender = invite.senderEmail.toLowerCase() === currentUserEmail.toLowerCase().trim();
     const opponentEmail = isSender ? invite.receiverEmail : invite.senderEmail;
     const opponentName = isSender ? invite.receiverName : invite.senderName;
     
+    // Corrige detecção de bot para não considerar emails reais @adma.local como bots
     const isSoloDuel = 
-        opponentEmail.includes('@adma.com.br') || 
-        opponentEmail.includes('@adma.local') || 
         opponentEmail.includes('bot') || 
-        opponentEmail.includes('local') || 
+        opponentEmail === 'mestre.ebd@adma.local' ||
         opponentEmail.toLowerCase() === currentUserEmail.toLowerCase().trim();
     
+    // Estado local para pontuação do oponente para podermos pollar de forma reativa
+    const [localOpponentScore, setLocalOpponentScore] = useState<{ inviteId: string, score: number, timeSeconds: number } | null>(opponentScoreInfo);
+
+    useEffect(() => {
+        if (opponentScoreInfo) {
+            setLocalOpponentScore(opponentScoreInfo);
+        }
+    }, [opponentScoreInfo]);
+
+    // Polling do status do duelo após finalizar para garantir sincronização instantânea
+    useEffect(() => {
+        if (!isFinished || isSoloDuel || localOpponentScore) return;
+
+        const pollInterval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/duel-status?inviteId=${invite.id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.invite) {
+                        const inv = data.invite;
+                        const oppEmail = opponentEmail.toLowerCase().trim();
+                        const isOppSender = inv.senderEmail.toLowerCase().trim() === oppEmail;
+                        const oppScore = isOppSender ? inv.senderScore : inv.receiverScore;
+                        const oppTime = isOppSender ? inv.senderTimeSeconds : inv.receiverTimeSeconds;
+
+                        if (oppScore !== undefined && oppScore !== null) {
+                            setLocalOpponentScore({
+                                inviteId: invite.id,
+                                score: oppScore,
+                                timeSeconds: oppTime ?? 90
+                            });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Erro ao pollar status do duelo:", err);
+            }
+        }, 3000);
+
+        return () => clearInterval(pollInterval);
+    }, [isFinished, isSoloDuel, localOpponentScore, invite.id, opponentEmail]);
+
     // Se for duelo solo, o bot não envia score, então criamos um falso quando o player terminar
     const effectiveOpponentScore = isSoloDuel && isFinished 
         ? { inviteId: invite.id, score: Math.floor(questions.length * 0.4) * 10, timeSeconds: 90 } 
-        : opponentScoreInfo;
+        : localOpponentScore;
 
     // Processa o XP APENAS quando tivermos os dois scores e apenas se houver um vencedor
     useEffect(() => {
@@ -97,9 +154,27 @@ export default function ChallengeArena({
         processXp();
     }, [isFinished, effectiveOpponentScore, xpProcessed, score, timeTaken, currentUserEmail, isSoloDuel, onUpdateUserProgress]);
 
-    // Timer regressivo de 180 segundos
+    // Timer regressivo do countdown de início (5s)
     useEffect(() => {
-        if (isFinished) return;
+        if (!isCountdownActive) return;
+
+        const timer = setInterval(() => {
+            setStartCountdown((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    setIsCountdownActive(false);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [isCountdownActive]);
+
+    // Timer regressivo de 180 segundos para responder
+    useEffect(() => {
+        if (isFinished || isCountdownActive) return;
 
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
@@ -113,10 +188,10 @@ export default function ChallengeArena({
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [isFinished]);
+    }, [isFinished, isCountdownActive]);
 
     const handleSelectOption = (index: number) => {
-        if (selectedOption !== null || isFinished) return; // Trava após escolher
+        if (selectedOption !== null || isFinished || isCountdownActive) return; // Trava após escolher
 
         setSelectedOption(index);
         const newAnswers = [...answers];
@@ -145,11 +220,10 @@ export default function ChallengeArena({
 
     const handleFinishDuel = async () => {
         setIsFinished(true);
-        const finalTime = 180 - timeLeft;
+        const finalTime = 180 - timeLeftRef.current;
         setTimeTaken(finalTime);
 
-        const totalQuestions = questions.length;
-        const correctCount = answers.reduce((acc, ans, i) => (ans === questions[i].correctIndex ? acc + 1 : acc), 0);
+        const correctCount = answersRef.current.reduce((acc, ans, i) => (ans === questions[i].correctIndex ? acc + 1 : acc), 0);
         const finalScore = correctCount * 10;
 
         // Atualiza o duelo no serviço
@@ -159,7 +233,7 @@ export default function ChallengeArena({
             timeSeconds: finalTime
         });
 
-        // Envia pontuação em tempo real para o oponente
+        // Envia pontuação em tempo real para o oponente e atualiza o banco
         try {
             await fetch('/api/duel-score', {
                 method: 'POST',
@@ -175,7 +249,6 @@ export default function ChallengeArena({
             console.error("Erro ao enviar broadcast de score:", e);
         }
 
-        // Note: Atualização de XP agora ocorre no useEffect quando o resultado final for revelado (ambos finalizarem).
         onShowToast(`Duelo concluído! Aguardando oponente...`, 'info');
     };
 
@@ -216,7 +289,38 @@ export default function ChallengeArena({
 
             {/* CONTEÚDO PRINCIPAL DA ARENA */}
             <div className="flex-1 max-w-3xl w-full mx-auto p-4 md:p-8 flex flex-col justify-center">
-                {!isFinished ? (
+                {isCountdownActive ? (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-[#1C0D0D] p-10 rounded-[32px] border-2 border-amber-500/30 shadow-2xl text-center space-y-6 max-w-md mx-auto"
+                    >
+                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-500 via-red-600 to-[#8B0000] text-white mx-auto flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.45)] animate-pulse">
+                            <Swords className="w-12 h-12 text-amber-200 animate-bounce" />
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className="font-cinzel text-2xl font-black text-amber-400 tracking-wider">PREPARANDO ARENA</h2>
+                            <p className="text-xs text-gray-300 font-montserrat uppercase tracking-widest">
+                                Concentre-se! O duelo começa em:
+                            </p>
+                        </div>
+                        
+                        <div className="py-4">
+                            <motion.span
+                                key={startCountdown}
+                                initial={{ scale: 0.3, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                className="font-cinzel text-7xl font-black text-white block drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]"
+                            >
+                                {startCountdown}
+                            </motion.span>
+                        </div>
+
+                        <div className="text-[11px] text-amber-300/80 font-mono tracking-wider animate-pulse uppercase">
+                            Disputa de {invite.book} • 10 Perguntas
+                        </div>
+                    </motion.div>
+                ) : !isFinished ? (
                     <div className="space-y-6">
                         {/* PROGRESSO DE PERGUNTAS */}
                         <div className="flex items-center justify-between text-xs font-montserrat text-gray-400">
