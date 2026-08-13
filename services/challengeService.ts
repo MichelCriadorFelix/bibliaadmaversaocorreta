@@ -34,7 +34,10 @@ export interface OnlineUser {
     level: number;
     rankTitle: string;
     activity?: string;
-    onlineAt: string;
+    onlineAt?: string;
+    lastSeen?: string;
+    isAvailable?: boolean;
+    isBot?: boolean;
 }
 
 const LOCAL_DUEL_STORAGE = 'adma_duels_local';
