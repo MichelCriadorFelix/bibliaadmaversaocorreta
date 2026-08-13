@@ -31,12 +31,15 @@ export default function ChallengeInviteToast({
 
         channel
             .on('broadcast', { event: 'duel_invite' }, ({ payload }) => {
+                console.log('[ChallengeInviteToast] Convite recebido via broadcast:', payload);
                 if (payload?.invite) {
                     setCurrentInvite(payload.invite);
                     setTimeLeft(60);
                 }
             })
-            .subscribe();
+            .subscribe((status, err) => {
+                console.log('[ChallengeInviteToast] Status do canal', `adma_user_${cleanEmail}`, ':', status, err || '');
+            });
 
         return () => { 
             supabase.removeChannel(channel); 

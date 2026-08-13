@@ -53,6 +53,9 @@ export default async function handler(req, res) {
   // Avisa o remetente em tempo real sobre a resposta
   if (invite.senderEmail) {
     try {
+      const broadcastTopic = `adma_user_${invite.senderEmail.toLowerCase().trim()}`;
+      console.log('[duel-respond] Enviando broadcast. Topic:', broadcastTopic, '| URL:', `${supabaseUrl}/realtime/v1/api/broadcast`);
+
       const broadcastRes = await fetch(`${supabaseUrl}/realtime/v1/api/broadcast`, {
         method: 'POST',
         headers: {
@@ -62,17 +65,22 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           messages: [{
-            topic: `adma_user_${invite.senderEmail.toLowerCase().trim()}`,
+            topic: broadcastTopic,
             event: status === 'accepted' ? 'duel_accepted' : 'duel_declined',
             payload: { invite },
+            private: false,
           }],
         }),
       });
+
+      const broadcastBody = await broadcastRes.text();
+      console.log('[duel-respond] Resposta do broadcast REST — status:', broadcastRes.status, '| body:', broadcastBody);
+
       if (!broadcastRes.ok) {
-        console.error('Erro no broadcast REST de resposta:', await broadcastRes.text());
+        console.error('[duel-respond] BROADCAST FALHOU:', broadcastRes.status, broadcastBody);
       }
     } catch (chanErr) {
-      console.error('Erro ao enviar broadcast de resposta do convite:', chanErr);
+      console.error('[duel-respond] Exceção ao enviar broadcast:', chanErr.message, chanErr.stack);
     }
   }
 

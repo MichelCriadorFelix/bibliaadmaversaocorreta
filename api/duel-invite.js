@@ -57,6 +57,9 @@ export default async function handler(req, res) {
 
   // Entrega em tempo real via REST Broadcast API (sem WebSocket, sem race condition)
   try {
+    const broadcastTopic = `adma_user_${invite.receiverEmail}`;
+    console.log('[duel-invite] Enviando broadcast. Topic:', broadcastTopic, '| URL:', `${supabaseUrl}/realtime/v1/api/broadcast`);
+
     const broadcastRes = await fetch(`${supabaseUrl}/realtime/v1/api/broadcast`, {
       method: 'POST',
       headers: {
@@ -66,17 +69,22 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         messages: [{
-          topic: `adma_user_${invite.receiverEmail}`,
+          topic: broadcastTopic,
           event: 'duel_invite',
           payload: { invite },
+          private: false,
         }],
       }),
     });
+
+    const broadcastBody = await broadcastRes.text();
+    console.log('[duel-invite] Resposta do broadcast REST — status:', broadcastRes.status, '| body:', broadcastBody);
+
     if (!broadcastRes.ok) {
-      console.error('Erro no broadcast REST:', await broadcastRes.text());
+      console.error('[duel-invite] BROADCAST FALHOU:', broadcastRes.status, broadcastBody);
     }
   } catch (chanErr) {
-    console.error('Erro ao enviar broadcast do convite:', chanErr);
+    console.error('[duel-invite] Exceção ao enviar broadcast:', chanErr.message, chanErr.stack);
   }
 
   return res.status(200).json({ invite });
