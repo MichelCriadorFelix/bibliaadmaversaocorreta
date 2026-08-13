@@ -28,43 +28,47 @@ export default async function handler(request, response) {
   }
 
   try {
-    // --- GESTÃO DE POOL DE CHAVES (LOAD BALANCER v122 - CIRURGICO) ---
+    // --- GESTÃO DE POOL DE CHAVES (LOAD BALANCER v125 - RESILIENTE) ---
     const rawKeys = [];
     
+    // Captura explícita de variáveis padrão
+    const standardKeys = [process.env.GEMINI_API_KEY, process.env.VITE_GEMINI_API_KEY, process.env.API_KEY, process.env.Biblia_ADMA_API];
+    for (const k of standardKeys) {
+        if (k && typeof k === 'string' && k.trim().length > 15) {
+            rawKeys.push(k.trim());
+        }
+    }
+
     // Captura automática de TODAS as variáveis de ambiente que sejam chaves do Google Gemini (iniciam com AIza)
-    // independentemente do nome que o usuário tenha dado na Vercel (ex: MINHA_CHAVE_1, GEMINI_2, etc).
     for (const [keyName, val] of Object.entries(process.env)) {
         if (typeof val === 'string' && val.trim().startsWith('AIza') && val.trim().length > 30) {
             rawKeys.push(val.trim());
         }
     }
     
-    // Fallback: Captura padrões antigos explicitamente (caso a chave fuja da regra AIza, o que é raro)
-    const fallbackNames = ['API_KEY', 'Biblia_ADMA_API'];
-    for (let i = 1; i <= 100; i++) fallbackNames.push(`API_KEY_${i}`);
-    
-    for (const keyName of fallbackNames) {
-        const val = process.env[keyName];
-        if (val && typeof val === 'string' && val.length > 20 && !val.startsWith('vck_')) {
+    // Fallback: Captura padrões numerados (ex: API_KEY_1, API_KEY_2...)
+    for (let i = 1; i <= 100; i++) {
+        const val = process.env[`API_KEY_${i}`];
+        if (val && typeof val === 'string' && val.trim().length > 20 && !val.startsWith('vck_')) {
             rawKeys.push(val.trim());
         }
     }
 
-    // 1. DEDUPLICAÇÃO CIRÚRGICA DE CHAVES (Evita desperdício e focos repetidos)
+    // 1. DEDUPLICAÇÃO CIRÚRGICA DE CHAVES
     const uniqueKeys = Array.from(new Set(rawKeys.map(k => k.trim()))).filter(k => k.length > 10);
 
     if (uniqueKeys.length === 0) {
          return response.status(500).json({ 
-             error: 'CONFIGURAÇÃO PENDENTE: Nenhuma Chave de API válida encontrada.' 
+             error: 'CONFIGURAÇÃO PENDENTE: Nenhuma Chave de API válida encontrada no ambiente.' 
          });
     }
 
-    // 2. CIRCUITO BREAKER INTEGRADO (Zera tentativas lentas em chaves já esgotadas)
+    // 2. CIRCUITO BREAKER AUTO-RECUPERÁVEL
     if (!global.exhaustedKeys) {
         global.exhaustedKeys = new Map();
     }
 
-    // Limpeza rápida de expirações passadas
+    // Limpeza de expirações passadas
     const now = Date.now();
     for (const [key, expireTime] of global.exhaustedKeys.entries()) {
         if (now > expireTime) {
@@ -72,15 +76,11 @@ export default async function handler(request, response) {
         }
     }
 
-    // Separar chaves saudáveis das chaves esgotadas temporariamente
+    // Se todas foram marcadas como esgotadas no passado, reseta para não travar a aplicação
     let healthyActiveKeys = uniqueKeys.filter(key => !global.exhaustedKeys.has(key));
-
-    // Se TODAS as chaves do pool estiverem marcadas como esgotadas, abortamos para não bombardear a API
     if (healthyActiveKeys.length === 0) {
-        return response.status(429).json({ 
-             error: `Todas as ${uniqueKeys.length} chaves atingiram o limite de uso (Quota Excess). Aguarde cerca de 1 minuto para recuperação.`,
-             rotationLog: []
-        });
+        global.exhaustedKeys.clear();
+        healthyActiveKeys = [...uniqueKeys];
     }
 
     // 3. SHUFFLE ROTATION (Garante distribuição de carga em multi-abas e restarts Vercel)
@@ -90,7 +90,6 @@ export default async function handler(request, response) {
         [shuffledHealthy[i], shuffledHealthy[j]] = [shuffledHealthy[j], shuffledHealthy[i]];
     }
 
-    // Não tenta chaves esgotadas. Se estão esgotadas, respeitamos o cooldown.
     const orderedKeysToTry = [...shuffledHealthy];
 
     let body = request.body;
@@ -579,11 +578,21 @@ export default async function handler(request, response) {
                 }
             }
 
+            // Normalizador Seguro de ThinkingLevel para Google GenAI SDK (HIGH, LOW, MINIMAL)
+            const normalizeThinking = (lvl) => {
+                if (!lvl) return 'high';
+                const s = String(lvl).toLowerCase().trim();
+                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return 'high';
+                if (s === 'low' || s === 'baixo' || s === 'medium' || s === 'médio' || s === 'medio') return 'low';
+                if (s === 'minimal' || s === 'minimo' || s === 'mínimo' || s === 'padrao' || s === 'padrão') return 'minimal';
+                return 'high';
+            };
+
             // Seleção de Modelo Unificada: Gemini 3.7 Flash em 100% das tarefas
             const modelToUse = 'gemini-3.7-flash';
 
             const config = {
-                temperature: 0.3, // Menor temperatura para buscas mais precisas e rápidas
+                temperature: 0.3,
                 topP: 0.95,
                 topK: 40,
                 systemInstruction: systemInstruction,
@@ -595,28 +604,19 @@ export default async function handler(request, response) {
                 ]
             };
 
-            // thinkingConfig para tipos complexos
-            const selectedThinkingLevel = thinkingLevel || 'high';
+            // Configuração precisa de thinkingConfig e maxOutputTokens
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
-                config.maxOutputTokens = 30000;
-                config.thinkingConfig = { thinkingLevel: selectedThinkingLevel };
+                config.maxOutputTokens = 16384;
+                config.thinkingConfig = { thinkingLevel: normalizeThinking(thinkingLevel) };
             } else if (taskType === 'quiz_gen') {
-                // QUIZ GEN: geração ultrarrápida (2 a 4s) para evitar timeouts de 504 no proxy
                 config.maxOutputTokens = 4096;
-                config.thinkingConfig = { thinkingLevel: thinkingLevel || 'low' };
-            } else if (taskType === 'dictionary') {
-                config.maxOutputTokens = 12000;
-                config.thinkingConfig = { thinkingLevel: 'medium' };
-            } else if (taskType === 'commentary') {
-                config.maxOutputTokens = 8192; 
-                config.thinkingConfig = { thinkingLevel: 'medium' };
-            } else if (taskType === 'assistente_chat' || taskType === 'get_bible_verses') {
-                // BUSCA E RECUPERAÇÃO NÃO USAM THINKING FORTE PARA SER INSTANTÂNEA
+                config.thinkingConfig = { thinkingLevel: 'low' };
+            } else if (taskType === 'dictionary' || taskType === 'commentary') {
                 config.maxOutputTokens = 8192;
-                // Sem thinkingConfig para não causar lag nem gasto de cota
+                config.thinkingConfig = { thinkingLevel: 'low' };
             } else {
-                config.maxOutputTokens = 12000;
-                // Sem thinkingConfig por padrão para outras tarefas não essenciais
+                config.maxOutputTokens = 8192;
+                // Sem thinkingConfig para velocidade instantânea
             }
 
             if (schema) {
@@ -643,32 +643,20 @@ export default async function handler(request, response) {
             const msg = error.message || '';
             triedKeysLog[triedKeysLog.length - 1].status = 'FALHA: ' + msg.substring(0, 120);
             
-            // Registra cota atingida no Circuito para as requisições subsequentes pularem de imediato
+            // Registra cota atingida no Circuito com cooldown curto de 45 segundos
             if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted') || msg.includes('RESOURCE_EXHAUSTED')) {
-                // Tenta extrair o tempo exato de cooldown pedido pelo Google (ex: "retry in 50.5s")
-                let cooldownMs = 75000; // Padrão rpm: 1m15s
+                let cooldownMs = 45000;
                 const retryMatch = msg.match(/retry in ([\d.]+)s/);
                 if (retryMatch) {
                     const secs = parseFloat(retryMatch[1]);
-                    if (!isNaN(secs)) cooldownMs = (secs * 1000) + 1000; // +1s de margem de segurança
+                    if (!isNaN(secs)) cooldownMs = (secs * 1000) + 1000;
                 }
-
-                // Limite Verdadeiro de Quota (Daily/Total) -> Descanso de 4 Horas
-                if (msg.toLowerCase().includes('per day') || msg.toLowerCase().includes('daily') || msg.toLowerCase().includes('budget')) {
-                    cooldownMs = 4 * 60 * 60 * 1000; // 4 horas sem falso positivo
-                }
-
                 global.exhaustedKeys.set(apiKey, Date.now() + cooldownMs);
-            } else if (msg.includes('API key not valid') || msg.includes('400')) {
-                // Chave de API inválida / erro de configuração: bloqueia por 4 horas para evitar lag
-                global.exhaustedKeys.set(apiKey, Date.now() + (4 * 60 * 60 * 1000));
+            } else if (msg.includes('API key not valid')) {
+                // Apenas chave inexistente/revogada
+                global.exhaustedKeys.set(apiKey, Date.now() + (30 * 60 * 1000));
             }
 
-            // Se for erro de rate limit, invalid argument ou quota, tentamos a próxima chave
-            if (msg.includes('400') || msg.includes('429') || msg.includes('INVALID_ARGUMENT') || msg.includes('API key not valid')) {
-                continue; 
-            }
-            // Para outros erros (ex: 500 interno do Google), também tentamos a próxima por segurança
             continue;
         }
     }
