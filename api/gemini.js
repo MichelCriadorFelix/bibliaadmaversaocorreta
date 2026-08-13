@@ -597,9 +597,13 @@ export default async function handler(request, response) {
 
             // thinkingConfig para tipos complexos
             const selectedThinkingLevel = thinkingLevel || 'high';
-            if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'quiz_gen' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
+            if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 config.maxOutputTokens = 30000;
                 config.thinkingConfig = { thinkingLevel: selectedThinkingLevel };
+            } else if (taskType === 'quiz_gen') {
+                // QUIZ GEN: geração ultrarrápida (2 a 4s) para evitar timeouts de 504 no proxy
+                config.maxOutputTokens = 4096;
+                config.thinkingConfig = { thinkingLevel: thinkingLevel || 'low' };
             } else if (taskType === 'dictionary') {
                 config.maxOutputTokens = 12000;
                 config.thinkingConfig = { thinkingLevel: 'medium' };
