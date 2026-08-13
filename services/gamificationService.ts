@@ -315,6 +315,17 @@ export const ACHIEVEMENTS: Achievement[] = [
         progressCalc: (s) => ({ current: Math.min(s.duelWins, 1), total: 1 }),
     },
     {
+        id: 'duel_3_wins',
+        title: 'Tríade da Vitória',
+        description: 'Vença 3 duelos bíblicos na Arena ADMA.',
+        category: 'duel',
+        tier: 'bronze',
+        iconName: 'Swords',
+        xpReward: 200,
+        checkUnlocked: (s) => s.duelWins >= 3,
+        progressCalc: (s) => ({ current: Math.min(s.duelWins, 3), total: 3 }),
+    },
+    {
         id: 'duel_5_wins',
         title: 'Gladiador da Fé',
         description: 'Vença 5 duelos bíblicos na Arena ADMA.',
