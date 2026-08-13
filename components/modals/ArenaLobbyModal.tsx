@@ -109,9 +109,9 @@ export default function ArenaLobbyModal({
                     onShowToast(`Desafio enviado! Aguardando ${opponent.name} aceitar.`, 'success');
                 }, 1000);
             }
-        } catch (e) {
+        } catch (e: any) {
             setInvitingEmail(null);
-            onShowToast('Erro ao enviar convite de duelo.', 'error');
+            onShowToast(e?.message || 'Erro ao enviar convite de duelo.', 'error');
         }
     };
 
@@ -132,9 +132,9 @@ export default function ArenaLobbyModal({
             onStartDuel(invite);
             setInvitingEmail(null);
             onClose();
-        } catch (e) {
+        } catch (e: any) {
             setInvitingEmail(null);
-            onShowToast('Erro ao iniciar treino.', 'error');
+            onShowToast(e?.message || 'Erro ao iniciar treino.', 'error');
         }
     };
 
