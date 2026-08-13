@@ -42,7 +42,12 @@ export default function ChallengeArena({
     const opponentEmail = isSender ? invite.receiverEmail : invite.senderEmail;
     const opponentName = isSender ? invite.receiverName : invite.senderName;
     
-    const isSoloDuel = opponentEmail.includes('@adma.com.br') || opponentEmail.includes('bot') || opponentEmail.toLowerCase() === currentUserEmail.toLowerCase().trim();
+    const isSoloDuel = 
+        opponentEmail.includes('@adma.com.br') || 
+        opponentEmail.includes('@adma.local') || 
+        opponentEmail.includes('bot') || 
+        opponentEmail.includes('local') || 
+        opponentEmail.toLowerCase() === currentUserEmail.toLowerCase().trim();
     
     // Se for duelo solo, o bot não envia score, então criamos um falso quando o player terminar
     const effectiveOpponentScore = isSoloDuel && isFinished 
