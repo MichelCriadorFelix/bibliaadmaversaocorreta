@@ -1040,11 +1040,26 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
           
           // --- ALGORITMO DE EMBARALHAMENTO E DISTRIBUIÇÃO (FIX v106) ---
           // Garante que a resposta certa não fique viciada na mesma letra (ex: sempre B)
-          const shuffledQuestions = res.questions.map((q: any) => {
+          const rawQuestions = Array.isArray(res?.questions) ? res.questions : [];
+          const shuffledQuestions = rawQuestions.map((q: any, qIdx: number) => {
+              const text = typeof q.text === 'string' && q.text.trim() ? q.text.trim() : `Questão ${qIdx + 1}`;
+              let opts: string[] = [];
+              if (Array.isArray(q.options)) {
+                  opts = q.options.map((opt: any) => typeof opt === 'string' ? opt : (opt?.text || String(opt || '')));
+              } else if (q.options && typeof q.options === 'object') {
+                  opts = Object.values(q.options).map(String);
+              }
+              if (opts.length === 0) {
+                  opts = ["Opção A", "Opção B", "Opção C", "Opção D"];
+              }
+
+              let rawCorrect = typeof q.correctIndex === 'number' ? Math.floor(q.correctIndex) : 0;
+              if (rawCorrect < 0 || rawCorrect >= opts.length) rawCorrect = 0;
+
               // 1. Mapeia opções com identificador de qual é a correta
-              const optionsWithFlag = q.options.map((opt: string, idx: number) => ({
+              const optionsWithFlag = opts.map((opt: string, idx: number) => ({
                   text: opt,
-                  isCorrect: idx === q.correctIndex
+                  isCorrect: idx === rawCorrect
               }));
 
               // 2. Embaralha as opções (Fisher-Yates)
@@ -1053,11 +1068,15 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                   [optionsWithFlag[i], optionsWithFlag[j]] = [optionsWithFlag[j], optionsWithFlag[i]];
               }
 
+              const newCorrectIdx = optionsWithFlag.findIndex((o: any) => o.isCorrect);
+
               // 3. Reconstrói a questão com o novo índice correto
               return {
-                  ...q,
+                  id: String(qIdx + 1),
+                  text,
+                  proofText: q.proofText || q.proof_text || "",
                   options: optionsWithFlag.map((o: any) => o.text),
-                  correctIndex: optionsWithFlag.findIndex((o: any) => o.isCorrect)
+                  correctIndex: newCorrectIdx >= 0 ? newCorrectIdx : 0
               };
           });
           

@@ -146,31 +146,66 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                         items: {
                             type: 'OBJECT',
                             properties: {
-                                text: { type: 'STRING', description: "Enunciado claro" },
+                                text: { type: 'STRING', description: "Enunciado claro e objetivo" },
                                 options: { type: 'ARRAY', items: { type: 'STRING' } },
-                                correctIndex: { type: 'INTEGER' },
+                                correctIndex: { type: 'INTEGER', description: "Índice de 0 a 4 da resposta correta no array de opções" },
                                 proofText: { type: 'STRING', description: "Cópia exata do trecho do texto original que prova a resposta" }
-                            }
+                            },
+                            required: ["text", "options", "correctIndex", "proofText"]
                         }
                     }
-                }
+                },
+                required: ["questions"]
             };
 
             const data = await generateContent(prompt, schema, true, 'quiz_gen');
             
-            if (data && data.questions && Array.isArray(data.questions)) {
+            if (data && data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
+                const normalizedQuestions = data.questions.map((q: any, idx: number) => {
+                    const text = typeof q.text === 'string' && q.text.trim() ? q.text.trim() : `Questão ${idx + 1}`;
+                    let options: string[] = [];
+                    if (Array.isArray(q.options)) {
+                        options = q.options.map((opt: any) => typeof opt === 'string' ? opt : (opt?.text || String(opt || '')));
+                    } else if (q.options && typeof q.options === 'object') {
+                        options = Object.values(q.options).map(String);
+                    }
+                    if (options.length === 0) {
+                        options = ["Opção A", "Opção B", "Opção C", "Opção D"];
+                    }
+
+                    let correctIndex = typeof q.correctIndex === 'number' ? Math.floor(q.correctIndex) : 0;
+                    if (correctIndex < 0 || correctIndex >= options.length) correctIndex = 0;
+
+                    return {
+                        id: String(idx + 1),
+                        text,
+                        options,
+                        correctIndex,
+                        proofText: q.proofText || q.proof_text || ""
+                    };
+                });
+
+                const key = generateChapterKey(book, chapter);
+                const existing = await db.entities.Quizzes.filter({ chapter_key: key, type: 'class' });
+
                 const newQuiz: Omit<Quiz, 'id'> = {
                     title: `Avaliação do Capítulo: ${book} ${chapter}`,
-                    chapter_key: generateChapterKey(book, chapter),
+                    chapter_key: key,
                     type: 'class',
-                    questions: data.questions,
+                    questions: normalizedQuestions,
                     created_at: new Date().toISOString(),
                     is_visible: false 
                 };
 
-                const savedQuiz = await db.entities.Quizzes.create(newQuiz as Quiz);
+                let savedQuiz: Quiz;
+                if (existing.length > 0 && existing[0].id) {
+                    savedQuiz = await db.entities.Quizzes.update(existing[0].id, newQuiz);
+                } else {
+                    savedQuiz = await db.entities.Quizzes.create(newQuiz as Quiz);
+                }
+
                 setActiveQuiz(savedQuiz);
-                onShowToast("Quiz gerado com sucesso! Lembre-se de revisá-lo.", "success");
+                onShowToast("Quiz gerado com sucesso! Lembre-se de revisá-lo e liberá-lo para os alunos.", "success");
             } else {
                  throw new Error("Formato de resposta inválido");
             }

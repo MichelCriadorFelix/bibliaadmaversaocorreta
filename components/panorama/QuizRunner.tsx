@@ -11,6 +11,69 @@ interface Props {
     onShowToast: (msg: string, type: 'success'|'error'|'info') => void;
 }
 
+// Algoritmo de Normalização e Proteção de Questões
+function sanitizeQuestion(q: any, index: number): QuizQuestion {
+    if (!q || typeof q !== 'object') {
+        return {
+            id: String(index + 1),
+            text: `Questão ${index + 1}`,
+            options: ["Opção A", "Opção B", "Opção C", "Opção D"],
+            correctIndex: 0,
+            proofText: ""
+        };
+    }
+
+    const text = typeof q.text === 'string' && q.text.trim() ? q.text.trim() : (q.question || `Questão ${index + 1}`);
+    
+    // Normalização de Opções
+    let rawOptions: string[] = [];
+    if (Array.isArray(q.options)) {
+        rawOptions = q.options.map((opt: any) => {
+            if (typeof opt === 'string') return opt;
+            if (opt && typeof opt === 'object') return opt.text || opt.option || opt.value || JSON.stringify(opt);
+            return String(opt ?? '');
+        });
+    } else if (q.options && typeof q.options === 'object') {
+        rawOptions = Object.values(q.options).map(v => String(v ?? ''));
+    }
+
+    if (rawOptions.length === 0) {
+        rawOptions = ["Opção A", "Opção B", "Opção C", "Opção D"];
+    }
+
+    // Normalização de correctIndex
+    let rawCorrect = q.correctIndex ?? q.correct_index ?? q.correctAnswer ?? q.answer ?? 0;
+    let correctIndex = 0;
+    if (typeof rawCorrect === 'number') {
+        correctIndex = Math.floor(rawCorrect);
+    } else if (typeof rawCorrect === 'string') {
+        const parsed = parseInt(rawCorrect, 10);
+        if (!isNaN(parsed)) {
+            correctIndex = parsed;
+        } else {
+            const letter = rawCorrect.trim().toUpperCase().charAt(0);
+            const code = letter.charCodeAt(0) - 65; // A=0, B=1, C=2...
+            if (code >= 0 && code < rawOptions.length) {
+                correctIndex = code;
+            }
+        }
+    }
+
+    if (correctIndex < 0 || correctIndex >= rawOptions.length) {
+        correctIndex = 0;
+    }
+
+    const proofText = q.proofText || q.proof_text || q.proof || q.explanation || "";
+
+    return {
+        id: q.id || String(index + 1),
+        text,
+        options: rawOptions,
+        correctIndex,
+        proofText
+    };
+}
+
 export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onShowToast }: Props) {
     const [started, setStarted] = useState(false);
     
@@ -23,7 +86,8 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
     const [score, setScore] = useState(0);
     
     // DEFINIÇÃO RÍGIDA DE TEMPO POR TIPO (Fallback se não vier do banco)
-    const DEFAULT_DURATION = quiz.questions.length > 5 ? 40 : 20;
+    const questionsCount = Array.isArray(quiz?.questions) ? quiz.questions.length : 5;
+    const DEFAULT_DURATION = questionsCount > 5 ? 40 : 20;
     const EFFECTIVE_TIME_LIMIT = (quiz.time_limit_minutes && quiz.time_limit_minutes > 0) 
         ? quiz.time_limit_minutes 
         : DEFAULT_DURATION;
@@ -140,11 +204,11 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
     };
 
     const saveAttempt = async (updatedAttempt: QuizAttempt) => {
-        if (!userProgress || !userProgress.id || alreadyTaken) return;
+        if (!userProgress || !userProgress.id || alreadyTaken || !quiz.id) return;
 
         const newAttempts = {
             ...(userProgress.quiz_attempts || {}),
-            [quiz.id!]: updatedAttempt
+            [quiz.id]: updatedAttempt
         };
 
         const newPayload = {
@@ -167,16 +231,28 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
             return;
         }
 
+        const rawQuestions = Array.isArray(quiz?.questions) ? quiz.questions : [];
+        if (rawQuestions.length === 0) {
+            onShowToast("Nenhuma questão encontrada para este quiz. O professor pode re-gerá-lo.", "error");
+            return;
+        }
+
         // Tenta recuperar tentativa em andamento (Apenas se não for modo revisão)
-        const existingAttempt = userProgress?.quiz_attempts?.[quiz.id!];
-        if (existingAttempt && !alreadyTaken && !existingAttempt.is_finished) {
-            setActiveQuestions(existingAttempt.questions);
-            setScore(existingAttempt.score);
-            setCurrentQIndex(existingAttempt.current_index);
+        const existingAttempt = quiz.id ? userProgress?.quiz_attempts?.[quiz.id] : null;
+        if (existingAttempt && !alreadyTaken && !existingAttempt.is_finished && Array.isArray(existingAttempt.questions) && existingAttempt.questions.length > 0) {
+            const sanitizedAttemptQuestions = existingAttempt.questions.map(sanitizeQuestion);
+            const safeCurrentIndex = Math.min(Math.max(0, existingAttempt.current_index || 0), sanitizedAttemptQuestions.length - 1);
+            const safeAnswers = Array.isArray(existingAttempt.answers)
+                ? existingAttempt.answers
+                : new Array(sanitizedAttemptQuestions.length).fill(null);
+
+            setActiveQuestions(sanitizedAttemptQuestions);
+            setScore(existingAttempt.score || 0);
+            setCurrentQIndex(safeCurrentIndex);
             
             // Verifica se a questão atual já tinha sido respondida antes de sair
-            const savedAnswer = existingAttempt.answers[existingAttempt.current_index];
-            if (savedAnswer !== null) {
+            const savedAnswer = safeAnswers[safeCurrentIndex];
+            if (savedAnswer !== null && savedAnswer !== undefined) {
                 setSelectedOption(savedAnswer);
                 setShowResult(true);
             } else {
@@ -186,7 +262,6 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
 
             setIsFinished(false);
             setTimeExpired(false);
-            // Recupera tempo restante se existir para evitar resets no refresh
             if ((existingAttempt as any).time_left !== undefined) {
                 setTimeLeft((existingAttempt as any).time_left);
             } else {
@@ -197,7 +272,8 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
             return;
         }
 
-        const totalQuestions = quiz.questions.length;
+        const sanitizedQuizQuestions = rawQuestions.map(sanitizeQuestion);
+        const totalQuestions = sanitizedQuizQuestions.length;
         let targetIndices: number[] = [];
         const maxDesiredIndex = 5; 
 
@@ -207,16 +283,15 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
 
         targetIndices = shuffleArray(targetIndices);
 
-        const balancedQuestions = quiz.questions.map((q, i) => {
+        const balancedQuestions = sanitizedQuizQuestions.map((q, i) => {
             const originalOptions = q.options;
             const originalCorrectIndex = q.correctIndex;
-            const correctText = originalOptions[originalCorrectIndex];
+            const correctText = originalOptions[originalCorrectIndex] || originalOptions[0] || "Opção Correta";
             
             let wrongAnswers = originalOptions.filter((_, idx) => idx !== originalCorrectIndex);
             wrongAnswers = shuffleArray(wrongAnswers);
 
-            let newCorrectIndex = targetIndices[i];
-            
+            let newCorrectIndex = targetIndices[i] % originalOptions.length;
             if (newCorrectIndex >= originalOptions.length) {
                 newCorrectIndex = Math.floor(Math.random() * originalOptions.length);
             }
@@ -227,7 +302,7 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
             let wrongIdx = 0;
             for (let k = 0; k < newOptions.length; k++) {
                 if (k !== newCorrectIndex) {
-                    newOptions[k] = wrongAnswers[wrongIdx] || "Opção Inválida";
+                    newOptions[k] = wrongAnswers[wrongIdx] || `Opção ${String.fromCharCode(65 + k)}`;
                     wrongIdx++;
                 }
             }
@@ -250,9 +325,9 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
         setStarted(true);
 
         // Inicializa tentativa no banco (Se for a primeira vez valendo pontos)
-        if (!alreadyTaken && userProgress?.id) {
+        if (!alreadyTaken && userProgress?.id && quiz.id) {
             const newAttempt: QuizAttempt = {
-                quiz_id: quiz.id!,
+                quiz_id: quiz.id,
                 questions: balancedQuestions,
                 answers: new Array(balancedQuestions.length).fill(null),
                 current_index: 0,
@@ -360,17 +435,19 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
 
     const handleAnswer = (optionIndex: number) => {
         if (selectedOption !== null) return; 
-        setSelectedOption(optionIndex);
         const question = activeQuestions[currentQIndex];
+        if (!question) return;
+        
+        setSelectedOption(optionIndex);
         const isCorrect = optionIndex === question.correctIndex;
         const newScore = isCorrect ? score + 1 : score;
         if (isCorrect) setScore(newScore);
         setShowResult(true);
 
         // Salva resposta imediatamente
-        const existingAttempt = userProgress?.quiz_attempts?.[quiz.id!];
+        const existingAttempt = quiz.id ? userProgress?.quiz_attempts?.[quiz.id] : null;
         if (existingAttempt && !alreadyTaken) {
-            const newAnswers = [...existingAttempt.answers];
+            const newAnswers = Array.isArray(existingAttempt.answers) ? [...existingAttempt.answers] : [];
             newAnswers[currentQIndex] = optionIndex;
             saveAttempt({
                 ...existingAttempt,
@@ -391,7 +468,7 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
             // Atualiza índice da tentativa
-            const existingAttempt = userProgress?.quiz_attempts?.[quiz.id!];
+            const existingAttempt = quiz.id ? userProgress?.quiz_attempts?.[quiz.id] : null;
             if (existingAttempt && !alreadyTaken) {
                 saveAttempt({
                     ...existingAttempt,
@@ -531,7 +608,24 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
     }
 
     // Renderização da Questão Ativa
+    if (!activeQuestions || activeQuestions.length === 0 || !activeQuestions[currentQIndex]) {
+        return (
+            <div className="text-center py-20 px-5 bg-white dark:bg-dark-card rounded-3xl shadow-xl border border-[#C5A059]/30 mb-20 w-full max-w-full">
+                <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                <h3 className="font-cinzel text-xl font-bold dark:text-white mb-2">Preparando Questões...</h3>
+                <p className="text-gray-500 text-sm mb-6">Aguarde um momento ou clique para reiniciar a sessão.</p>
+                <button 
+                    onClick={() => { setStarted(false); setIsFinished(false); }}
+                    className="px-6 py-3 bg-[#8B0000] text-white font-bold rounded-xl shadow hover:bg-[#6b0000]"
+                >
+                    Voltar ao Início do Quiz
+                </button>
+            </div>
+        );
+    }
+
     const question = activeQuestions[currentQIndex];
+    const safeOptions = Array.isArray(question.options) ? question.options : [];
 
     return (
         <div className="w-full max-w-3xl mx-auto px-5 md:px-0 pb-32 overflow-x-hidden box-border">
@@ -553,7 +647,8 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
 
             {/* Opções */}
             <div className="space-y-4 w-full">
-                {question.options.map((opt, idx) => {
+                {safeOptions.map((opt, idx) => {
+                    const optText = String(opt || '');
                     let statusClass = "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-[#C5A059]";
                     if (selectedOption !== null) {
                         if (idx === question.correctIndex) statusClass = "bg-green-100 border-green-500 text-green-900";
@@ -569,7 +664,7 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
                             className={`w-full p-4 md:p-6 text-left rounded-2xl border-2 transition-all font-cormorant text-lg md:text-xl ${statusClass} shadow-sm active:scale-[0.98] break-words whitespace-normal box-border flex items-start gap-2`}
                         >
                             <span className="font-bold shrink-0">{String.fromCharCode(65 + idx)}.</span> 
-                            <span className="flex-1">{opt}</span>
+                            <span className="flex-1">{optText}</span>
                         </button>
                     );
                 })}
