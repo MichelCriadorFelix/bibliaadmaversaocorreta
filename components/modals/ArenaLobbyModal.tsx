@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Swords, X, Search, Sparkles, Crown, Zap, User, Clock, 
-    BookOpen, CheckCircle2, Loader2, ArrowRight, ShieldCheck, Flame, Users
+    BookOpen, CheckCircle2, Loader2, ArrowRight, ShieldCheck, Flame, Users, ChevronDown
 } from 'lucide-react';
 import { OnlineUser, DuelInvite, challengeService } from '../../services/challengeService';
 import { presenceService } from '../../services/presenceService';
@@ -25,7 +25,7 @@ const BIBLE_BOOKS = [
     'João',
     'Romanos',
     'Apocalipse',
-    'Bíblia Geral'
+    'Bíblia Completa'
 ];
 
 export default function ArenaLobbyModal({
@@ -178,20 +178,21 @@ export default function ArenaLobbyModal({
                         <label className="text-[10px] font-montserrat font-black uppercase text-amber-400 tracking-wider mb-2 flex items-center gap-1">
                             <BookOpen className="w-3.5 h-3.5" /> Livro Bíblico do Duelo:
                         </label>
-                        <div className="flex gap-1.5 overflow-x-auto pb-1">
-                            {BIBLE_BOOKS.map((b) => (
-                                <button
-                                    key={b}
-                                    onClick={() => setSelectedBook(b)}
-                                    className={`px-3 py-1.5 rounded-xl font-montserrat font-bold text-xs whitespace-nowrap transition-all ${
-                                        selectedBook === b
-                                            ? 'bg-amber-500 text-black shadow-md scale-105'
-                                            : 'bg-black/40 text-gray-300 hover:bg-white/10 hover:text-white border border-white/5'
-                                    }`}
-                                >
-                                    {b}
-                                </button>
-                            ))}
+                        <div className="relative group">
+                            <select
+                                value={selectedBook}
+                                onChange={(e) => setSelectedBook(e.target.value)}
+                                className="w-full appearance-none bg-black/40 border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white font-montserrat font-bold text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all cursor-pointer hover:bg-white/5"
+                            >
+                                {BIBLE_BOOKS.map((b) => (
+                                    <option key={b} value={b} className="bg-[#121214] text-white">
+                                        {b === 'Bíblia Completa' ? '📖 Bíblia Completa (Todos os Livros)' : b}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-amber-500 group-hover:text-amber-400 transition-colors">
+                                <ChevronDown className="w-4 h-4" />
+                            </div>
                         </div>
                     </div>
                 </div>
