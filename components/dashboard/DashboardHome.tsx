@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, BookOpen, GraduationCap, ShieldCheck, Trophy, Calendar, ListChecks, Mail, Moon, Sun, X, Share, LogOut, Sparkles, Brain, FileText, Link as LinkIcon, Star, MapPin, Monitor, PlusSquare, Instagram, Zap, ZapOff, ClipboardList, ChevronRight } from 'lucide-react';
+import { Search, BookOpen, GraduationCap, ShieldCheck, Trophy, Calendar, ListChecks, Mail, Moon, Sun, X, Share, LogOut, Sparkles, Brain, FileText, Link as LinkIcon, Star, MapPin, Monitor, PlusSquare, Instagram, Zap, ZapOff, ClipboardList, ChevronRight, User } from 'lucide-react';
 
 // Variável global para capturar o evento de instalação fora do ciclo de vida do componente
 // Isso evita perder o evento se o usuário navegar para outra tela e voltar
@@ -21,6 +21,9 @@ import { AppConfig, DynamicModule } from '../../types';
 import { db } from '../../services/database';
 import AttendanceManager from '../admin/AttendanceManager';
 import PrivacyPolicyModal from '../modals/PrivacyPolicyModal';
+import UserProfileModal from '../modals/UserProfileModal';
+import ArenaLobbyModal from '../modals/ArenaLobbyModal';
+import { calculateUserStats, calculateTotalXP, getUserRank } from '../../services/gamificationService';
 
 interface DashboardProps {
     onNavigate: (view: string, params?: any) => void;
@@ -38,9 +41,10 @@ interface DashboardProps {
     togglePerformanceMode?: () => void;
     fontScale?: number;
     onUpdateFontScale?: (delta: number) => void;
+    onStartDuel?: (invite: any) => void;
 }
 
-export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOpenSearch, user, userProgress, darkMode, toggleDarkMode, onShowToast, onLogout, appConfig, performanceMode, togglePerformanceMode, fontScale, onUpdateFontScale }: DashboardProps) {
+export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOpenSearch, user, userProgress, darkMode, toggleDarkMode, onShowToast, onLogout, appConfig, performanceMode, togglePerformanceMode, fontScale, onUpdateFontScale, onStartDuel }: DashboardProps) {
   const [clicks, setClicks] = useState(0);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -48,9 +52,11 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('desktop');
   const [dynamicModules, setDynamicModules] = useState<DynamicModule[]>([]);
   
-  // State para o Modal de Frequência
+  // State para o Modal de Frequência, Perfil e Arena Lobby
   const [showAttendance, setShowAttendance] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showArenaLobby, setShowArenaLobby] = useState(false);
 
   // Verificação de Permissão da Secretária (Nicole, Chelseano, Wendell ou quem tiver a role)
   const userEmailLower = (userProgress?.user_email || user?.user_email || '').toLowerCase();
@@ -241,6 +247,33 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
             onClose={() => setShowPrivacy(false)} 
         />
 
+        {/* MODAL MEU PERFIL & CONQUISTAS */}
+        <UserProfileModal
+            isOpen={showProfile}
+            onClose={() => setShowProfile(false)}
+            user={user}
+            userProgress={userProgress}
+            onNavigateToArena={() => {
+                setShowProfile(false);
+                setShowArenaLobby(true);
+            }}
+            onShowToast={onShowToast}
+        />
+
+        {/* MODAL LOBBY DA ARENA DE DUELOS (USUÁRIOS ONLINE) */}
+        <ArenaLobbyModal
+            isOpen={showArenaLobby}
+            onClose={() => setShowArenaLobby(false)}
+            currentUser={userProgress || user}
+            onStartDuel={(invite) => {
+                setShowArenaLobby(false);
+                if (onStartDuel) {
+                    onStartDuel(invite);
+                }
+            }}
+            onShowToast={onShowToast}
+        />
+
         <div className="relative bg-[#0F0505] text-white pb-28 rounded-b-[40px] shadow-2xl overflow-hidden isolate">
              <div className="absolute inset-0 z-0" style={{ background: `linear-gradient(to bottom, ${primaryColor}, #150505)` }}></div>
              <div className="relative z-20 px-6 pt-10 flex justify-between items-center">
@@ -276,6 +309,13 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
                             {performanceMode ? <Zap className="w-4 h-4 fill-current" /> : <ZapOff className="w-4 h-4" />}
                         </button>
                     )}
+                    <button 
+                        onClick={() => setShowProfile(true)} 
+                        className="p-2.5 rounded-full bg-white/10 border border-white/10 hover:bg-[#C5A059]/20 hover:border-[#C5A059]/40 transition-all flex items-center gap-1.5"
+                        title="Meu Perfil e Conquistas"
+                    >
+                        <User className="w-4 h-4 text-[#C5A059]" />
+                    </button>
                     <button onClick={toggleDarkMode} className="p-2.5 rounded-full bg-white/10 border border-white/10 hover:bg-white/20 transition-colors">{darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</button>
                     <button onClick={onLogout} className="p-2.5 rounded-full bg-white/10 border border-white/10 hover:bg-red-500/20 transition-colors"><LogOut className="w-4 h-4" /></button>
                 </div>
@@ -314,12 +354,27 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
         </div>
 
         <div className="px-6 -mt-16 relative z-30 mb-8 space-y-4">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-[#1A1A1A] p-6 rounded-[32px] border border-gray-100 dark:border-white/5 shadow-2xl relative overflow-hidden group">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                onClick={() => setShowProfile(true)}
+                className="bg-white dark:bg-[#1A1A1A] p-6 rounded-[32px] border border-gray-100 dark:border-white/5 shadow-2xl relative overflow-hidden group cursor-pointer hover:border-[#C5A059]/40 transition-all active:scale-[0.99]"
+            >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A059]/5 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-[#C5A059]/10 transition-colors"></div>
                 <div className="flex justify-between items-end mb-4 relative z-10">
                     <div className="flex flex-col">
-                        <span className="font-montserrat text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-[#C5A059]" /> Progresso de Leitura</span>
-                        <span className="font-cinzel font-black text-2xl text-[#1a0f0f] dark:text-[#C5A059] tracking-tight">Progresso de {firstName}</span>
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="font-montserrat text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-[#C5A059]" /> Progresso & Nível</span>
+                            {userProgress && (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/40">
+                                    Nv. {getUserRank(calculateTotalXP(calculateUserStats(userProgress))).currentLevel}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="font-cinzel font-black text-2xl text-[#1a0f0f] dark:text-[#C5A059] tracking-tight">Progresso de {firstName}</span>
+                            <span className="text-[10px] text-gray-400 font-montserrat font-bold group-hover:text-[#C5A059] transition-colors">Ver Perfil ➔</span>
+                        </div>
                         <span className="text-[10px] font-bold text-gray-400 mt-1 font-mono tracking-tighter">{readCount} / {TOTAL_CHAPTERS} capítulos lidos</span>
                     </div>
                     <div className="flex items-baseline gap-0.5">

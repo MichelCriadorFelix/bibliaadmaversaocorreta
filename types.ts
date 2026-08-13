@@ -41,6 +41,7 @@ export interface QuizQuestion {
     options: string[];
     correctIndex: number;
     proofText: string; // O trecho exato da aula que comprova a resposta
+    chapterRef?: string; // Ex: "Gênesis 8", "Salmo 23", "Mateus 5"
 }
 
 export interface Quiz {

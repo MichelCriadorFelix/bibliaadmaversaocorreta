@@ -12,10 +12,13 @@ import MessagesView from './components/messages/MessagesView';
 import DynamicModuleViewer from './components/dynamic/DynamicModuleViewer';
 import BibleSearch from './components/bible/BibleSearch';
 import AdminPasswordModal from './components/modals/AdminPasswordModal';
+import ChallengeInviteToast from './components/modals/ChallengeInviteToast';
+import ChallengeArena from './components/modals/ChallengeArena';
 import Toast from './components/ui/Toast';
 import NetworkStatus from './components/ui/NetworkStatus';
 import { db, syncManager } from './services/database';
 import { AppConfig, DynamicModule } from './types';
+import { DuelInvite, challengeService } from './services/challengeService';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -60,6 +63,7 @@ export default function App() {
 
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
   const [activeModule, setActiveModule] = useState<DynamicModule | null>(null);
+  const [activeDuelInvite, setActiveDuelInvite] = useState<DuelInvite | null>(null);
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -146,6 +150,57 @@ export default function App() {
       localStorage.setItem('adma_font_scale', newScale.toString());
       document.documentElement.style.fontSize = `${newScale}%`;
   };
+
+  // Heartbeat de Presença em Tempo Real (Apenas quem está com a Bíblia/App aberta)
+  useEffect(() => {
+    const getActiveEmail = () => {
+      if (user?.email) return user.email;
+      if (user?.user_email) return user.user_email;
+      if (userProgress?.user_email) return userProgress.user_email;
+      try {
+        const saved = localStorage.getItem('adma_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.email || parsed.user_email || null;
+        }
+      } catch (e) {}
+      return null;
+    };
+
+    const email = getActiveEmail();
+    if (!email) return;
+
+    const name = user?.name || user?.user_name || userProgress?.user_name || (email.split('@')[0]);
+    const level = userProgress?.level || 1;
+    const rankTitle = userProgress?.rankTitle || 'Estudante da Bíblia';
+
+    const sendPing = () => {
+      const activity = view === 'bible' ? 'Com a Bíblia Aberta' : 'No Aplicativo';
+      challengeService.heartbeatPresence({
+        email,
+        name,
+        level,
+        rankTitle,
+        activity
+      });
+    };
+
+    sendPing();
+    const interval = setInterval(sendPing, 5000); // Heartbeat a cada 5 segundos
+
+    // Também limpa presença ao fechar aba
+    const handleUnload = () => {
+      try {
+        navigator.sendBeacon('/api/presence', JSON.stringify({ email }));
+      } catch (e) {}
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [isAuthenticated, user, userProgress, view]);
 
   const loadProgress = async (email: string, nameFallback?: string) => {
     try {
@@ -435,6 +490,7 @@ export default function App() {
                 togglePerformanceMode={togglePerformanceMode} // Passando função
                 fontScale={fontScale} // Passando estado zoom
                 onUpdateFontScale={updateFontScale} // Passando função zoom
+                onStartDuel={(invite) => setActiveDuelInvite(invite)}
             />;
         case 'reader':
             return <BibleReader 
@@ -472,7 +528,12 @@ export default function App() {
                 onShowToast={showToast}
             />;
         case 'ranking':
-            return <RankingView onBack={() => handleNavigate('dashboard')} userProgress={userProgress} />;
+            return <RankingView 
+                onBack={() => handleNavigate('dashboard')} 
+                userProgress={userProgress} 
+                onStartDuel={(invite: any) => setActiveDuelInvite(invite)}
+                onShowToast={showToast}
+            />;
         case 'messages':
             return <MessagesView onBack={() => handleNavigate('dashboard')} isAdmin={isAdmin} user={user} />;
         case 'dynamic_module':
@@ -496,6 +557,28 @@ export default function App() {
             userRole={userProgress?.role}
           />
           <BibleSearch isOpen={showSearch} onClose={() => setShowSearch(false)} onNavigate={handleNavigate} />
+          
+          {/* TOAST FLUTUANTE DE CONVITE DE DUELO */}
+          {user && (
+              <ChallengeInviteToast
+                  userEmail={user.user_email}
+                  onAcceptInvite={(invite) => setActiveDuelInvite(invite)}
+                  onShowToast={showToast}
+              />
+          )}
+
+          {/* ARENA DE DUELO EM TELA CHEIA */}
+          {activeDuelInvite && user && (
+              <ChallengeArena
+                  invite={activeDuelInvite}
+                  currentUserEmail={user.user_email}
+                  currentUserName={user.user_name || 'Estudante'}
+                  onClose={() => setActiveDuelInvite(null)}
+                  onShowToast={showToast}
+                  onUpdateUserProgress={setUserProgress}
+              />
+          )}
+
           <NetworkStatus />
           {toast.msg && <Toast message={toast.msg} type={toast.type} onClose={() => setToast({ ...toast, msg: '' })} />}
       </div>

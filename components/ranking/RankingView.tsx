@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Trophy, Medal, Crown, User, Loader2, BookOpen, GraduationCap, X, Flame, Star, Shield, RefreshCw, Brain } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trophy, Medal, Crown, User, Loader2, BookOpen, GraduationCap, X, Flame, Star, Shield, RefreshCw, Brain, Swords, Users } from 'lucide-react';
 import { db } from '../../services/database';
 import { AnimatePresence, motion } from 'framer-motion';
+import { challengeService } from '../../services/challengeService';
+import ArenaLobbyModal from '../modals/ArenaLobbyModal';
 
-export default function RankingView({ onBack, userProgress }: any) {
+export default function RankingView({ onBack, userProgress, onStartDuel, onShowToast }: any) {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'chapters' | 'ebd' | 'quiz'>('chapters');
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [showArenaLobby, setShowArenaLobby] = useState(false);
   
   // OTIMIZAÇÃO: Paginação para reduzir DOM
   const [page, setPage] = useState(0);
@@ -288,7 +291,7 @@ export default function RankingView({ onBack, userProgress }: any) {
                         <h3 className="font-bold text-sm text-gray-500 uppercase mb-3 flex items-center gap-1">
                             <Medal className="w-4 h-4" /> Medalhas & Conquistas
                         </h3>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 mb-6">
                             {getBadges(selectedUser).length > 0 ? (
                                 getBadges(selectedUser).map((badge, i) => (
                                     <div key={i} className="flex items-center gap-1 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700">
@@ -300,10 +303,48 @@ export default function RankingView({ onBack, userProgress }: any) {
                                 <p className="text-xs text-gray-400 italic">Nenhuma medalha ainda.</p>
                             )}
                         </div>
+
+                        {/* BOTÃO DESAFIAR PARA DUELO */}
+                        {userProgress && userProgress.user_email !== selectedUser.user_email && (
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        await challengeService.sendInvite({
+                                            senderEmail: userProgress.user_email,
+                                            senderName: userProgress.user_name || 'Irmão ADMA',
+                                            receiverEmail: selectedUser.user_email,
+                                            receiverName: selectedUser.user_name || 'Irmão ADMA',
+                                            book: 'Gênesis'
+                                        });
+                                        setSelectedUser(null);
+                                        alert(`Convite de duelo enviado para ${selectedUser.user_name}!`);
+                                    } catch(e) {
+                                        alert('Erro ao enviar convite de duelo.');
+                                    }
+                                }}
+                                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#8B0000] to-[#500000] hover:from-[#a00000] hover:to-[#600000] text-white font-cinzel font-bold text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+                            >
+                                <Swords className="w-4 h-4 text-[#C5A059]" /> Desafiar para Duelo (1v1)
+                            </button>
+                        )}
                     </motion.div>
                 </div>
             )}
         </AnimatePresence>
+
+        {/* MODAL LOBBY DA ARENA DE DUELOS (USUÁRIOS ONLINE) */}
+        <ArenaLobbyModal
+            isOpen={showArenaLobby}
+            onClose={() => setShowArenaLobby(false)}
+            currentUser={userProgress}
+            onStartDuel={(invite) => {
+                setShowArenaLobby(false);
+                if (onStartDuel) {
+                    onStartDuel(invite);
+                }
+            }}
+            onShowToast={onShowToast || ((msg, type) => alert(msg))}
+        />
 
         {/* Header com Safe Area */}
         <div className="bg-[#8B0000] text-white p-4 pt-[calc(env(safe-area-inset-top)+1rem)] flex items-center justify-between sticky top-0 shadow-lg z-10">
@@ -313,6 +354,25 @@ export default function RankingView({ onBack, userProgress }: any) {
             </div>
             <button onClick={() => loadData(false)} disabled={loading} className="p-2 hover:bg-white/10 rounded-full transition-all active:scale-95">
                 <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
+            </button>
+        </div>
+
+        {/* BANNER ARENA DE DUELOS */}
+        <div className="p-3.5 bg-gradient-to-r from-[#2a0505] via-[#4a0808] to-[#1a0202] text-white flex items-center justify-between border-b border-[#C5A059]/30 shadow-md">
+            <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-[#8B0000] flex items-center justify-center text-white shadow-md">
+                    <Swords className="w-5 h-5" />
+                </div>
+                <div>
+                    <h4 className="font-cinzel text-xs font-black text-amber-300">Arena de Duelos (1v1)</h4>
+                    <p className="text-[10px] text-gray-300">Ver quem está online agora e desafiar para o quiz</p>
+                </div>
+            </div>
+            <button
+                onClick={() => setShowArenaLobby(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#C5A059] to-amber-600 text-black font-cinzel font-black text-[11px] shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1"
+            >
+                <Users className="w-3.5 h-3.5" /> Entrar na Arena
             </button>
         </div>
 

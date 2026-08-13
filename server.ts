@@ -64,6 +64,72 @@ async function startServer() {
     }
   });
 
+  // --- ROTA DE PRESENÇA EM TEMPO REAL (USUÁRIOS ONLINE NA BÍBLIA/APP) ---
+  const activeSessions = new Map<string, {
+    email: string;
+    name: string;
+    level: number;
+    rankTitle: string;
+    activity: string; // Ex: "Lendo Gênesis 8", "No Aplicativo"
+    lastHeartbeat: number;
+  }>();
+
+  // Heartbeat ping (POST)
+  app.post('/api/presence', (req, res) => {
+    const { email, name, level, rankTitle, activity } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const cleanEmail = String(email).toLowerCase().trim();
+    activeSessions.set(cleanEmail, {
+      email: cleanEmail,
+      name: name || cleanEmail.split('@')[0],
+      level: Number(level) || 1,
+      rankTitle: rankTitle || 'Estudante da Bíblia',
+      activity: activity || 'Online no Aplicativo',
+      lastHeartbeat: Date.now()
+    });
+    res.json({ status: 'ok', onlineCount: activeSessions.size });
+  });
+
+  // Obter usuários online (GET) - Expira após 45 segundos de inatividade
+  app.get('/api/presence', (req, res) => {
+    const now = Date.now();
+    const TTL_MS = 45 * 1000; // 45 segundos
+    const onlineList: any[] = [];
+
+    for (const [key, session] of activeSessions.entries()) {
+      if (now - session.lastHeartbeat <= TTL_MS) {
+        onlineList.push({
+          email: session.email,
+          name: session.name,
+          level: session.level,
+          rankTitle: session.rankTitle,
+          activity: session.activity,
+          lastSeen: 'Online agora',
+          isAvailable: true
+        });
+      } else {
+        // Limpa sessões expiradas
+        activeSessions.delete(key);
+      }
+    }
+
+    res.json({
+      onlineUsers: onlineList,
+      totalOnline: onlineList.length
+    });
+  });
+
+  // Desconectar sessão (DELETE)
+  app.delete('/api/presence', (req, res) => {
+    const { email } = req.body || {};
+    if (email) {
+      activeSessions.delete(String(email).toLowerCase().trim());
+    }
+    res.json({ status: 'disconnected' });
+  });
+
   // --- VITE MIDDLEWARE ---
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
