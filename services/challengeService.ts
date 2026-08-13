@@ -472,7 +472,12 @@ export const challengeService = {
         try {
              // Chamada para a API Gemini (a mesma que gera os quizzes da aula EBD)
              // Pediremos para gerar sobre o livro específico, no modelo do QuizQuestion
-             const prompt = `Gere ${count} perguntas de múltipla escolha difíceis e teológicas sobre o livro bíblico de ${book}, retirando conteúdo do seu conhecimento de Teologia Panorâmica do Professor Michel Felix. Retorne EXATAMENTE um array JSON seguindo o schema.`;
+             const prompt = `Gere ${count} perguntas de múltipla escolha sobre o livro bíblico de ${book}.
+Regras rigorosas:
+1. Nível intermediário: linguagem clara, objetiva e de fácil compreensão. Evite termos arcaicos ou rebuscados. As perguntas e respostas devem ser curtas e diretas.
+2. Gabarito exato: O valor de 'correctIndex' DEVE ser um número inteiro de 0 a 3, correspondendo exatamente à posição da resposta correta no array 'options'.
+3. Justificativa: Preencha o campo 'proofText' com uma breve justificativa (máximo 2 linhas) baseada na Bíblia ou na Teologia Panorâmica.
+Retorne EXATAMENTE um array JSON seguindo o schema.`;
              const schema = {
                  type: "ARRAY",
                  description: "Array of quiz questions",
