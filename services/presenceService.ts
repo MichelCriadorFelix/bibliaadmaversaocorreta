@@ -7,18 +7,16 @@ const getSupabaseConfig = () => {
     let key = '';
 
     try {
-        if (typeof process !== 'undefined' && process.env) {
-            url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-            key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-        }
-    } catch (e) {}
-
-    try {
-        if (!url && typeof import.meta !== 'undefined' && (import.meta as any).env) {
+        // O Vite vai substituir process.env... estaticamente no build.
+        // O bloco try previne crash caso a variável não exista no ambiente do navegador
+        url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+        key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    } catch (e) {
+        try {
             url = (import.meta as any).env.VITE_SUPABASE_URL || (import.meta as any).env.NEXT_PUBLIC_SUPABASE_URL || '';
             key = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || (import.meta as any).env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-        }
-    } catch (e) {}
+        } catch (e2) {}
+    }
 
     return { url, key };
 };
