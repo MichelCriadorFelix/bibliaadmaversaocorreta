@@ -48,7 +48,7 @@ export default function ChallengeInviteToast({
     };
 
     return (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 pointer-events-auto">
+        <div className="fixed top-[calc(env(safe-area-inset-top,0px)+1rem)] left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 pointer-events-auto">
             <AnimatePresence>
                 <motion.div
                     initial={{ opacity: 0, y: -40, scale: 0.9 }}

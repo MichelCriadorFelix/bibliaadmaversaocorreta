@@ -139,7 +139,7 @@ export default function ArenaLobbyModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:p-6 overflow-hidden">
             <motion.div 
                 initial={{ opacity: 0 }} 
                 animate={{ opacity: 1 }} 
@@ -152,7 +152,7 @@ export default function ArenaLobbyModal({
                 initial={{ scale: 0.92, y: 20, opacity: 0 }} 
                 animate={{ scale: 1, y: 0, opacity: 1 }} 
                 exit={{ scale: 0.92, y: 20, opacity: 0 }} 
-                className="bg-[#121214] text-white w-full max-w-2xl max-h-[92vh] rounded-[32px] border border-amber-500/40 shadow-2xl relative z-10 flex flex-col overflow-hidden"
+                className="bg-[#121214] text-white w-full max-w-2xl max-h-[calc(100vh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] rounded-[32px] border border-amber-500/40 shadow-2xl relative z-10 flex flex-col overflow-hidden"
             >
                 {/* CABEÇALHO DA ARENA */}
                 <div className="relative p-6 bg-gradient-to-b from-[#8B0000] via-[#220707] to-[#121214] border-b border-amber-500/20">

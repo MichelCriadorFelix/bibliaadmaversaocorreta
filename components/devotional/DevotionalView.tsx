@@ -429,7 +429,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
   return (
     <div className="min-h-screen bg-surface dark:bg-dark-bg selection:bg-secondary/30 transition-colors duration-300">
       {/* TopAppBar */}
-      <header className="fixed top-0 left-0 right-0 z-[60] bg-surface dark:bg-dark-bg/95 backdrop-blur-md border-b border-outline-variant/30">
+      <header className="fixed top-0 left-0 right-0 z-[60] bg-surface dark:bg-dark-bg/95 backdrop-blur-md border-b border-outline-variant/30 pt-[env(safe-area-inset-top,0px)]">
         <div className="flex justify-between items-center w-full px-margin-mobile max-w-2xl mx-auto h-16">
           <button onClick={onBack} className="p-2 -ml-2 text-primary dark:text-primary-fixed hover:bg-gray-100 dark:hover:bg-white/5 rounded-full transition-all">
             <ChevronLeft className="w-6 h-6" />
@@ -455,7 +455,7 @@ export default function DevotionalView({ onBack, onShowToast, isAdmin, onNavigat
       </header>
 
       {/* Date Selector */}
-      <div className="pt-16">
+      <div className="pt-[calc(env(safe-area-inset-top,0px)+4rem)]">
         <div className="bg-[#1a0f0f] dark:bg-black text-[#C5A059] p-3 flex items-center justify-between shadow-md relative z-50">
            <button onClick={handlePrevDay} className="p-2 hover:text-white transition active:scale-90"><ChevronLeft className="w-6 h-6" /></button>
            <div className="flex items-center gap-2 font-montserrat font-bold uppercase tracking-wider text-[10px] md:text-xs">

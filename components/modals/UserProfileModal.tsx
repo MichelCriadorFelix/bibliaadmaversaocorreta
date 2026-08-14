@@ -108,7 +108,7 @@ export default function UserProfileModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:p-4 md:p-6 overflow-hidden">
             <motion.div 
                 initial={{ opacity: 0 }} 
                 animate={{ opacity: 1 }} 
@@ -121,7 +121,7 @@ export default function UserProfileModal({
                 initial={{ scale: 0.95, y: 15, opacity: 0 }} 
                 animate={{ scale: 1, y: 0, opacity: 1 }} 
                 exit={{ scale: 0.95, y: 15, opacity: 0 }} 
-                className="bg-[#121214] text-white w-full max-w-lg max-h-[92vh] rounded-[24px] sm:rounded-[32px] border border-[#C5A059]/40 shadow-2xl relative z-10 flex flex-col overflow-hidden"
+                className="bg-[#121214] text-white w-full max-w-lg max-h-[calc(100vh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1.5rem)] rounded-[24px] sm:rounded-[32px] border border-[#C5A059]/40 shadow-2xl relative z-10 flex flex-col overflow-hidden"
             >
                 {/* CABEÇALHO COMPACTO E NOBRE */}
                 <div className="relative p-4 sm:p-5 bg-gradient-to-b from-[#8B0000]/70 via-[#1C0D0D] to-[#121214] border-b border-amber-500/20 shrink-0">

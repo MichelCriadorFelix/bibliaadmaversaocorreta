@@ -11,7 +11,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }: PrivacyPolicyMod
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:p-6">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -23,7 +23,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }: PrivacyPolicyMod
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className="bg-white dark:bg-[#1E1E1E] w-full max-w-2xl max-h-[85vh] rounded-[32px] shadow-2xl border border-[#C5A059]/30 relative z-10 overflow-hidden flex flex-col"
+            className="bg-white dark:bg-[#1E1E1E] w-full max-w-2xl max-h-[calc(100vh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] rounded-[32px] shadow-2xl border border-[#C5A059]/30 relative z-10 overflow-hidden flex flex-col"
           >
             {/* Header */}
             <div className="p-6 bg-[#1a0f0f] text-white flex justify-between items-center shrink-0">

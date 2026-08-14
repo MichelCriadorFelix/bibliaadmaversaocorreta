@@ -276,7 +276,7 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
 
         <div className="relative bg-[#0F0505] text-white pb-28 rounded-b-[40px] shadow-2xl overflow-hidden isolate">
              <div className="absolute inset-0 z-0" style={{ background: `linear-gradient(to bottom, ${primaryColor}, #150505)` }}></div>
-             <div className="relative z-20 px-6 pt-10 flex justify-between items-center">
+             <div className="relative z-20 px-6 pt-[calc(env(safe-area-inset-top,0px)+1.25rem)] flex justify-between items-center">
                 {(!isStandalone) && (
                     <motion.button 
                         initial={{ x: -20, opacity: 0 }} 

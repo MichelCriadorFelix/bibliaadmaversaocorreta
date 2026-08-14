@@ -38,7 +38,7 @@ export default function AdminPasswordModal({ isOpen, onClose, onSuccess, userRol
     return (
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -66,7 +66,7 @@ export default function AdminPasswordModal({ isOpen, onClose, onSuccess, userRol
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

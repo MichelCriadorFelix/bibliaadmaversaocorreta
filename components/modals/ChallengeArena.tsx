@@ -260,11 +260,11 @@ export default function ChallengeArena({
 
     return (
         <div className="fixed inset-0 z-50 bg-[#0F0505] text-white flex flex-col overflow-y-auto">
-            {/* CABEÇALHO DA ARENA */}
-            <div className="p-4 md:p-6 bg-gradient-to-b from-[#8B0000] to-[#1F0707] border-b border-amber-500/30 flex items-center justify-between shadow-xl">
+            {/* CABEÇALHO DA ARENA - COM SUPORTE A SAFE AREA NO IPHONE */}
+            <div className="p-4 pt-[calc(env(safe-area-inset-top,0px)+1.25rem)] md:p-6 md:pt-6 bg-gradient-to-b from-[#8B0000] to-[#1F0707] border-b border-amber-500/30 flex items-center justify-between shadow-xl shrink-0">
                 <button
                     onClick={onClose}
-                    className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white flex items-center gap-1 text-xs font-montserrat font-bold transition-all"
+                    className="p-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 text-gray-200 hover:text-white flex items-center gap-1.5 text-xs font-montserrat font-bold transition-all shadow-sm"
                 >
                     <ArrowLeft className="w-4 h-4" /> Sair
                 </button>

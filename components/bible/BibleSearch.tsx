@@ -108,7 +108,7 @@ export default function BibleSearch({ isOpen, onClose, onNavigate }: BibleSearch
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 px-4">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] px-4 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overflow-y-auto">
             <motion.div 
                 initial={{ opacity: 0 }} 
                 animate={{ opacity: 1 }} 

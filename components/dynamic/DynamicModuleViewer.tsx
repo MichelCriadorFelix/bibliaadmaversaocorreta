@@ -40,7 +40,7 @@ export default function DynamicModuleViewer({ module, onBack }: Props) {
 
         return (
             <div className="min-h-screen bg-[#FDFBF7] dark:bg-[#121212] flex flex-col">
-                <div className="bg-[#8B0000] text-white p-4 flex items-center gap-4 shadow-lg sticky top-0 z-10" style={{ backgroundColor: 'var(--primary-color)' }}>
+                <div className="bg-[#8B0000] text-white p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] flex items-center gap-4 shadow-lg sticky top-0 z-10" style={{ backgroundColor: 'var(--primary-color)' }}>
                     <button onClick={onBack}><ChevronLeft /></button>
                     <h1 className="font-cinzel font-bold truncate">{module.title}</h1>
                 </div>
@@ -96,7 +96,7 @@ export default function DynamicModuleViewer({ module, onBack }: Props) {
     if (module.type === 'page') {
         return (
             <div className="min-h-screen bg-[#FDFBF7] dark:bg-[#121212]">
-                <div className="bg-[#8B0000] text-white p-4 flex items-center gap-4 shadow-lg sticky top-0 z-10" style={{ backgroundColor: 'var(--primary-color)' }}>
+                <div className="bg-[#8B0000] text-white p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] flex items-center gap-4 shadow-lg sticky top-0 z-10" style={{ backgroundColor: 'var(--primary-color)' }}>
                     <button onClick={onBack}><ChevronLeft /></button>
                     <h1 className="font-cinzel font-bold truncate">{module.title}</h1>
                 </div>

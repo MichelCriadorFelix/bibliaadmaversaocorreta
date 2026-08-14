@@ -1354,7 +1354,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
           </div>
       )}
 
-      <div className="bg-[#1a0f0f] text-white p-4 flex items-center gap-4 sticky top-0 shadow-lg z-10">
+      <div className="bg-[#1a0f0f] text-white p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] flex items-center gap-4 sticky top-0 shadow-lg z-10">
         <button onClick={onBack}><ChevronLeft /></button>
         <h1 className="font-cinzel font-bold text-[#C5A059] flex items-center gap-2">
             <ShieldCheck className="w-5 h-5"/> Painel do Editor Chefe

@@ -142,8 +142,8 @@ export default function AttendanceManager({ onClose, isAdmin, onShowToast }: Pro
     const filteredUsers = users.filter(u => u.user_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-[#1E1E1E] w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl border-2 border-[#C5A059] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-[#1E1E1E] w-full max-w-4xl h-[calc(100vh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] max-h-[90vh] rounded-3xl shadow-2xl border-2 border-[#C5A059] flex flex-col overflow-hidden">
                 
                 {/* Header */}
                 <div className="bg-[#1a0f0f] p-5 flex justify-between items-center shrink-0">
