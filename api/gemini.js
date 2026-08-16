@@ -152,6 +152,7 @@ export default async function handler(request, response) {
             }
             // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR (NOVO v123.0 - CIRÚRGICO) ---
             else if (taskType === 'teacher_ebd' || taskType === 'upgrade_teacher_ebd') {
+                const isUpgrade = taskType === 'upgrade_teacher_ebd';
                 let depthInstruction = "";
                 const pages = targetPages ? parseInt(targetPages) : 3;
                 const baseWordCount = pages * 600;
