@@ -574,15 +574,15 @@ export default async function handler(request, response) {
                 }
             }
 
-            // Normalizador Seguro de ThinkingConfig para Gemini 3.7 Flash (thinkingBudget em tokens)
+            // Normalizador Seguro de ThinkingConfig para Gemini 3.7 Flash (16k Máximo, 8k Médio)
             const getThinkingConfig = (lvl) => {
-                if (!lvl) return { thinkingBudget: 2048 };
+                if (!lvl) return { thinkingBudget: 8192 };
                 const s = String(lvl).toLowerCase().trim();
                 if (s === 'minimal' || s === 'minimo' || s === 'mínimo') return { thinkingBudget: 0 };
-                if (s === 'low' || s === 'baixo') return { thinkingBudget: 1024 };
-                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 2048 };
-                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 4096 };
-                return { thinkingBudget: 2048 };
+                if (s === 'low' || s === 'baixo') return { thinkingBudget: 2048 };
+                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 8192 };
+                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 16384 };
+                return { thinkingBudget: 8192 };
             };
 
             // Seleção de Modelo Unificada: Gemini 3.7 Flash em 100% das tarefas
@@ -601,16 +601,16 @@ export default async function handler(request, response) {
                 ]
             };
 
-            // Configuração precisa de thinkingConfig e maxOutputTokens com budget controlado
+            // Configuração precisa de thinkingConfig e maxOutputTokens (com suporte a 16k thinking)
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
-                config.maxOutputTokens = 16384;
+                config.maxOutputTokens = 32768;
                 config.thinkingConfig = getThinkingConfig(thinkingLevel);
             } else if (taskType === 'quiz_gen') {
                 config.maxOutputTokens = 4096;
                 config.thinkingConfig = { thinkingBudget: 1024 };
             } else if (taskType === 'dictionary' || taskType === 'commentary') {
                 config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingBudget: 1024 };
+                config.thinkingConfig = { thinkingBudget: 2048 };
             } else {
                 config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingBudget: 0 };

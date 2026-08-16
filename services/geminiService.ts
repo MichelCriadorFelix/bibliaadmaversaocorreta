@@ -16,7 +16,7 @@ export const generateContent = async (
 ) => {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 240000); // 4 minutos de timeout
+        const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutos de timeout para Thinking 16k
         
         // Envia a requisição para o endpoint local da Vercel
         const response = await fetch('/api/gemini', {
