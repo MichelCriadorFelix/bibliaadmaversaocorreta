@@ -225,10 +225,10 @@ export default function AttendanceManager({ onClose, isAdmin, onShowToast }: Pro
                                     
                                     <div className="flex items-center gap-4 w-full md:w-auto">
                                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#8B0000] to-[#500000] flex items-center justify-center text-white font-cinzel font-bold shrink-0">
-                                            {user.user_name.charAt(0)}
+                                            {user.user_name ? user.user_name.charAt(0).toUpperCase() : '?'}
                                         </div>
                                         <div className="min-w-0">
-                                            <h3 className="font-bold text-gray-800 dark:text-white truncate">{user.user_name}</h3>
+                                            <h3 className="font-bold text-gray-800 dark:text-white truncate">{user.user_name || 'Usuário Sem Nome'}</h3>
                                             <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
                                                 <span title="Total Presenças" className="text-green-600 font-bold">P: {att.p}</span>
                                                 <span title="Total Atrasos" className="text-yellow-600 font-bold">A: {att.a}</span>
