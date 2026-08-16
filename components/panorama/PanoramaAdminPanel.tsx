@@ -243,7 +243,7 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                     <textarea 
                                         value={customInstructions}
                                         onChange={(e) => setCustomInstructions(e.target.value)}
-                                        placeholder="Ex: Foque na arqueologia do local... Use tom mais acadêmico... Explique o contexto de Josefo..."
+                                        placeholder={activeTab === 'teacher' ? "💡 O texto da aula do aluno já é carregado automaticamente pelo sistema! Cole aqui apenas instruções extras opcionais (ex: focar em dinâmicas de 10 min, ênfase prática, etc.)." : "Ex: Foque na arqueologia do local... Use tom mais acadêmico... Explique o contexto de Josefo..."}
                                         className="w-full bg-white dark:bg-black/40 border-2 border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-sm focus:border-[#C5A059] outline-none transition-all min-h-[100px]"
                                     />
                                 </div>

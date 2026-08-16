@@ -38,8 +38,26 @@ export function useEbdData(onShowToast: (msg: string, type: 'success' | 'error' 
         commitLockRef.current = false;
 
         try {
+            const key = generateChapterKey(book, chapter);
+            const existing = (await db.entities.PanoramaBiblico.filter({ study_key: key }))[0];
             const taskType = activeTab === 'teacher' ? 'teacher_ebd' : 'ebd';
-            const prompt = customInstructions ? `${book} ${chapter}\n\nInstruções Adicionais: ${customInstructions}` : `${book} ${chapter}`;
+            
+            let prompt = '';
+            if (activeTab === 'teacher') {
+                const studentText = content?.student_content || existing?.student_content || '';
+                // Se já temos a aula do aluno e o usuário não colou uma aula gigante nas instruções
+                if (studentText && studentText.trim().length > 100 && (!customInstructions || customInstructions.length < 300)) {
+                    prompt = `LIVRO: ${book} | CAPÍTULO: ${chapter}\n\nAULA DO ALUNO (MANUSCRITO BASE):\n"""\n${studentText}\n"""`;
+                    if (customInstructions) {
+                        prompt += `\n\nINSTRUÇÕES ADICIONAIS DO PROFESSOR: ${customInstructions}`;
+                    }
+                } else {
+                    prompt = customInstructions ? `${book} ${chapter}\n\nInstruções Adicionais: ${customInstructions}` : `${book} ${chapter}`;
+                }
+            } else {
+                prompt = customInstructions ? `${book} ${chapter}\n\nInstruções Adicionais: ${customInstructions}` : `${book} ${chapter}`;
+            }
+
             const res = await generateContent(prompt, null, true, taskType, { book, chapter, depthLevel, targetPages: targetPages.toString(), thinkingLevel });
             if (!res || res.length < 1000) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
 
@@ -47,9 +65,6 @@ export function useEbdData(onShowToast: (msg: string, type: 'success' | 'error' 
             let clean = res.trim();
             if (clean.startsWith('{"text":')) { try { clean = JSON.parse(clean).text; } catch(e){} }
             if (clean.startsWith('```')) clean = clean.replace(/```[a-z]*\n|```/g, '');
-
-            const key = generateChapterKey(book, chapter);
-            const existing = (await db.entities.PanoramaBiblico.filter({ study_key: key }))[0];
             
             const newContent: EBDContent = existing ? { ...existing } : {
                 study_key: key,

@@ -574,14 +574,15 @@ export default async function handler(request, response) {
                 }
             }
 
-            // Normalizador Seguro de ThinkingLevel para Google GenAI SDK (HIGH, LOW, MINIMAL)
-            const normalizeThinking = (lvl) => {
-                if (!lvl) return 'high';
+            // Normalizador Seguro de ThinkingConfig para Gemini 3.7 Flash (thinkingBudget em tokens)
+            const getThinkingConfig = (lvl) => {
+                if (!lvl) return { thinkingBudget: 2048 };
                 const s = String(lvl).toLowerCase().trim();
-                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return 'high';
-                if (s === 'low' || s === 'baixo' || s === 'medium' || s === 'médio' || s === 'medio') return 'low';
-                if (s === 'minimal' || s === 'minimo' || s === 'mínimo' || s === 'padrao' || s === 'padrão') return 'minimal';
-                return 'high';
+                if (s === 'minimal' || s === 'minimo' || s === 'mínimo') return { thinkingBudget: 0 };
+                if (s === 'low' || s === 'baixo') return { thinkingBudget: 1024 };
+                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 2048 };
+                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 4096 };
+                return { thinkingBudget: 2048 };
             };
 
             // Seleção de Modelo Unificada: Gemini 3.7 Flash em 100% das tarefas
@@ -600,19 +601,19 @@ export default async function handler(request, response) {
                 ]
             };
 
-            // Configuração precisa de thinkingConfig e maxOutputTokens
+            // Configuração precisa de thinkingConfig e maxOutputTokens com budget controlado
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 config.maxOutputTokens = 16384;
-                config.thinkingConfig = { thinkingLevel: normalizeThinking(thinkingLevel) };
+                config.thinkingConfig = getThinkingConfig(thinkingLevel);
             } else if (taskType === 'quiz_gen') {
                 config.maxOutputTokens = 4096;
-                config.thinkingConfig = { thinkingLevel: 'low' };
+                config.thinkingConfig = { thinkingBudget: 1024 };
             } else if (taskType === 'dictionary' || taskType === 'commentary') {
                 config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingLevel: 'low' };
+                config.thinkingConfig = { thinkingBudget: 1024 };
             } else {
                 config.maxOutputTokens = 8192;
-                // Sem thinkingConfig para velocidade instantânea
+                config.thinkingConfig = { thinkingBudget: 0 };
             }
 
             if (schema) {
