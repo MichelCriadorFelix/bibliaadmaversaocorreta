@@ -9,7 +9,7 @@ import ArenaLobbyModal from '../modals/ArenaLobbyModal';
 export default function RankingView({ onBack, userProgress, onStartDuel, onShowToast }: any) {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'chapters' | 'ebd' | 'quiz'>('chapters');
+  const [activeTab, setActiveTab] = useState<'chapters' | 'ebd' | 'quiz' | 'duels'>('chapters');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showArenaLobby, setShowArenaLobby] = useState(false);
   const [onlineEmails, setOnlineEmails] = useState<Set<string>>(new Set());
@@ -88,6 +88,12 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                     ]);
                     merged.ebd_read = Array.from(ebdSet);
                     merged.total_ebd_read = merged.ebd_read.length;
+                    
+                    if (u.ebd_attendance && u.ebd_attendance.history) {
+                        merged.ebd_attendance = u.ebd_attendance;
+                    } else if (!merged.ebd_attendance && existing.ebd_attendance) {
+                        merged.ebd_attendance = existing.ebd_attendance;
+                    }
 
                     // Thematic: Merge arrays
                     const thematicSet = new Set([
@@ -99,6 +105,10 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                     
                     // Quiz: Take the highest points
                     merged.quiz_points = Math.max(existing.quiz_points || 0, u.quiz_points || 0);
+                    
+                    // Duels
+                    merged.duel_points = Math.max(existing.duel_points || 0, u.duel_points || 0);
+                    merged.duel_wins = Math.max(existing.duel_wins || 0, u.duel_wins || 0);
                     
                     // Merge quizzes_taken list
                     const takenSet = new Set([
@@ -145,6 +155,12 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                 merged.ebd_read = Array.from(ebdSet);
                 merged.total_ebd_read = merged.ebd_read.length;
 
+                if (userProgress.ebd_attendance && userProgress.ebd_attendance.history) {
+                    merged.ebd_attendance = userProgress.ebd_attendance;
+                } else if (!merged.ebd_attendance && existing.ebd_attendance) {
+                    merged.ebd_attendance = existing.ebd_attendance;
+                }
+
                 // Thematic
                 const thematicSet = new Set([
                     ...(existing.thematic_read || []),
@@ -155,6 +171,10 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                 
                 // Quiz
                 merged.quiz_points = Math.max(existing.quiz_points || 0, userProgress.quiz_points || 0);
+                
+                // Duels
+                merged.duel_points = Math.max(existing.duel_points || 0, userProgress.duel_points || 0);
+                merged.duel_wins = Math.max(existing.duel_wins || 0, userProgress.duel_wins || 0);
                 
                 const takenSet = new Set([
                     ...(existing.quizzes_taken || []),
@@ -175,14 +195,26 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                 if (capsB !== capsA) return capsB - capsA; 
                 return (a.user_name || "").localeCompare(b.user_name || ""); 
             } else if (activeTab === 'ebd') {
-                const ebdsA = (a.total_ebd_read || 0) + (a.total_thematic_read || 0);
-                const ebdsB = (b.total_ebd_read || 0) + (b.total_thematic_read || 0);
+                const getEbdPoints = (u: any) => {
+                    const readPts = (u.total_ebd_read || 0) + (u.total_thematic_read || 0);
+                    const att = u.ebd_attendance || { p: 0, a: 0 };
+                    const attPts = (att.p * 1) + (att.a * 0.5);
+                    return readPts + attPts;
+                };
+                const ebdsA = getEbdPoints(a);
+                const ebdsB = getEbdPoints(b);
                 if (ebdsB !== ebdsA) return ebdsB - ebdsA;
                 return (a.user_name || "").localeCompare(b.user_name || "");
-            } else {
+            } else if (activeTab === 'quiz') {
                 // Quiz
                 const ptsA = a.quiz_points || 0;
                 const ptsB = b.quiz_points || 0;
+                if (ptsB !== ptsA) return ptsB - ptsA;
+                return (a.user_name || "").localeCompare(b.user_name || "");
+            } else {
+                // Duels
+                const ptsA = a.duel_points || 0;
+                const ptsB = b.duel_points || 0;
                 if (ptsB !== ptsA) return ptsB - ptsA;
                 return (a.user_name || "").localeCompare(b.user_name || "");
             }
@@ -411,21 +443,27 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
         <div className="flex bg-white dark:bg-dark-card border-b border-[#C5A059]">
             <button 
                 onClick={() => setActiveTab('chapters')}
-                className={`flex-1 py-4 font-cinzel font-bold flex justify-center items-center gap-2 transition-all ${activeTab === 'chapters' ? 'bg-[#8B0000] text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-[#8B0000]/10'}`}
+                className={`flex-1 py-3 font-cinzel font-bold text-xs sm:text-sm flex flex-col justify-center items-center gap-1 transition-all ${activeTab === 'chapters' ? 'bg-[#8B0000] text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-[#8B0000]/10'}`}
             >
                 <BookOpen className="w-5 h-5" /> Bíblia
             </button>
             <button 
                 onClick={() => setActiveTab('ebd')}
-                className={`flex-1 py-4 font-cinzel font-bold flex justify-center items-center gap-2 transition-all ${activeTab === 'ebd' ? 'bg-[#C5A059] text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-[#C5A059]/10'}`}
+                className={`flex-1 py-3 font-cinzel font-bold text-xs sm:text-sm flex flex-col justify-center items-center gap-1 transition-all ${activeTab === 'ebd' ? 'bg-[#C5A059] text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-[#C5A059]/10'}`}
             >
                 <GraduationCap className="w-5 h-5" /> EBD
             </button>
             <button 
                 onClick={() => setActiveTab('quiz')}
-                className={`flex-1 py-4 font-cinzel font-bold flex justify-center items-center gap-2 transition-all ${activeTab === 'quiz' ? 'bg-pink-700 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-pink-700/10'}`}
+                className={`flex-1 py-3 font-cinzel font-bold text-xs sm:text-sm flex flex-col justify-center items-center gap-1 transition-all ${activeTab === 'quiz' ? 'bg-pink-700 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-pink-700/10'}`}
             >
                 <Brain className="w-5 h-5" /> Quiz
+            </button>
+            <button 
+                onClick={() => setActiveTab('duels')}
+                className={`flex-1 py-3 font-cinzel font-bold text-xs sm:text-sm flex flex-col justify-center items-center gap-1 transition-all ${activeTab === 'duels' ? 'bg-amber-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-amber-600/10'}`}
+            >
+                <Swords className="w-5 h-5" /> Duelos
             </button>
         </div>
 
@@ -436,6 +474,7 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                     {activeTab === 'chapters' && '"Lâmpada para os meus pés é a tua palavra..." (Sl 119:105)'}
                     {activeTab === 'ebd' && '"Crescei na graça e no conhecimento..." (2 Pe 3:18)'}
                     {activeTab === 'quiz' && '"Examinais as Escrituras..." (Jo 5:39)'}
+                    {activeTab === 'duels' && '"Combati o bom combate..." (2 Tm 4:7)'}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Toque em um usuário para ver suas medalhas.
@@ -482,8 +521,9 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                                         </div>
                                         <div className="flex items-center gap-2 text-xs opacity-80 font-bold uppercase tracking-wider">
                                             {activeTab === 'chapters' && <><BookOpen className="w-3 h-3"/> {u.total_chapters || 0} Capítulos</>}
-                                            {activeTab === 'ebd' && <><GraduationCap className="w-3 h-3"/> {(u.total_ebd_read || 0) + (u.total_thematic_read || 0)} Estudos</>}
+                                            {activeTab === 'ebd' && <><GraduationCap className="w-3 h-3"/> {(u.total_ebd_read || 0) + (u.total_thematic_read || 0)} Estudos | {(u.ebd_attendance ? (u.ebd_attendance.p * 1 + u.ebd_attendance.a * 0.5) : 0)} Freq</>}
                                             {activeTab === 'quiz' && <><Brain className="w-3 h-3"/> {u.quiz_points || 0} Pontos</>}
+                                            {activeTab === 'duels' && <><Swords className="w-3 h-3"/> {u.duel_wins || 0} Vitórias | {u.duel_points || 0} XP</>}
                                         </div>
                                     </div>
 

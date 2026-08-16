@@ -133,14 +133,14 @@ export default function ChallengeArena({
                     const currentWins = userP.duel_wins || 0;
                     const currentLosses = userP.duel_losses || 0;
                     const currentMatches = userP.duel_matches || 0;
-                    const currentQuizPoints = userP.quiz_points || 0;
+                    const currentDuelPoints = userP.duel_points || 0;
 
                     const updated = {
                         ...userP,
                         duel_wins: isWinner ? currentWins + 1 : currentWins,
                         duel_losses: !isWinner ? currentLosses + 1 : currentLosses,
                         duel_matches: currentMatches + 1,
-                        quiz_points: currentQuizPoints + xpEarned,
+                        duel_points: currentDuelPoints + xpEarned,
                     };
 
                     await db.entities.ReadingProgress.update(userP.id, updated);
