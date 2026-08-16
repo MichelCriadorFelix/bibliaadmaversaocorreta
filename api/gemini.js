@@ -113,7 +113,14 @@ export default async function handler(request, response) {
         const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
         triedKeysLog.push({ key: maskedKey, name: `API_KEY (Fim ${apiKey.slice(-4)})`, status: 'TENTANDO' });
         try {
-            const ai = new GoogleGenAI({ apiKey: apiKey });
+            const ai = new GoogleGenAI({ 
+                apiKey: apiKey,
+                httpOptions: {
+                    headers: {
+                        'User-Agent': 'aistudio-build',
+                    }
+                }
+            });
             
             let systemInstruction = "Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito.";
             let enhancedPrompt = prompt;

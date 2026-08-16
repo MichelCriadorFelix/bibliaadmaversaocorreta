@@ -15,9 +15,13 @@ export const generateContent = async (
   context?: { book?: string; chapter?: number; depthLevel?: string; targetPages?: string; thinkingLevel?: string } // Novo parâmetro opcional
 ) => {
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 240000); // 4 minutos de timeout
+        
         // Envia a requisição para o endpoint local da Vercel
         const response = await fetch('/api/gemini', {
             method: 'POST',
+            signal: controller.signal,
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -32,6 +36,7 @@ export const generateContent = async (
                 thinkingLevel: context?.thinkingLevel // Envia o nível de pensamento do Gemini 3.5
             })
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             const contentType = response.headers.get("content-type");
@@ -96,6 +101,9 @@ export const generateContent = async (
 
     } catch (error: any) {
         console.error("Gemini Proxy Error:", error);
+        if (error.name === 'AbortError') {
+             throw new Error("A geração demorou mais que 4 minutos e foi interrompida. Tente diminuir a profundidade ou as páginas.");
+        }
         throw new Error(error.message || "Falha na comunicação com o Professor Virtual.");
     }
 };
