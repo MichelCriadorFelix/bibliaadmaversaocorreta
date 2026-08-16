@@ -45,11 +45,11 @@ export default async function handler(req, res) {
   // "Bíblia Geral" ou "Bíblia Completa" usa perguntas de TODOS os livros já cadastrados.
   // Qualquer outro livro filtra só pelo prefixo do chapter_key dele.
   const isGeneral = 
-    book.toLowerCase().includes('geral') || 
-    book.toLowerCase().includes('bíblia toda') || 
-    book.toLowerCase().includes('completa') || 
-    book.toLowerCase().includes('todos os livros');
-  const bookPrefix = book.toLowerCase().trim().replace(/\s+/g, '_');
+    (book || '').toLowerCase().includes('geral') || 
+    (book || '').toLowerCase().includes('bíblia toda') || 
+    (book || '').toLowerCase().includes('completa') || 
+    (book || '').toLowerCase().includes('todos os livros');
+  const bookPrefix = (book || '').toLowerCase().trim().replace(/\s+/g, '_');
 
   let query = supabase
     .from('adma_content')
@@ -110,9 +110,9 @@ export default async function handler(req, res) {
 
   const invite = {
     id: `duel_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    senderEmail: senderEmail.toLowerCase().trim(),
+    senderEmail: (senderEmail || '').toLowerCase().trim(),
     senderName,
-    receiverEmail: receiverEmail.toLowerCase().trim(),
+    receiverEmail: (receiverEmail || '').toLowerCase().trim(),
     receiverName,
     book,
     questionsCount: questions.length,

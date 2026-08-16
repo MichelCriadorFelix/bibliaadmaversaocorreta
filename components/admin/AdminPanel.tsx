@@ -928,7 +928,8 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                           processed++;
                       } catch (err: any) {
                           addLog(`⚠️ Falha em ${c}:${verseNum}: ${err.message}`);
-                          if (err.message.includes('429') || err.message.toLowerCase().includes('quota') || err.message.toLowerCase().includes('exhausted')) {
+                          const errMsg = (err.message || '').toLowerCase();
+                          if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('exhausted')) {
                               rateLimitHit = true;
                           }
                       }

@@ -278,13 +278,13 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                 const verses = parts[i + 4];
                 
                 // Resolve book name
-                const cleanRaw = bookRaw.toLowerCase().replace(/[\s\.]/g, "");
+                const cleanRaw = (bookRaw || '').toLowerCase().replace(/[\s\.]/g, "");
                 const normalizedRaw = cleanRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                 
                 let bookData = BIBLE_BOOKS.find(b => {
                     const variations = getBookVariations(b);
                     return variations.some(v => {
-                        const cleanV = v.toLowerCase().replace(/[\s\.]/g, "");
+                        const cleanV = (v || '').toLowerCase().replace(/[\s\.]/g, "");
                         const normV = cleanV.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                         return cleanV === cleanRaw || normV === normalizedRaw;
                     });
@@ -437,8 +437,8 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
     };
 
     const currentBookData = BIBLE_BOOKS.find(b => 
-        b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
-        book.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        (b.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
+        (book || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     );
     const totalChapters = currentBookData?.chapters || 150;
     const chaptersList = Array.from({ length: totalChapters }, (_, i) => i + 1);

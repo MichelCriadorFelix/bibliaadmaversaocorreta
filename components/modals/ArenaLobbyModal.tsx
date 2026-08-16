@@ -77,8 +77,8 @@ export default function ArenaLobbyModal({
     if (!isOpen) return null;
 
     const filteredChallengers = challengers.filter(u => 
-        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.rankTitle.toLowerCase().includes(searchQuery.toLowerCase())
+        (u.name || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+        (u.rankTitle || '').toLowerCase().includes((searchQuery || '').toLowerCase())
     );
 
     const handleSendInvite = async (opponent: OnlineUser) => {

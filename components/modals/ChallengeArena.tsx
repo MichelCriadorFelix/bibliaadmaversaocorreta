@@ -54,15 +54,15 @@ export default function ChallengeArena({
 
     const questions = invite.questions;
     const currentQ = questions[currentIndex];
-    const isSender = invite.senderEmail.toLowerCase() === currentUserEmail.toLowerCase().trim();
+    const isSender = (invite.senderEmail || '').toLowerCase() === (currentUserEmail || '').toLowerCase().trim();
     const opponentEmail = isSender ? invite.receiverEmail : invite.senderEmail;
     const opponentName = isSender ? invite.receiverName : invite.senderName;
     
     // Corrige detecção de bot para não considerar emails reais @adma.local como bots
     const isSoloDuel = 
-        opponentEmail.includes('bot') || 
+        (opponentEmail || '').includes('bot') || 
         opponentEmail === 'mestre.ebd@adma.local' ||
-        opponentEmail.toLowerCase() === currentUserEmail.toLowerCase().trim();
+        (opponentEmail || '').toLowerCase() === (currentUserEmail || '').toLowerCase().trim();
     
     // Estado local para pontuação do oponente para podermos pollar de forma reativa
     const [localOpponentScore, setLocalOpponentScore] = useState<{ inviteId: string, score: number, timeSeconds: number } | null>(opponentScoreInfo);
@@ -84,8 +84,8 @@ export default function ChallengeArena({
                     const data = await res.json();
                     if (data.invite) {
                         const inv = data.invite;
-                        const oppEmail = opponentEmail.toLowerCase().trim();
-                        const isOppSender = inv.senderEmail.toLowerCase().trim() === oppEmail;
+                        const oppEmail = (opponentEmail || '').toLowerCase().trim();
+                        const isOppSender = (inv.senderEmail || '').toLowerCase().trim() === oppEmail;
                         const oppScore = isOppSender ? inv.senderScore : inv.receiverScore;
                         const oppTime = isOppSender ? inv.senderTimeSeconds : inv.receiverTimeSeconds;
 

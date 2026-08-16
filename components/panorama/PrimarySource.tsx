@@ -44,7 +44,7 @@ export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference,
 
     const finalIsAdmin = !!(isAdmin || localIsAdmin);
 
-    const sourceIdBase = `${source.toLowerCase().replace(/\s+/g, '_')}_${reference.toLowerCase().replace(/\s+/g, '_')}`;
+    const sourceIdBase = `${(source || '').toLowerCase().replace(/\s+/g, '_')}_${(reference || '').toLowerCase().replace(/\s+/g, '_')}`;
     const hashCode = (s: string) => s.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);
     const sourceId = hiddenCommand ? `${sourceIdBase}_${Math.abs(hashCode(hiddenCommand))}` : sourceIdBase;
 
