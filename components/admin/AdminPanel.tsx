@@ -1214,10 +1214,12 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       return <AppBuilder onBack={() => { setShowBuilder(false); loadAppConfig(); }} onShowToast={onShowToast} currentConfig={appConfig} />;
   }
 
-  const filteredUsers = usersList.filter(u => 
-      u.user_name.toLowerCase().includes(userSearch.toLowerCase()) || 
-      u.user_email.toLowerCase().includes(userSearch.toLowerCase())
-  );
+  const filteredUsers = usersList.filter(u => {
+      const name = u.user_name || '';
+      const email = u.user_email || '';
+      const search = userSearch.toLowerCase();
+      return name.toLowerCase().includes(search) || email.toLowerCase().includes(search);
+  });
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] dark:bg-dark-bg transition-colors duration-300">

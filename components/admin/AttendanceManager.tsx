@@ -27,8 +27,11 @@ export default function AttendanceManager({ onClose, isAdmin, onShowToast }: Pro
         setLoading(true);
         try {
             const list = await db.entities.ReadingProgress.list();
-            // Ordena alfabeticamente
-            const sorted = list.sort((a: any, b: any) => a.user_name.localeCompare(b.user_name));
+            const sorted = list.sort((a: any, b: any) => {
+                const nameA = a.user_name || '';
+                const nameB = b.user_name || '';
+                return nameA.localeCompare(nameB);
+            });
             setUsers(sorted);
         } catch (e) {
             console.error(e);
@@ -139,7 +142,10 @@ export default function AttendanceManager({ onClose, isAdmin, onShowToast }: Pro
         }
     };
 
-    const filteredUsers = users.filter(u => u.user_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredUsers = users.filter(u => {
+        const name = u.user_name || '';
+        return name.toLowerCase().includes(searchTerm.toLowerCase());
+    });
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in">
