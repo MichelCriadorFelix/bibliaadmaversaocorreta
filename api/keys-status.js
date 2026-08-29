@@ -3,8 +3,22 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 
 export const config = {
-  maxDuration: 60,
+  // 43+ chaves em lotes de 3, com o modelo às vezes sob sobrecarga real do Google
+  // (503 "high demand") fazendo cada chamada demorar bem mais que o normal, já
+  // estourou o limite de 60s (504 Gateway Timeout no teste completo). Pior caso
+  // com o teto de TEST_CALL_TIMEOUT_MS por chave: ~15 lotes x 12.5s + atrasos
+  // entre lotes ≈ 196s — 240s dá folga confortável mesmo se todas estiverem lentas.
+  maxDuration: 240,
 };
+
+// Teto de espera por UMA chamada de teste. Sem isso, uma chave lenta/travada
+// (Google sob alta demanda) prende o lote inteiro e pode estourar o tempo total
+// da função — é isso que causou o 504 Gateway Timeout.
+const TEST_CALL_TIMEOUT_MS = 12000;
+const withTimeout = (promise, ms) => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('TEST_TIMEOUT')), ms))
+]);
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
@@ -122,14 +136,14 @@ export default async function handler(request, response) {
 
         try {
             const ai = new GoogleGenAI({ apiKey: keyEntry.key });
-            await ai.models.generateContent({
+            await withTimeout(ai.models.generateContent({
                 model: usedModel,
                 contents: [{ role: "user", parts: [{ text: "hi" }] }],
                 // thinkingBudget (numérico), não thinkingLevel (string) — o modelo atual
                 // rejeita "MINIMAL" com 400 INVALID_ARGUMENT, o que fazia o teste marcar
                 // a CHAVE como inválida quando o problema era o formato do parâmetro.
                 config: { maxOutputTokens: 1, thinkingConfig: { thinkingBudget: 0 } }
-            });
+            }), TEST_CALL_TIMEOUT_MS);
 
             // Alimenta o estado compartilhado com este teste bem-sucedido, para que
             // api/gemini.js já saiba que esta chave está saudável e foi usada agora.
@@ -152,7 +166,13 @@ export default async function handler(request, response) {
             let status = 'error';
             let msg = err.substring(0, 60);
 
-            if (err.includes('429') || err.includes('Quota') || err.includes('Exhausted') || err.includes('RESOURCE_EXHAUSTED')) {
+            if (err.includes('TEST_TIMEOUT')) {
+                // A chamada de teste não respondeu a tempo (Google lento/sobrecarregado
+                // agora). Não é sinal de problema na chave — não bloqueia, só reporta,
+                // pra não travar chaves saudáveis só porque o Google está devagar.
+                status = 'lenta';
+                msg = `Sem resposta em ${TEST_CALL_TIMEOUT_MS / 1000}s (Google lento agora, não é a chave)`;
+            } else if (err.includes('429') || err.includes('Quota') || err.includes('Exhausted') || err.includes('RESOURCE_EXHAUSTED')) {
                 status = 'exhausted';
                 let cooldownMs = 75000;
 
