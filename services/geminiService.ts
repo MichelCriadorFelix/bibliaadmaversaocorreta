@@ -26,12 +26,12 @@ export const generateContent = async (
 ) => {
     const attemptedHashes = new Set<string>();
     const allRotationLogs: any[] = [];
-    const maxClientCycles = 15; // Permite rodar até 15 ciclos x 3 chaves = 45 tentativas de chaves reais
+    const maxClientCycles = 43; // Rotação individual precisa: 1 a 1 passando pelas 43 chaves
     let lastErrorMessage = "Falha na comunicação com o Professor Virtual.";
 
     onProgress?.({
         percent: 5,
-        message: "Conectando ao pool de IA ADMA...",
+        message: "Conectando ao pool de 43 Chaves ADMA...",
         stage: 'connecting',
         totalKeys: 43
     });
@@ -39,19 +39,19 @@ export const generateContent = async (
     for (let cycle = 1; cycle <= maxClientCycles; cycle++) {
         try {
             const attemptedCount = allRotationLogs.length;
-            const progressEstimated = Math.min(10 + Math.floor((attemptedCount / 43) * 65), 75);
+            const progressEstimated = Math.min(8 + Math.floor((attemptedCount / 43) * 72), 80);
             
             onProgress?.({
                 percent: progressEstimated,
-                message: `Consultando IA (Ciclo #${cycle} - ${attemptedCount} chaves avaliadas)...`,
+                message: `Consultando Chave ${cycle}/43 (Tentativa ${cycle} de 43)...`,
                 stage: 'querying',
                 cycle,
-                attempt: attemptedCount,
+                attempt: cycle,
                 totalKeys: 43
             });
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s por ciclo serverless
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s dedicados para a chave individual
             
             const response = await fetch('/api/gemini', {
                 method: 'POST',
@@ -69,7 +69,7 @@ export const generateContent = async (
                     targetPages: context?.targetPages,
                     thinkingLevel: context?.thinkingLevel,
                     excludedKeyHashes: Array.from(attemptedHashes),
-                    batchSize: 3
+                    batchSize: 1
                 })
             });
             clearTimeout(timeoutId);

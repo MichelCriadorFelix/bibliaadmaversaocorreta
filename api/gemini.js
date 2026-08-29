@@ -188,8 +188,8 @@ export default async function handler(request, response) {
         [shuffledKeys[i], shuffledKeys[j]] = [shuffledKeys[j], shuffledKeys[i]];
     }
 
-    // Limita as tentativas desta invocação ao lote ágil (padrão 3 chaves) para não estourar o limite de tempo da Vercel
-    const keysToTryInThisInvocation = shuffledKeys.slice(0, Math.max(1, Math.min(batchSize, 4)));
+    // Limita a 1 chave por invocação (chamada estritamente individual 1 a 1 x/43)
+    const keysToTryInThisInvocation = shuffledKeys.slice(0, Math.max(1, Math.min(Number(batchSize) || 1, 1)));
 
     let lastError = null;
     let successResponse = null;
