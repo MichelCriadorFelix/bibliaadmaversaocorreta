@@ -170,18 +170,44 @@ export default async function handler(request, response) {
                 }
             });
             
-            // Teste no Gemini 3.6 Flash com thinkingBudget numérico 0
-            const callPromise = ai.models.generateContent({
-                model: "gemini-3.6-flash",
-                contents: [{ role: "user", parts: [{ text: "ping" }] }],
-                config: { 
-                    maxOutputTokens: 1, 
-                    thinkingConfig: { thinkingBudget: 0 } 
-                }
-            });
+            // Teste resiliente de modelo: testa 3.6, 3.7 e 2.5
+            const testModels = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
+            let testPassed = false;
+            let successModel = 'gemini-3.6-flash';
+            let lastTestErr = null;
 
-            // Timeout estrito de 12 segundos por chave
-            await withTimeout(callPromise, 12000, 'KEY_TEST_TIMEOUT');
+            for (const testModel of testModels) {
+                try {
+                    const testConfig = { maxOutputTokens: 1 };
+                    if (testModel.startsWith('gemini-3')) {
+                        testConfig.thinkingConfig = { thinkingBudget: 0 };
+                    }
+
+                    const callPromise = ai.models.generateContent({
+                        model: testModel,
+                        contents: [{ role: "user", parts: [{ text: "ping" }] }],
+                        config: testConfig
+                    });
+
+                    await withTimeout(callPromise, 8000, 'KEY_TEST_TIMEOUT');
+                    testPassed = true;
+                    successModel = testModel;
+                    break;
+                } catch (subE) {
+                    lastTestErr = subE;
+                    const subMsg = subE.message || String(subE);
+                    // Se for 404, not found, 503 ou 429 específico desse modelo, tenta o próximo
+                    if (subMsg.includes('404') || subMsg.includes('not found') || subMsg.includes('503') || 
+                        subMsg.includes('high demand') || subMsg.includes('UNAVAILABLE') || subMsg.includes('429')) {
+                        continue;
+                    }
+                    throw subE;
+                }
+            }
+
+            if (!testPassed && lastTestErr) {
+                throw lastTestErr;
+            }
 
             // Sucesso: limpa bloqueios prévios
             if (global.exhaustedKeys) {
@@ -194,7 +220,7 @@ export default async function handler(request, response) {
                 status: 'active',
                 latency: Date.now() - start,
                 msg: 'OK',
-                model: "gemini-3.6-flash"
+                model: successModel
             };
 
         } catch (e) {

@@ -123,12 +123,12 @@ export default async function handler(request, response) {
 
     const todayStr = getTodayStr();
     const isKeyExhausted = (k) => {
-      // 1. Memória local
+      // 1. Memória local (apenas se marcada para expirar)
       if (global.exhaustedKeys.has(k)) {
         const expireTime = global.exhaustedKeys.get(k);
         if (now < expireTime) return true;
       }
-      // 2. Supabase remoto
+      // 2. Supabase remoto (apenas se bloqueada explicitamente por cota diária ou tempo curto)
       const h = hashKey(k);
       if (remoteKeyStates.has(h)) {
         const row = remoteKeyStates.get(h);
@@ -140,9 +140,8 @@ export default async function handler(request, response) {
 
     let healthyActiveKeys = uniqueKeys.filter(key => !isKeyExhausted(key));
 
-    // Se todas foram marcadas como esgotadas no passado (falso positivo), reseta para não travar a aplicação
-    if (healthyActiveKeys.length === 0) {
-        global.exhaustedKeys.clear();
+    // Se a maioria foi marcada como esgotada no passado ou falso positivo, usa todas as chaves
+    if (healthyActiveKeys.length < 3) {
         healthyActiveKeys = [...uniqueKeys];
     }
 
@@ -617,13 +616,17 @@ export default async function handler(request, response) {
                 config.responseSchema = schema;
             }
 
-            // Modelo padrão: Gemini 3.6 Flash (com contingência no 3.7 se necessário)
-            const modelsToAttempt = ['gemini-3.6-flash', 'gemini-3.7-flash'];
+            // Tentativa inteligente de modelo: Gemini 3.6 Flash / 3.7 Flash primário, e fallback para Gemini 2.5 Flash se houver cota ou indisponibilidade
+            const modelsToAttempt = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
             let keyExecutionSuccess = false;
 
             for (const currentModel of modelsToAttempt) {
                 try {
                     const currentConfig = { ...config };
+                    // Se não for da família 3.x, remove thinkingConfig
+                    if (!currentModel.startsWith('gemini-3')) {
+                        delete currentConfig.thinkingConfig;
+                    }
 
                     const generatePromise = ai.models.generateContent({
                         model: currentModel,
@@ -645,12 +648,14 @@ export default async function handler(request, response) {
                     }
                 } catch (subErr) {
                     const subMsg = subErr.message || String(subErr);
-                    // Se for 503 (High Demand) no 3.6, tenta o 3.7 antes de trocar de chave
-                    if (subMsg.includes('503') || subMsg.includes('high demand') || subMsg.includes('UNAVAILABLE') || subMsg.includes('overloaded') || subMsg.includes('not found') || subMsg.includes('404')) {
-                        console.warn(`[Gemini Proxy] Modelo ${currentModel} indisponível temporariamente (${subMsg.slice(0, 80)}). Tentando contingência...`);
+                    // Se for erro de modelo (503, 404, not found, etc.) ou se a cota do modelo 3.x na região estourou, tenta o próximo modelo na mesma chave!
+                    if (subMsg.includes('503') || subMsg.includes('high demand') || subMsg.includes('UNAVAILABLE') || 
+                        subMsg.includes('overloaded') || subMsg.includes('not found') || subMsg.includes('404') ||
+                        subMsg.includes('429') || subMsg.includes('Quota') || subMsg.includes('RESOURCE_EXHAUSTED')) {
+                        console.warn(`[Gemini Proxy] Modelo ${currentModel} falhou com ${subMsg.slice(0, 60)}. Tentando modelo alternativo...`);
                         continue;
                     }
-                    // Se for 429 ou Timeout, propaga para o catch externo trocar de chave
+                    // Se for Timeout, propaga para o catch externo trocar de chave
                     throw subErr;
                 }
             }
