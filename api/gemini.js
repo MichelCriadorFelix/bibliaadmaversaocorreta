@@ -7,7 +7,7 @@ import crypto from "crypto";
  * Motor calibrado para Gemini 3.7 Flash com Thinking Budget e compartilhamento de estado via Supabase.
  */
 export const config = {
-  maxDuration: 60, 
+  maxDuration: 300, 
 };
 
 export default async function handler(request, response) {
@@ -173,15 +173,16 @@ export default async function handler(request, response) {
     const triedKeysLog = [];
     const functionStartTime = Date.now();
 
-    // Timeout individual calibrado para a Vercel Serverless Function (max 60s)
+    // Timeout individual calibrado: 3 minutos para aulas densas, 1.5 minutos para dicionário, 45s para tarefas padrão
     const isDeepTask = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd');
-    const perKeyTimeoutMs = isDeepTask ? 30000 : 12000;
+    const isDictionaryTask = (taskType === 'dictionary');
+    const perKeyTimeoutMs = isDeepTask ? 180000 : (isDictionaryTask ? 90000 : 45000);
 
     // Tenta as chaves na ordem escalonada
     for (const apiKey of orderedKeysToTry) {
-        // Se estivermos próximos do limite global da função (50s), interrompe para não estourar o gateway
-        if (Date.now() - functionStartTime > 50000) {
-            console.warn('[Gemini Proxy] Limite de tempo global da função Vercel atingido antes de testar próximas chaves.');
+        // Se estivermos próximos do limite global da função (270s = 4.5 minutos), interrompe para não estourar o gateway
+        if (Date.now() - functionStartTime > 270000) {
+            console.warn('[Gemini Proxy] Limite de tempo global da função Vercel (270s) atingido antes de testar próximas chaves.');
             break;
         }
 

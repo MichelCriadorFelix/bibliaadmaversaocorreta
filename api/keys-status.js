@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 export const config = {
-  maxDuration: 240,
+  maxDuration: 300,
 };
 
 export default async function handler(request, response) {
