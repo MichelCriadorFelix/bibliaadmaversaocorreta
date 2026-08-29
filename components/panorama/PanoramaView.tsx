@@ -170,6 +170,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         content, setContent,
         isGenerating, setIsGenerating,
         theologicalDensity, setTheologicalDensity,
+        currentStatusMessage, setCurrentStatusMessage,
         validationPhase, setValidationPhase,
         validationLog, setValidationLog,
         thematicThemes, themeFolders, themeLessons,
@@ -228,29 +229,12 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         if (isGenerating) {
             interval = setInterval(() => {
                 setGenerationTime(prev => prev + 1);
-                setTheologicalDensity(prev => {
-                    if (prev >= 99) return prev;
-                    return prev + 0.5; 
-                });
-                if (generationTime % 6 === 0 && generationTime > 0) {
-                    setCurrentStatusIndex(prev => (prev + 1) % loadingStatusMessages.length);
-                }
             }, 1000);
         } else {
             setGenerationTime(0);
-            setCurrentStatusIndex(0);
-            setTheologicalDensity(0);
-            setValidationPhase('none');
-            setValidationLog([]);
         }
         return () => clearInterval(interval);
-    }, [isGenerating, generationTime, setGenerationTime, setCurrentStatusIndex, setTheologicalDensity, setValidationPhase, setValidationLog]);
-
-    useEffect(() => {
-        if (theologicalDensity >= 100 && isGenerating && activeTab !== 'thematic') {
-            finalizeGeneration(book, chapter);
-        }
-    }, [theologicalDensity, isGenerating, activeTab, book, chapter, finalizeGeneration]);
+    }, [isGenerating, setGenerationTime]);
 
     useEffect(() => {
         stopAudio();
@@ -578,6 +562,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                         handleDelete={handleDelete}
                         generationTime={generationTime}
                         currentStatusIndex={currentStatusIndex}
+                        currentStatusMessage={currentStatusMessage}
                         loadingStatusMessages={loadingStatusMessages}
                         book={book}
                         activeTab={activeTab}

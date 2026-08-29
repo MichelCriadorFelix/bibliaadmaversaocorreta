@@ -7,20 +7,49 @@
 // Tipos de tarefas para seleção inteligente de modelo no servidor
 export type TaskType = 'commentary' | 'dictionary' | 'devotional' | 'ebd' | 'metadata' | 'general' | 'teacher_ebd' | 'quiz_gen' | 'thematic_ebd' | 'assistente_chat' | 'upgrade_ebd' | 'upgrade_teacher_ebd' | 'upgrade_thematic_ebd' | 'get_bible_verses';
 
+export interface GenerationProgress {
+  percent: number;
+  message: string;
+  cycle?: number;
+  attempt?: number;
+  totalKeys?: number;
+  stage?: 'connecting' | 'querying' | 'processing' | 'saving' | 'completed' | 'error';
+}
+
 export const generateContent = async (
   prompt: string, 
   jsonSchema?: any,
   isLongOutput: boolean = false,
   taskType: TaskType = 'general',
-  context?: { book?: string; chapter?: number; depthLevel?: string; targetPages?: string; thinkingLevel?: string }
+  context?: { book?: string; chapter?: number; depthLevel?: string; targetPages?: string; thinkingLevel?: string },
+  onProgress?: (progress: GenerationProgress) => void
 ) => {
     const attemptedHashes = new Set<string>();
     const allRotationLogs: any[] = [];
     const maxClientCycles = 15; // Permite rodar até 15 ciclos x 3 chaves = 45 tentativas de chaves reais
     let lastErrorMessage = "Falha na comunicação com o Professor Virtual.";
 
+    onProgress?.({
+        percent: 5,
+        message: "Conectando ao pool de IA ADMA...",
+        stage: 'connecting',
+        totalKeys: 43
+    });
+
     for (let cycle = 1; cycle <= maxClientCycles; cycle++) {
         try {
+            const attemptedCount = allRotationLogs.length;
+            const progressEstimated = Math.min(10 + Math.floor((attemptedCount / 43) * 65), 75);
+            
+            onProgress?.({
+                percent: progressEstimated,
+                message: `Consultando IA (Ciclo #${cycle} - ${attemptedCount} chaves avaliadas)...`,
+                stage: 'querying',
+                cycle,
+                attempt: attemptedCount,
+                totalKeys: 43
+            });
+
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s por ciclo serverless
             
@@ -60,6 +89,15 @@ export const generateContent = async (
             }
 
             if (response.ok && data?.text) {
+                onProgress?.({
+                    percent: 88,
+                    message: "Resposta recebida! Estruturando exegese e validando manuscrito...",
+                    stage: 'processing',
+                    cycle,
+                    attempt: allRotationLogs.length,
+                    totalKeys: 43
+                });
+
                 // Sucesso! Log consolidado de todas as rodadas
                 console.groupCollapsed(`🔄 ⚡ [Gemini Pool 43 Chaves - SUCESSO NA RODADA #${cycle}]`);
                 allRotationLogs.forEach((logEntry: any, index: number) => {
@@ -78,12 +116,24 @@ export const generateContent = async (
                 if (jsonSchema) {
                     try {
                         const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-                        return JSON.parse(cleanJson);
+                        const parsed = JSON.parse(cleanJson);
+                        onProgress?.({
+                            percent: 100,
+                            message: "Conteúdo estruturado com sucesso!",
+                            stage: 'completed'
+                        });
+                        return parsed;
                     } catch (e) {
                         console.error("Erro ao processar JSON da IA:", text);
                         throw new Error("Erro de formatação na resposta da IA.");
                     }
                 }
+
+                onProgress?.({
+                    percent: 100,
+                    message: "Manuscrito concluído com sucesso!",
+                    stage: 'completed'
+                });
                 return text;
             }
 

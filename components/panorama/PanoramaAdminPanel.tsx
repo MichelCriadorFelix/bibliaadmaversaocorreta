@@ -30,6 +30,7 @@ interface PanoramaAdminPanelProps {
     handleDelete: () => void;
     generationTime: number;
     currentStatusIndex: number;
+    currentStatusMessage?: string;
     loadingStatusMessages: string[];
     book: string;
     activeTab: string;
@@ -72,6 +73,7 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
     handleDelete,
     generationTime,
     currentStatusIndex,
+    currentStatusMessage,
     loadingStatusMessages,
     book,
     activeTab,
@@ -345,9 +347,11 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                     />
                                 </div>
                                 <div className="bg-black/5 dark:bg-white/5 p-4 rounded-2xl border border-black/10 dark:border-white/10">
-                                    <p className="text-xs font-mono text-gray-500 animate-pulse flex items-center gap-3">
-                                        <span className="w-2 h-2 bg-[#C5A059] rounded-full"></span>
-                                        {loadingStatusMessages[currentStatusIndex]}
+                                    <p className="text-xs font-mono text-gray-500 dark:text-gray-400 flex items-center gap-3">
+                                        <span className="w-2.5 h-2.5 bg-[#C5A059] rounded-full animate-ping"></span>
+                                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                                            {currentStatusMessage || loadingStatusMessages[currentStatusIndex]}
+                                        </span>
                                     </p>
                                 </div>
                             </div>

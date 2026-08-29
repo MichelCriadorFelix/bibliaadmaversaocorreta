@@ -43,6 +43,8 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         setIsGenerating,
         theologicalDensity, 
         setTheologicalDensity,
+        currentStatusMessage,
+        setCurrentStatusMessage,
         validationPhase, 
         setValidationPhase,
         validationLog, 
@@ -396,27 +398,47 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     const handleGenerateThematic = async () => {
         if (!activeLesson) return;
         setIsGenerating(true);
+        setTheologicalDensity(5);
+        setCurrentStatusMessage('Iniciando geração da apostila temática...');
         setValidationPhase('structural');
         setValidationLog(["🚀 Iniciando motor Temático Série Ouro v114...", `📐 Target: ${targetPages * 500} words (Mandato de Volume)`]);
 
         try {
             const userPrompt = customInstructions ? customInstructions : activeLesson.title;
-            const res = await generateContent(userPrompt, null, true, 'thematic_ebd', { depthLevel, targetPages: targetPages.toString(), thinkingLevel });
-            if (!res || res.length < 1000) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
+            const res = await generateContent(
+                userPrompt, 
+                null, 
+                true, 
+                'thematic_ebd', 
+                { depthLevel, targetPages: targetPages.toString(), thinkingLevel },
+                (prog) => {
+                    setTheologicalDensity(prog.percent);
+                    setCurrentStatusMessage(prog.message);
+                }
+            );
+            if (!res || (typeof res === 'string' && res.length < 500)) {
+                throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
+            }
 
             setValidationPhase('theological');
-            let clean = res.trim();
+            let clean = typeof res === 'string' ? res.trim() : JSON.stringify(res);
             if (clean.startsWith('{"text":')) { try { clean = JSON.parse(clean).text; } catch(e){} }
             if (clean.startsWith('```')) clean = clean.replace(/```[a-z]*\n|```/g, '');
 
             const updatedLesson = { ...activeLesson, content: clean, is_published: true };
+            setCurrentStatusMessage('Gravando apostila temática...');
+            setTheologicalDensity(95);
             await db.entities.ThematicLessons.update(activeLesson.id!, updatedLesson);
             setActiveLesson(updatedLesson);
             setValidationPhase('releasing');
+            setTheologicalDensity(100);
+            setCurrentStatusMessage('Apostila Série Ouro Gerada!');
             onShowToast('Apostila Série Ouro Gerada!', 'success');
             setCustomInstructions('');
             setShowInstructions(false);
         } catch (e: any) {
+            setTheologicalDensity(0);
+            setCurrentStatusMessage('');
             onShowToast(`Erro na Geração: ${e.message}`, 'error');
         } finally {
             setIsGenerating(false);
@@ -435,29 +457,46 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         }
 
         setIsGenerating(true);
+        setTheologicalDensity(5);
+        setCurrentStatusMessage('Iniciando upgrade de manuscrito...');
         setValidationPhase('structural');
         setValidationLog(["🚀 Iniciando upgrade de manuscrito via Gemini 3.5 Flash...", `📐 Target de páginas: ${targetPages} páginas (${activeTab === 'student' ? 'Manuscrito Aluno' : 'Guia do Mestre'})`]);
-        setTheologicalDensity(30);
 
         try {
             const taskType = activeTab === 'teacher' ? 'upgrade_teacher_ebd' : 'upgrade_ebd';
-            const res = await generateContent(existingText, null, true, taskType, { book, chapter, depthLevel, targetPages: targetPages.toString(), thinkingLevel });
-            if (!res || res.length < 500) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
+            const res = await generateContent(
+                existingText, 
+                null, 
+                true, 
+                taskType, 
+                { book, chapter, depthLevel, targetPages: targetPages.toString(), thinkingLevel },
+                (prog) => {
+                    setTheologicalDensity(prog.percent);
+                    setCurrentStatusMessage(prog.message);
+                }
+            );
+            if (!res || (typeof res === 'string' && res.length < 500)) {
+                throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
+            }
 
             setValidationPhase('theological');
-            setTheologicalDensity(75);
-            let clean = res.trim();
+            let clean = typeof res === 'string' ? res.trim() : JSON.stringify(res);
             if (clean.startsWith('{"text":')) { try { clean = JSON.parse(clean).text; } catch(e){} }
             if (clean.startsWith('```')) clean = clean.replace(/```[a-z]*\n|```/g, '');
 
             const updatedContent = { ...content, [activeTab === 'student' ? 'student_content' : 'teacher_content']: clean };
+            setCurrentStatusMessage('Gravando manuscrito atualizado...');
+            setTheologicalDensity(95);
             await db.entities.PanoramaBiblico.update(content.id!, updatedContent);
             setContent(updatedContent);
 
             setValidationPhase('releasing');
             setTheologicalDensity(100);
+            setCurrentStatusMessage('Manuscrito Atualizado com Sucesso!');
             onShowToast('Manuscrito Atualizado com Sucesso!', 'success');
         } catch (e: any) {
+            setTheologicalDensity(0);
+            setCurrentStatusMessage('');
             onShowToast(`Erro no Upgrade: ${e.message}`, 'error');
         } finally {
             setIsGenerating(false);
@@ -472,28 +511,45 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         }
 
         setIsGenerating(true);
+        setTheologicalDensity(5);
+        setCurrentStatusMessage('Iniciando upgrade da apostila temática...');
         setValidationPhase('structural');
         setValidationLog(["🚀 Iniciando upgrade de apostila Temática Série Ouro via Gemini 3.5 Flash...", `📐 Target de páginas: ${targetPages} páginas`]);
-        setTheologicalDensity(30);
 
         try {
-            const res = await generateContent(activeLesson.content, null, true, 'upgrade_thematic_ebd', { depthLevel, targetPages: targetPages.toString(), thinkingLevel });
-            if (!res || res.length < 500) throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
+            const res = await generateContent(
+                activeLesson.content, 
+                null, 
+                true, 
+                'upgrade_thematic_ebd', 
+                { depthLevel, targetPages: targetPages.toString(), thinkingLevel },
+                (prog) => {
+                    setTheologicalDensity(prog.percent);
+                    setCurrentStatusMessage(prog.message);
+                }
+            );
+            if (!res || (typeof res === 'string' && res.length < 500)) {
+                throw new Error("Conteúdo insuficiente retornado (Falha de Volume).");
+            }
 
             setValidationPhase('theological');
-            setTheologicalDensity(75);
-            let clean = res.trim();
+            let clean = typeof res === 'string' ? res.trim() : JSON.stringify(res);
             if (clean.startsWith('{"text":')) { try { clean = JSON.parse(clean).text; } catch(e){} }
             if (clean.startsWith('```')) clean = clean.replace(/```[a-z]*\n|```/g, '');
 
             const updatedLesson = { ...activeLesson, content: clean, is_published: true };
+            setCurrentStatusMessage('Gravando apostila temática atualizada...');
+            setTheologicalDensity(95);
             await db.entities.ThematicLessons.update(activeLesson.id!, updatedLesson);
             setActiveLesson(updatedLesson);
 
             setValidationPhase('releasing');
             setTheologicalDensity(100);
+            setCurrentStatusMessage('Apostila Atualizada com Sucesso!');
             onShowToast('Apostila Atualizada com Sucesso!', 'success');
         } catch (e: any) {
+            setTheologicalDensity(0);
+            setCurrentStatusMessage('');
             onShowToast(`Erro no Upgrade: ${e.message}`, 'error');
         } finally {
             setIsGenerating(false);
@@ -638,6 +694,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         content, setContent,
         isGenerating, setIsGenerating,
         theologicalDensity, setTheologicalDensity,
+        currentStatusMessage, setCurrentStatusMessage,
         validationPhase, setValidationPhase,
         validationLog, setValidationLog,
         thematicThemes, themeFolders, themeLessons,
