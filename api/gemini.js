@@ -1,165 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
-import { createClient } from '@supabase/supabase-js';
-import crypto from 'node:crypto';
 
 /**
- * CONFIGURAÇÃO PARA VERCEL SERVERLESS FUNCTIONS - v119.0 LOAD BALANCER EDITION
+ * CONFIGURAÇÃO PARA VERCEL SERVERLESS FUNCTIONS - v118.0 LOAD BALANCER EDITION
  * Motor calibrado para Gemini 3 Flash Preview com Thinking Budget máximo (24k).
- * Versão v119.0: Estado de exaustão de chaves compartilhado via Supabase.
- *
- * POR QUE: cada função serverless da Vercel roda em sua PRÓPRIA instância/memória.
- * Sob uso concorrente, a Vercel sobe várias instâncias em paralelo — cada uma via
- * "global.exhaustedKeys" isolado, sem saber o que as outras já descobriram. Isso
- * faz várias instâncias martelarem as MESMAS chaves ao mesmo tempo (cada uma achando
- * que a chave está livre), multiplicando erros 429 reais até que, por coincidência,
- * todas cheguem à mesma conclusão de "todas esgotadas" quase juntas — o mesmo bug já
- * corrigido na Gestão INSS (rotação de chaves usando estado só em memória local).
- * A tabela gemini_key_state no Supabase resolve isso: toda instância lê e escreve
- * o mesmo estado, então uma chave marcada esgotada por UMA instância já é evitada
- * pelas outras na próxima chamada.
+ * Versão v118.0: Implementação de Rotação Aleatória (Shuffle) para suporte a múltiplas abas simultâneas.
  */
 export const config = {
-  maxDuration: 300,
+  maxDuration: 300, 
 };
-
-// Client criado sob demanda DENTRO da invocação (nunca no topo do módulo).
-// api/storage.js e api/presence.js (que sempre funcionaram) seguem esse mesmo
-// padrão; criar o client no escopo do módulo (fora do handler) foi o que
-// causou a função inteira a travar sem nunca responder (nem 1 log aparecia)
-// após essa mudança ser publicada — algo na inicialização em cold-start do
-// runtime da Vercel não se dava bem com o client sendo construído fora do
-// contexto de uma requisição.
-let _supabaseAdmin;
-function getSupabaseAdmin() {
-  if (_supabaseAdmin !== undefined) return _supabaseAdmin;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
-  _supabaseAdmin = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
-  return _supabaseAdmin;
-}
-
-// Teto de espera para chamadas ao Supabase de estado compartilhado — nunca deixa
-// uma dessas chamadas travar a geração de conteúdo real caso algo dê errado com ela.
-const withTimeout = (promise, ms) => Promise.race([
-  promise,
-  new Promise((_, reject) => setTimeout(() => reject(new Error('SUPABASE_TIMEOUT')), ms))
-]);
-
-const KEY_STATE_TABLE = 'gemini_key_state';
-// Limites proativos por chave/minuto — evita BATER no 429 em vez de só reagir depois.
-const PROACTIVE_RPM_PER_KEY = Number(process.env.GEMINI_RPM_PER_KEY) || 8;
-const PROACTIVE_TPM_PER_KEY = Number(process.env.GEMINI_TPM_PER_KEY) || 200000;
-
-export const keyHash = (apiKey) => crypto.createHash('sha256').update(apiKey).digest('hex');
-
-const keyStatusRegistry = {};
-let lastKeyStateSync = 0;
-const KEY_STATE_SYNC_INTERVAL_MS = 3000;
-
-/** Puxa o estado mais recente das chaves do Supabase para o cache local desta invocação. Best-effort. */
-export async function syncKeyStateFromShared(keys) {
-  const supabaseAdmin = getSupabaseAdmin();
-  if (!supabaseAdmin || keys.length === 0) return;
-  const now = Date.now();
-  if (now - lastKeyStateSync < KEY_STATE_SYNC_INTERVAL_MS) return;
-  lastKeyStateSync = now;
-  try {
-    const hashes = keys.map(keyHash);
-    const { data, error } = await withTimeout(
-      supabaseAdmin
-        .from(KEY_STATE_TABLE)
-        .select('key_hash, exhausted_until, daily_exhausted_date, window_start, window_count, window_tokens')
-        .in('key_hash', hashes),
-      8000
-    );
-    if (error || !data) return;
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const hashToKey = new Map(keys.map(k => [keyHash(k), k]));
-    for (const row of data) {
-      const key = hashToKey.get(row.key_hash);
-      if (!key) continue;
-      const remoteExhaustedUntil = row.exhausted_until ? new Date(row.exhausted_until).getTime() : 0;
-      const remoteDaily = row.daily_exhausted_date === todayStr;
-      const remoteWindowStart = row.window_start ? new Date(row.window_start).getTime() : now;
-      const local = keyStatusRegistry[key];
-      keyStatusRegistry[key] = {
-        exhaustedUntil: Math.max(local?.exhaustedUntil || 0, remoteExhaustedUntil),
-        dailyExhausted: (local?.dailyExhausted || false) || remoteDaily,
-        windowStart: remoteWindowStart,
-        windowCount: row.window_count || 0,
-        windowTokens: row.window_tokens || 0
-      };
-    }
-  } catch (e) {
-    console.warn('[KEY STATE] Falha ao sincronizar estado compartilhado (seguindo com cache local):', e.message);
-  }
-}
-
-/** Marca uma chave como esgotada (por minuto ou diariamente) no estado compartilhado. Best-effort, não bloqueia o fluxo principal. */
-export function markKeyExhaustedShared(apiKey, opts) {
-  const supabaseAdmin = getSupabaseAdmin();
-  if (!supabaseAdmin) return;
-  const hash = keyHash(apiKey);
-  const payload = { key_hash: hash, updated_at: new Date().toISOString() };
-  if (opts.exhaustedUntil) payload.exhausted_until = new Date(opts.exhaustedUntil).toISOString();
-  if (opts.daily) payload.daily_exhausted_date = new Date().toISOString().slice(0, 10);
-  supabaseAdmin.from(KEY_STATE_TABLE).upsert(payload, { onConflict: 'key_hash' })
-    .then(({ error }) => { if (error) console.warn('[KEY STATE] Falha ao gravar exaustão compartilhada:', error.message); });
-}
-
-/** Registra uso (chamadas) da chave para o limitador proativo de janela deslizante de 60s. Best-effort. */
-export function recordKeyUsageShared(apiKey, estimatedTokens = 0) {
-  const supabaseAdmin = getSupabaseAdmin();
-  if (!supabaseAdmin) return;
-  const status = keyStatusRegistry[apiKey];
-  const now = Date.now();
-  const windowExpired = !status || (now - status.windowStart) >= 60000;
-  keyStatusRegistry[apiKey] = {
-    exhaustedUntil: status?.exhaustedUntil || 0,
-    dailyExhausted: status?.dailyExhausted || false,
-    windowStart: windowExpired ? now : status.windowStart,
-    windowCount: windowExpired ? 1 : (status.windowCount + 1),
-    windowTokens: windowExpired ? estimatedTokens : (status.windowTokens + estimatedTokens)
-  };
-  const hash = keyHash(apiKey);
-  const updated = keyStatusRegistry[apiKey];
-  supabaseAdmin.from(KEY_STATE_TABLE).upsert({
-    key_hash: hash,
-    window_start: new Date(updated.windowStart).toISOString(),
-    window_count: updated.windowCount,
-    window_tokens: updated.windowTokens,
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'key_hash' }).then(({ error }) => {
-    if (error) console.warn('[KEY STATE] Falha ao registrar uso compartilhado:', error.message);
-  });
-}
-
-/**
- * Ordena as chaves por disponibilidade real (cruzando o estado compartilhado):
- * chaves livres (sem espera) primeiro, em ordem embaralhada para distribuir carga
- * entre instâncias concorrentes; chaves esgotadas diariamente ficam de fora.
- */
-export function rankKeysByAvailability(keys) {
-  const now = Date.now();
-  const scored = keys.map(key => {
-    const status = keyStatusRegistry[key];
-    if (!status) return { key, waitMs: 0, dailyExhausted: false };
-    if (status.dailyExhausted) return { key, waitMs: Infinity, dailyExhausted: true };
-    const windowActive = (now - status.windowStart) < 60000;
-    const proactivelyBusy = windowActive && (status.windowCount >= PROACTIVE_RPM_PER_KEY || status.windowTokens >= PROACTIVE_TPM_PER_KEY);
-    const rateLimited = status.exhaustedUntil > now;
-    if (!proactivelyBusy && !rateLimited) return { key, waitMs: 0, dailyExhausted: false };
-    const proactiveWait = proactivelyBusy ? Math.max(0, 60000 - (now - status.windowStart)) : 0;
-    const rateLimitWait = rateLimited ? (status.exhaustedUntil - now) : 0;
-    return { key, waitMs: Math.max(proactiveWait, rateLimitWait), dailyExhausted: false };
-  });
-  for (let i = scored.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [scored[i], scored[j]] = [scored[j], scored[i]];
-  }
-  scored.sort((a, b) => a.waitMs - b.waitMs);
-  return scored.filter(s => !s.dailyExhausted).map(s => s.key);
-}
 
 export default async function handler(request, response) {
   // --- CONFIGURAÇÃO DE CORS ---
@@ -215,7 +63,7 @@ export default async function handler(request, response) {
          });
     }
 
-    // 2. CIRCUITO BREAKER LOCAL (rápido, evita nova tentativa na mesma instância)
+    // 2. CIRCUITO BREAKER AUTO-RECUPERÁVEL
     if (!global.exhaustedKeys) {
         global.exhaustedKeys = new Map();
     }
@@ -235,17 +83,14 @@ export default async function handler(request, response) {
         healthyActiveKeys = [...uniqueKeys];
     }
 
-    // 3. ESTADO COMPARTILHADO (Supabase) — sem isso, cada instância serverless só
-    // conhece sua própria memória local e várias instâncias concorrentes martelam
-    // as MESMAS chaves ao mesmo tempo, achando erroneamente que todas esgotaram.
-    await syncKeyStateFromShared(healthyActiveKeys);
-    const orderedKeysToTry = rankKeysByAvailability(healthyActiveKeys);
-
-    if (orderedKeysToTry.length === 0) {
-        return response.status(500).json({
-            error: 'Todas as chaves de API estão com a cota diária esgotada. Aguarde o reset (geralmente à meia-noite no fuso do Google).'
-        });
+    // 3. SHUFFLE ROTATION (Garante distribuição de carga em multi-abas e restarts Vercel)
+    const shuffledHealthy = [...healthyActiveKeys];
+    for (let i = shuffledHealthy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledHealthy[i], shuffledHealthy[j]] = [shuffledHealthy[j], shuffledHealthy[i]];
     }
+
+    const orderedKeysToTry = [...shuffledHealthy];
 
     let body = request.body;
     if (typeof body === 'string') {
@@ -788,8 +633,7 @@ export default async function handler(request, response) {
 
             successResponse = aiResponse.text;
             triedKeysLog[triedKeysLog.length - 1].status = 'SUCESSO';
-            recordKeyUsageShared(apiKey);
-            break;
+            break; 
 
         } catch (error) {
             lastError = error;
@@ -805,19 +649,9 @@ export default async function handler(request, response) {
                     if (!isNaN(secs)) cooldownMs = (secs * 1000) + 1000;
                 }
                 global.exhaustedKeys.set(apiKey, Date.now() + cooldownMs);
-
-                const isDailyQuota = msg.toLowerCase().includes('per day') || msg.toLowerCase().includes('daily') ||
-                    (msg.includes('Quota exceeded') && msg.toLowerCase().includes('tokens_per_model_per_user'));
-                if (isDailyQuota) {
-                    markKeyExhaustedShared(apiKey, { daily: true });
-                } else {
-                    markKeyExhaustedShared(apiKey, { exhaustedUntil: Date.now() + cooldownMs });
-                }
             } else if (msg.includes('API key not valid')) {
                 // Apenas chave inexistente/revogada
-                const cooldownMs = 30 * 60 * 1000;
-                global.exhaustedKeys.set(apiKey, Date.now() + cooldownMs);
-                markKeyExhaustedShared(apiKey, { exhaustedUntil: Date.now() + cooldownMs });
+                global.exhaustedKeys.set(apiKey, Date.now() + (30 * 60 * 1000));
             }
 
             continue;
