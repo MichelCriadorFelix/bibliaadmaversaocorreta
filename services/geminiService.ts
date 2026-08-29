@@ -12,100 +12,116 @@ export const generateContent = async (
   jsonSchema?: any,
   isLongOutput: boolean = false,
   taskType: TaskType = 'general',
-  context?: { book?: string; chapter?: number; depthLevel?: string; targetPages?: string; thinkingLevel?: string } // Novo parâmetro opcional
+  context?: { book?: string; chapter?: number; depthLevel?: string; targetPages?: string; thinkingLevel?: string }
 ) => {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutos de timeout para Thinking 16k
-        
-        // Envia a requisição para o endpoint local da Vercel
-        const response = await fetch('/api/gemini', {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                prompt,
-                schema: jsonSchema,
-                taskType,
-                book: context?.book,      // Envia o livro
-                chapter: context?.chapter, // Envia o capítulo
-                depthLevel: context?.depthLevel, // Envia o nível de profundidade
-                targetPages: context?.targetPages, // Envia o número de páginas
-                thinkingLevel: context?.thinkingLevel // Envia o nível de pensamento do Gemini 3.5
-            })
-        });
-        clearTimeout(timeoutId);
+    const attemptedHashes = new Set<string>();
+    const allRotationLogs: any[] = [];
+    const maxClientCycles = 15; // Permite rodar até 15 ciclos x 3 chaves = 45 tentativas de chaves reais
+    let lastErrorMessage = "Falha na comunicação com o Professor Virtual.";
 
-        if (!response.ok) {
+    for (let cycle = 1; cycle <= maxClientCycles; cycle++) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s por ciclo serverless
+            
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                signal: controller.signal,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt,
+                    schema: jsonSchema,
+                    taskType,
+                    book: context?.book,
+                    chapter: context?.chapter,
+                    depthLevel: context?.depthLevel,
+                    targetPages: context?.targetPages,
+                    thinkingLevel: context?.thinkingLevel,
+                    excludedKeyHashes: Array.from(attemptedHashes),
+                    batchSize: 3
+                })
+            });
+            clearTimeout(timeoutId);
+
             const contentType = response.headers.get("content-type");
-            let errorMessage = "Erro na comunicação com o servidor de IA. Status: " + response.status;
-            let rotationLog: any[] | null = null;
+            let data: any = null;
             if (contentType && contentType.includes("application/json")) {
-                const errorData = await response.json();
-                errorMessage = errorData.error || errorMessage;
-                rotationLog = errorData.rotationLog;
-            } else {
-                const textError = await response.text();
-                // We substring to avoid dumping massive HTML in the console
-                console.error("Non-JSON error response from proxy:", textError.substring(0, 500));
+                data = await response.json();
             }
 
-            if (rotationLog && Array.isArray(rotationLog)) {
-                console.groupCollapsed("🔄 ❌ [Gemini API Key Router - FALHA EM TODAS AS CHAVES]");
-                rotationLog.forEach((logEntry: any, index: number) => {
+            if (data?.rotationLog && Array.isArray(data.rotationLog)) {
+                allRotationLogs.push(...data.rotationLog);
+            }
+
+            if (data?.failedKeyHashes && Array.isArray(data.failedKeyHashes)) {
+                data.failedKeyHashes.forEach((h: string) => attemptedHashes.add(h));
+            }
+
+            if (response.ok && data?.text) {
+                // Sucesso! Log consolidado de todas as rodadas
+                console.groupCollapsed(`🔄 ⚡ [Gemini Pool 43 Chaves - SUCESSO NA RODADA #${cycle}]`);
+                allRotationLogs.forEach((logEntry: any, index: number) => {
+                    const isSuccess = logEntry.status?.includes('SUCESSO');
+                    const style = isSuccess 
+                        ? "color: #33ff33; font-weight: bold; background: #002200; padding: 2px 4px; border-radius: 4px;"
+                        : "color: #ffaa00; font-style: italic; background: #221100; padding: 2px 4px; border-radius: 4px;";
                     console.log(
-                        `%c[Tentativa #${index + 1}] Chave Mapeada: ${logEntry.key} -> Status: ${logEntry.status}`,
-                        "color: #ff3333; font-weight: bold; background: #220000; padding: 2px 4px; border-radius: 4px;"
+                        `%c[Tentativa #${index + 1}] Chave: ${logEntry.key || logEntry.name} -> Status: ${logEntry.status}`,
+                        style
                     );
                 });
                 console.groupEnd();
+
+                const text = data.text;
+                if (jsonSchema) {
+                    try {
+                        const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                        return JSON.parse(cleanJson);
+                    } catch (e) {
+                        console.error("Erro ao processar JSON da IA:", text);
+                        throw new Error("Erro de formatação na resposta da IA.");
+                    }
+                }
+                return text;
             }
-            throw new Error(errorMessage);
-        }
 
-        const data = await response.json();
+            // Se a resposta não foi OK, registra o erro e verifica se devemos tentar o próximo lote de chaves
+            lastErrorMessage = data?.error || `Erro HTTP ${response.status}`;
+            console.warn(`[Gemini Router] Ciclo #${cycle} concluído sem sucesso (${data?.rotationLog?.length || 0} chaves tentadas). Buscando próximo lote do pool...`);
 
-        // Exibe o trace elegante no console F12
-        if (data.rotationLog && Array.isArray(data.rotationLog)) {
-            console.groupCollapsed("🔄 ⚡ [Gemini API Key Router - ROTAÇÃO INTELIGENTE ATIVA]");
-            data.rotationLog.forEach((logEntry: any, index: number) => {
-                const isSuccess = logEntry.status === 'SUCESSO';
-                const style = isSuccess 
-                    ? "color: #33ff33; font-weight: bold; background: #002200; padding: 2px 4px; border-radius: 4px;"
-                    : "color: #ffaa00; font-style: italic; background: #221100; padding: 2px 4px; border-radius: 4px;";
-                console.log(
-                    `%c[Tentativa #${index + 1}] Chave Mapeada: ${logEntry.key} -> Status: ${logEntry.status}`,
-                    style
-                );
-            });
-            console.groupEnd();
-        }
-
-        const text = data.text;
-
-        if (!text) throw new Error("A IA retornou uma resposta vazia.");
-
-        if (jsonSchema) {
-            try {
-                const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-                return JSON.parse(cleanJson);
-            } catch (e) {
-                console.error("Erro ao processar JSON da IA:", text);
-                throw new Error("Erro de formatação na resposta da IA.");
+            if (data?.canClientRetry === false || (data?.remainingKeysCount === 0 && cycle > 3)) {
+                // Se o servidor avisar que não há mais chaves disponíveis no pool, encerra
+                break;
             }
-        }
 
-        return text;
+            // Pequeno intervalo antes do próximo ciclo para evitar rajada
+            await new Promise(resolve => setTimeout(resolve, 400));
 
-    } catch (error: any) {
-        console.error("Gemini Proxy Error:", error);
-        if (error.name === 'AbortError') {
-             throw new Error("A geração demorou mais que 4 minutos e foi interrompida. Tente diminuir a profundidade ou as páginas.");
+        } catch (error: any) {
+            console.warn(`[Gemini Router] Exceção no ciclo #${cycle}:`, error.message);
+            lastErrorMessage = error.message || lastErrorMessage;
+            if (error.name === 'AbortError') {
+                lastErrorMessage = "Tempo de resposta excedido para este lote de chaves.";
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
-        throw new Error(error.message || "Falha na comunicação com o Professor Virtual.");
     }
+
+    // Se saiu do loop sem sucesso, exibe o log completo de todas as chaves testadas
+    if (allRotationLogs.length > 0) {
+        console.groupCollapsed(`🔄 ❌ [Gemini API Key Router - FALHA EM ${allRotationLogs.length} CHAVES TESTADAS]`);
+        allRotationLogs.forEach((logEntry: any, index: number) => {
+            console.log(
+                `%c[Tentativa #${index + 1}] Chave: ${logEntry.key || logEntry.name} -> Status: ${logEntry.status}`,
+                "color: #ff3333; font-weight: bold; background: #220000; padding: 2px 4px; border-radius: 4px;"
+            );
+        });
+        console.groupEnd();
+    }
+
+    throw new Error(`Falha após testar ${allRotationLogs.length} chaves no pool: ${lastErrorMessage}`);
 };
 
 export const getStoredApiKey = (): string | null => "internal_proxy";

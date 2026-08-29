@@ -71,7 +71,6 @@ export default async function handler(request, response) {
                         process.env.SUPABASE_ANON_KEY;
     const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
-    // Helpers de Hashing e Timeout Seguro
     const hashKey = (k) => crypto.createHash('sha256').update(k.trim()).digest('hex');
     const getTodayStr = () => new Date().toISOString().split('T')[0];
 
@@ -87,7 +86,31 @@ export default async function handler(request, response) {
       }
     };
 
-    // 3. CONSULTA DE ESTADO REMOTO NO SUPABASE (TABELA gemini_key_state COM TIMEOUT)
+    let body = request.body;
+    if (typeof body === 'string') {
+        try {
+            body = JSON.parse(body);
+        } catch (e) {
+            return response.status(400).json({ error: 'Corpo JSON inválido.' });
+        }
+    }
+
+    const { 
+        prompt, 
+        schema, 
+        taskType, 
+        book, 
+        chapter, 
+        depthLevel, 
+        targetPages, 
+        thinkingLevel,
+        excludedKeyHashes = [],
+        batchSize = 3 
+    } = body || {};
+
+    if (!prompt) return response.status(400).json({ error: 'O Prompt é obrigatório.' });
+
+    // 3. CONSULTA DE ESTADO REMOTO NO SUPABASE (TABELA gemini_key_state)
     const keyHashes = uniqueKeys.map(k => hashKey(k));
     const remoteKeyStates = new Map();
 
@@ -95,7 +118,7 @@ export default async function handler(request, response) {
       try {
         const queryPromise = supabase
           .from('gemini_key_state')
-          .select('key_hash, exhausted_until, daily_exhausted_date')
+          .select('key_hash, exhausted_until, daily_exhausted_date, last_used_at')
           .in('key_hash', keyHashes);
         
         const { data, error } = await withTimeout(queryPromise, 2500, 'SUPABASE_READ_TIMEOUT');
@@ -105,7 +128,7 @@ export default async function handler(request, response) {
           }
         }
       } catch (e) {
-        // Fallback silencioso para memória local caso a tabela ainda não exista ou haja timeout
+        // Fallback silencioso para memória local
       }
     }
 
@@ -122,14 +145,18 @@ export default async function handler(request, response) {
     }
 
     const todayStr = getTodayStr();
+    const excludedSet = new Set(Array.isArray(excludedKeyHashes) ? excludedKeyHashes : []);
+
     const isKeyExhausted = (k) => {
-      // 1. Memória local (apenas se marcada para expirar)
+      const h = hashKey(k);
+      if (excludedSet.has(h)) return true;
+
+      // 1. Memória local
       if (global.exhaustedKeys.has(k)) {
         const expireTime = global.exhaustedKeys.get(k);
         if (now < expireTime) return true;
       }
-      // 2. Supabase remoto (apenas se bloqueada explicitamente por cota diária ou tempo curto)
-      const h = hashKey(k);
+      // 2. Supabase remoto
       if (remoteKeyStates.has(h)) {
         const row = remoteKeyStates.get(h);
         if (row.daily_exhausted_date === todayStr) return true;
@@ -138,55 +165,53 @@ export default async function handler(request, response) {
       return false;
     };
 
-    let healthyActiveKeys = uniqueKeys.filter(key => !isKeyExhausted(key));
+    // Filtra chaves ativas não esgotadas e não excluídas na sessão
+    let candidateKeys = uniqueKeys.filter(key => !isKeyExhausted(key));
 
-    // Se a maioria foi marcada como esgotada no passado ou falso positivo, usa todas as chaves
-    if (healthyActiveKeys.length < 3) {
-        healthyActiveKeys = [...uniqueKeys];
-    }
-
-    // 5. SHUFFLE ROTATION (Garante distribuição de carga em concorrência e instâncias Vercel)
-    const shuffledHealthy = [...healthyActiveKeys];
-    for (let i = shuffledHealthy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledHealthy[i], shuffledHealthy[j]] = [shuffledHealthy[j], shuffledHealthy[i]];
-    }
-
-    const exhaustedFallback = uniqueKeys.filter(k => !shuffledHealthy.includes(k));
-    const orderedKeysToTry = [...shuffledHealthy, ...exhaustedFallback];
-
-    let body = request.body;
-    if (typeof body === 'string') {
-        try {
-            body = JSON.parse(body);
-        } catch (e) {
-            return response.status(400).json({ error: 'Corpo JSON inválido.' });
+    // Se todas as chaves foram excluídas ou esgotadas, remove a exclusão temporária para permitir tentar chaves restantes
+    if (candidateKeys.length === 0) {
+        candidateKeys = uniqueKeys.filter(key => {
+            const h = hashKey(key);
+            const row = remoteKeyStates.get(h);
+            if (row?.daily_exhausted_date === todayStr) return false;
+            return true;
+        });
+        if (candidateKeys.length === 0) {
+            candidateKeys = [...uniqueKeys];
         }
     }
 
-    const { prompt, schema, taskType, book, chapter, depthLevel, targetPages, thinkingLevel } = body || {};
-    if (!prompt) return response.status(400).json({ error: 'O Prompt é obrigatório.' });
+    // 5. SELEÇÃO ALEATÓRIA BALANCEADA (Fisher-Yates Shuffle para garantir uso de todas as 43 chaves sem repetição estrita)
+    const shuffledKeys = [...candidateKeys];
+    for (let i = shuffledKeys.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledKeys[i], shuffledKeys[j]] = [shuffledKeys[j], shuffledKeys[i]];
+    }
+
+    // Limita as tentativas desta invocação ao lote ágil (padrão 3 chaves) para não estourar o limite de tempo da Vercel
+    const keysToTryInThisInvocation = shuffledKeys.slice(0, Math.max(1, Math.min(batchSize, 4)));
 
     let lastError = null;
     let successResponse = null;
     const triedKeysLog = [];
+    const failedHashes = [];
     const functionStartTime = Date.now();
 
-    // Timeout individual calibrado por tentativa de chave (evita ficar preso em chaves lentas e permite testar muitas chaves da pool)
+    // Timeout por chave calibrado
     const isDeepTask = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd');
     const isDictionaryTask = (taskType === 'dictionary');
-    const perKeyTimeoutMs = isDeepTask ? 30000 : (isDictionaryTask ? 16000 : 10000);
+    const perKeyTimeoutMs = isDeepTask ? 22000 : (isDictionaryTask ? 14000 : 9000);
 
-    // Tenta as chaves na ordem escalonada
-    for (const apiKey of orderedKeysToTry) {
-        // Se estivermos próximos do limite global de segurança (52 segundos), encerra para não gerar 504 no proxy da Vercel
-        if (Date.now() - functionStartTime > 52000) {
-            console.warn('[Gemini Proxy] Limite de tempo de segurança atingido antes de testar próximas chaves.');
+    for (const apiKey of keysToTryInThisInvocation) {
+        const currentHash = hashKey(apiKey);
+        // Se estivermos próximos do limite seguro da função (45s), encerra este lote para o cliente acionar o próximo
+        if (Date.now() - functionStartTime > 45000) {
+            console.warn('[Gemini Proxy] Limite de segurança do lote atingido. Delegando para próxima rodada.');
             break;
         }
 
         const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
-        triedKeysLog.push({ key: maskedKey, name: `API_KEY (Fim ${apiKey.slice(-4)})`, status: 'TENTANDO' });
+        triedKeysLog.push({ key: maskedKey, keyHash: currentHash, name: `API_KEY (Fim ${apiKey.slice(-4)})`, status: 'TENTANDO' });
         try {
             const ai = new GoogleGenAI({ 
                 apiKey: apiKey,
@@ -596,18 +621,21 @@ export default async function handler(request, response) {
                 ]
             };
 
-            // Configuração precisa de thinkingConfig e maxOutputTokens
+            // Configuração precisa de thinkingConfig e maxOutputTokens (Ampliado conforme solicitado)
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
-                config.maxOutputTokens = 32768;
+                config.maxOutputTokens = 65536; // > 50.000 tokens (Teto máximo absoluto do Gemini Flash para manuscritos e apostilas completas)
                 config.thinkingConfig = getThinkingConfig(thinkingLevel);
             } else if (taskType === 'quiz_gen') {
-                config.maxOutputTokens = 4096;
-                config.thinkingConfig = { thinkingBudget: 1024 };
-            } else if (taskType === 'dictionary' || taskType === 'commentary') {
                 config.maxOutputTokens = 8192;
+                config.thinkingConfig = { thinkingBudget: 1024 };
+            } else if (taskType === 'dictionary') {
+                config.maxOutputTokens = 32768; // > 20.000 tokens para análises léxicas e Strongs aprofundadas
+                config.thinkingConfig = { thinkingBudget: 0 };
+            } else if (taskType === 'commentary') {
+                config.maxOutputTokens = 16384;
                 config.thinkingConfig = { thinkingBudget: 0 };
             } else {
-                config.maxOutputTokens = 8192;
+                config.maxOutputTokens = 16384;
                 config.thinkingConfig = { thinkingBudget: 0 };
             }
 
@@ -643,6 +671,21 @@ export default async function handler(request, response) {
                         if (global.exhaustedKeys) {
                             global.exhaustedKeys.delete(apiKey);
                         }
+
+                        // Atualiza no Supabase o timestamp de uso com sucesso desta chave
+                        if (supabase) {
+                            withTimeout(
+                                supabase.from('gemini_key_state').upsert({
+                                    key_hash: currentHash,
+                                    exhausted_until: null,
+                                    last_used_at: new Date().toISOString(),
+                                    updated_at: new Date().toISOString()
+                                }, { onConflict: 'key_hash' }),
+                                1500,
+                                'SUPABASE_WRITE_TIMEOUT'
+                            ).catch(() => {});
+                        }
+
                         keyExecutionSuccess = true;
                         break;
                     }
@@ -666,6 +709,7 @@ export default async function handler(request, response) {
 
         } catch (error) {
             lastError = error;
+            failedHashes.push(currentHash);
             const msg = error.message || String(error);
             
             // 1. Timeout por sobrecarga ou lentidão da chave
@@ -688,7 +732,7 @@ export default async function handler(request, response) {
                     if (supabase) {
                         withTimeout(
                             supabase.from('gemini_key_state').upsert({
-                                key_hash: hashKey(apiKey),
+                                key_hash: currentHash,
                                 daily_exhausted_date: todayStr,
                                 exhausted_until: null,
                                 updated_at: new Date().toISOString()
@@ -707,7 +751,7 @@ export default async function handler(request, response) {
                     if (supabase) {
                         withTimeout(
                             supabase.from('gemini_key_state').upsert({
-                                key_hash: hashKey(apiKey),
+                                key_hash: currentHash,
                                 exhausted_until: new Date(Date.now() + cooldownMs).toISOString(),
                                 updated_at: new Date().toISOString()
                             }, { onConflict: 'key_hash' }),
@@ -723,7 +767,7 @@ export default async function handler(request, response) {
                 if (supabase) {
                     withTimeout(
                         supabase.from('gemini_key_state').upsert({
-                            key_hash: hashKey(apiKey),
+                            key_hash: currentHash,
                             exhausted_until: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString(),
                             updated_at: new Date().toISOString()
                         }, { onConflict: 'key_hash' }),
@@ -738,13 +782,23 @@ export default async function handler(request, response) {
     }
 
     if (successResponse) {
-        return response.status(200).json({ text: successResponse, rotationLog: triedKeysLog });
+        return response.status(200).json({ 
+            text: successResponse, 
+            rotationLog: triedKeysLog,
+            poolTotal: uniqueKeys.length 
+        });
     } else {
         const triedCount = triedKeysLog.length;
         const totalKeys = uniqueKeys.length;
-        return response.status(500).json({ 
-            error: `Falha na geração: Tentamos ${triedCount} de ${totalKeys} chaves disponíveis, mas todas falharam. Último erro: ${lastError?.message || 'Erro desconhecido.'}`, 
-            rotationLog: triedKeysLog 
+        const remainingCandidateCount = candidateKeys.length - triedCount;
+
+        return response.status(503).json({ 
+            error: `Tentamos ${triedCount} chaves neste ciclo. Último status: ${lastError?.message || 'TIMEOUT/COTA'}.`, 
+            rotationLog: triedKeysLog,
+            failedKeyHashes: failedHashes,
+            canClientRetry: remainingCandidateCount > 0 || excludedSet.size < totalKeys,
+            remainingKeysCount: Math.max(0, remainingCandidateCount),
+            poolTotal: totalKeys
         });
     }
   } catch (error) {
