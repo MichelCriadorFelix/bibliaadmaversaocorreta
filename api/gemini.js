@@ -197,15 +197,15 @@ export default async function handler(request, response) {
     const failedHashes = [];
     const functionStartTime = Date.now();
 
-    // Timeout por chave calibrado
+    // Timeout por chave calibrado (Cada invocação trata 1 chave individual com até 55s dedicados)
     const isDeepTask = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd');
     const isDictionaryTask = (taskType === 'dictionary');
-    const perKeyTimeoutMs = isDeepTask ? 22000 : (isDictionaryTask ? 14000 : 9000);
+    const perKeyTimeoutMs = isDeepTask ? 55000 : (isDictionaryTask ? 30000 : 20000);
 
     for (const apiKey of keysToTryInThisInvocation) {
         const currentHash = hashKey(apiKey);
-        // Se estivermos próximos do limite seguro da função (45s), encerra este lote para o cliente acionar o próximo
-        if (Date.now() - functionStartTime > 45000) {
+        // Se estivermos próximos do limite seguro da função (58s), encerra este lote para o cliente acionar o próximo
+        if (Date.now() - functionStartTime > 57000) {
             console.warn('[Gemini Proxy] Limite de segurança do lote atingido. Delegando para próxima rodada.');
             break;
         }
@@ -595,10 +595,11 @@ export default async function handler(request, response) {
             }
 
             // Normalizador Seguro de ThinkingConfig para Gemini 3.6 Flash / 3.7 Flash
+            // NOTA: No Gemini 3.6/3.7, thinkingBudget não aceita 0 (requer >= 512 ou omitir/não enviar thinkingConfig para desativar)
             const getThinkingConfig = (lvl) => {
                 if (!lvl) return { thinkingBudget: 2048 };
                 const s = String(lvl).toLowerCase().trim();
-                if (s === 'minimal' || s === 'minimo' || s === 'mínimo') return { thinkingBudget: 0 };
+                if (s === 'minimal' || s === 'minimo' || s === 'mínimo' || s === 'off') return null;
                 if (s === 'low' || s === 'baixo') return { thinkingBudget: 1024 };
                 if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 2048 };
                 if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 4096 };
@@ -624,19 +625,17 @@ export default async function handler(request, response) {
             // Configuração precisa de thinkingConfig e maxOutputTokens (Ampliado conforme solicitado)
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 config.maxOutputTokens = 65536; // > 50.000 tokens (Teto máximo absoluto do Gemini Flash para manuscritos e apostilas completas)
-                config.thinkingConfig = getThinkingConfig(thinkingLevel);
+                const tc = getThinkingConfig(thinkingLevel);
+                if (tc) config.thinkingConfig = tc;
             } else if (taskType === 'quiz_gen') {
                 config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingBudget: 1024 };
             } else if (taskType === 'dictionary') {
                 config.maxOutputTokens = 32768; // > 20.000 tokens para análises léxicas e Strongs aprofundadas
-                config.thinkingConfig = { thinkingBudget: 0 };
             } else if (taskType === 'commentary') {
                 config.maxOutputTokens = 16384;
-                config.thinkingConfig = { thinkingBudget: 0 };
             } else {
                 config.maxOutputTokens = 16384;
-                config.thinkingConfig = { thinkingBudget: 0 };
             }
 
             if (schema) {
@@ -644,7 +643,7 @@ export default async function handler(request, response) {
                 config.responseSchema = schema;
             }
 
-            // Tentativa inteligente de modelo: Gemini 3.6 Flash / 3.7 Flash primário, e fallback para Gemini 2.5 Flash se houver cota ou indisponibilidade
+            // Tentativa inteligente de modelo: Gemini 3.6 Flash / 3.7 Flash primário, e fallback para Gemini 2.5 Flash
             const modelsToAttempt = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
             let keyExecutionSuccess = false;
 
@@ -691,15 +690,13 @@ export default async function handler(request, response) {
                     }
                 } catch (subErr) {
                     const subMsg = subErr.message || String(subErr);
-                    // Se for erro de modelo (503, 404, not found, etc.) ou se a cota do modelo 3.x na região estourou, tenta o próximo modelo na mesma chave!
-                    if (subMsg.includes('503') || subMsg.includes('high demand') || subMsg.includes('UNAVAILABLE') || 
-                        subMsg.includes('overloaded') || subMsg.includes('not found') || subMsg.includes('404') ||
-                        subMsg.includes('429') || subMsg.includes('Quota') || subMsg.includes('RESOURCE_EXHAUSTED')) {
-                        console.warn(`[Gemini Proxy] Modelo ${currentModel} falhou com ${subMsg.slice(0, 60)}. Tentando modelo alternativo...`);
-                        continue;
+                    // Se for timeout, passa para a próxima chave
+                    if (subMsg.includes('KEY_CALL_TIMEOUT') || subMsg.includes('TIMEOUT') || subMsg.includes('AbortError')) {
+                        throw subErr;
                     }
-                    // Se for Timeout, propaga para o catch externo trocar de chave
-                    throw subErr;
+                    // Para qualquer outro erro de modelo (400, 404, 429, 503, etc.), tenta o próximo modelo disponível (ex: 2.5 Flash)
+                    console.warn(`[Gemini Proxy] Modelo ${currentModel} falhou: ${subMsg.slice(0, 80)}. Tentando modelo alternativo...`);
+                    continue;
                 }
             }
 
