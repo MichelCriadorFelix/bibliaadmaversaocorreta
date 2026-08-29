@@ -22,9 +22,28 @@ export const config = {
   maxDuration: 300,
 };
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
-const supabaseAdmin = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+// Client criado sob demanda DENTRO da invocação (nunca no topo do módulo).
+// api/storage.js e api/presence.js (que sempre funcionaram) seguem esse mesmo
+// padrão; criar o client no escopo do módulo (fora do handler) foi o que
+// causou a função inteira a travar sem nunca responder (nem 1 log aparecia)
+// após essa mudança ser publicada — algo na inicialização em cold-start do
+// runtime da Vercel não se dava bem com o client sendo construído fora do
+// contexto de uma requisição.
+let _supabaseAdmin;
+function getSupabaseAdmin() {
+  if (_supabaseAdmin !== undefined) return _supabaseAdmin;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
+  _supabaseAdmin = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+  return _supabaseAdmin;
+}
+
+// Teto de espera para chamadas ao Supabase de estado compartilhado — nunca deixa
+// uma dessas chamadas travar a geração de conteúdo real caso algo dê errado com ela.
+const withTimeout = (promise, ms) => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('SUPABASE_TIMEOUT')), ms))
+]);
 
 const KEY_STATE_TABLE = 'gemini_key_state';
 // Limites proativos por chave/minuto — evita BATER no 429 em vez de só reagir depois.
@@ -39,16 +58,20 @@ const KEY_STATE_SYNC_INTERVAL_MS = 3000;
 
 /** Puxa o estado mais recente das chaves do Supabase para o cache local desta invocação. Best-effort. */
 export async function syncKeyStateFromShared(keys) {
+  const supabaseAdmin = getSupabaseAdmin();
   if (!supabaseAdmin || keys.length === 0) return;
   const now = Date.now();
   if (now - lastKeyStateSync < KEY_STATE_SYNC_INTERVAL_MS) return;
   lastKeyStateSync = now;
   try {
     const hashes = keys.map(keyHash);
-    const { data, error } = await supabaseAdmin
-      .from(KEY_STATE_TABLE)
-      .select('key_hash, exhausted_until, daily_exhausted_date, window_start, window_count, window_tokens')
-      .in('key_hash', hashes);
+    const { data, error } = await withTimeout(
+      supabaseAdmin
+        .from(KEY_STATE_TABLE)
+        .select('key_hash, exhausted_until, daily_exhausted_date, window_start, window_count, window_tokens')
+        .in('key_hash', hashes),
+      8000
+    );
     if (error || !data) return;
     const todayStr = new Date().toISOString().slice(0, 10);
     const hashToKey = new Map(keys.map(k => [keyHash(k), k]));
@@ -74,6 +97,7 @@ export async function syncKeyStateFromShared(keys) {
 
 /** Marca uma chave como esgotada (por minuto ou diariamente) no estado compartilhado. Best-effort, não bloqueia o fluxo principal. */
 export function markKeyExhaustedShared(apiKey, opts) {
+  const supabaseAdmin = getSupabaseAdmin();
   if (!supabaseAdmin) return;
   const hash = keyHash(apiKey);
   const payload = { key_hash: hash, updated_at: new Date().toISOString() };
@@ -85,6 +109,7 @@ export function markKeyExhaustedShared(apiKey, opts) {
 
 /** Registra uso (chamadas) da chave para o limitador proativo de janela deslizante de 60s. Best-effort. */
 export function recordKeyUsageShared(apiKey, estimatedTokens = 0) {
+  const supabaseAdmin = getSupabaseAdmin();
   if (!supabaseAdmin) return;
   const status = keyStatusRegistry[apiKey];
   const now = Date.now();

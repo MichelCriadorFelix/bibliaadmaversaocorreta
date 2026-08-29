@@ -20,9 +20,18 @@ const withTimeout = (promise, ms) => Promise.race([
   new Promise((_, reject) => setTimeout(() => reject(new Error('TEST_TIMEOUT')), ms))
 ]);
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
-const supabaseAdmin = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+// Client criado sob demanda DENTRO da invocação (nunca no topo do módulo) —
+// mesmo padrão de api/storage.js e api/gemini.js. Criar no escopo do módulo
+// travava a função inteira sem nunca responder (nem OPTIONS/GET simples
+// funcionavam) após publicado.
+let _supabaseAdmin;
+function getSupabaseAdmin() {
+  if (_supabaseAdmin !== undefined) return _supabaseAdmin;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
+  _supabaseAdmin = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+  return _supabaseAdmin;
+}
 
 const KEY_STATE_TABLE = 'gemini_key_state';
 const PROACTIVE_RPM_PER_KEY = Number(process.env.GEMINI_RPM_PER_KEY) || 8;
@@ -32,6 +41,7 @@ const keyHash = (apiKey) => crypto.createHash('sha256').update(apiKey).digest('h
 
 /** Marca a chave como esgotada no estado compartilhado (mesma tabela usada por api/gemini.js). Best-effort. */
 function markKeyExhaustedShared(apiKey, opts) {
+  const supabaseAdmin = getSupabaseAdmin();
   if (!supabaseAdmin) return Promise.resolve();
   const hash = keyHash(apiKey);
   const payload = { key_hash: hash, updated_at: new Date().toISOString() };
@@ -42,6 +52,7 @@ function markKeyExhaustedShared(apiKey, opts) {
 
 /** Registra o teste bem-sucedido como uso real na janela proativa compartilhada. Best-effort. */
 function recordKeyUsageShared(apiKey, windowCount, windowTokens, windowStart) {
+  const supabaseAdmin = getSupabaseAdmin();
   if (!supabaseAdmin) return Promise.resolve();
   const hash = keyHash(apiKey);
   return supabaseAdmin.from(KEY_STATE_TABLE).upsert({
@@ -95,16 +106,22 @@ export default async function handler(request, response) {
     // --- Puxa o estado COMPARTILHADO (visto por todas as instâncias serverless,
     // não só a que está rodando este teste agora) antes de testar cada chave. ---
     const stateByHash = new Map();
+    const supabaseAdmin = getSupabaseAdmin();
     if (supabaseAdmin) {
         try {
             const hashes = uniqueKeys.map(k => keyHash(k.key));
-            const { data } = await supabaseAdmin
-                .from(KEY_STATE_TABLE)
-                .select('key_hash, exhausted_until, daily_exhausted_date, window_start, window_count, window_tokens')
-                .in('key_hash', hashes);
+            // Teto de 8s nessa leitura — proteção extra pra nunca deixar o Supabase
+            // travar a função inteira, mesmo se algo inesperado acontecer com ele.
+            const { data } = await withTimeout(
+                supabaseAdmin
+                    .from(KEY_STATE_TABLE)
+                    .select('key_hash, exhausted_until, daily_exhausted_date, window_start, window_count, window_tokens')
+                    .in('key_hash', hashes),
+                8000
+            );
             for (const row of (data || [])) stateByHash.set(row.key_hash, row);
         } catch (e) {
-            console.warn('[keys-status] Falha ao ler estado compartilhado:', e.message);
+            console.warn('[keys-status] Falha ao ler estado compartilhado (seguindo sem ele):', e.message);
         }
     }
 
