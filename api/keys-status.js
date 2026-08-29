@@ -65,9 +65,11 @@ function recordKeyUsageShared(apiKey, windowCount, windowTokens, windowStart) {
 }
 
 export default async function handler(request, response) {
+  console.log('[DIAG] handler iniciado');
   if (request.method !== 'GET') {
     return response.status(405).json({ error: 'Method not allowed' });
   }
+  console.log('[DIAG] passou do check de metodo');
 
   try {
     const allKeys = [];
@@ -99,6 +101,7 @@ export default async function handler(request, response) {
         }
     }
 
+    console.log('[DIAG] chaves unicas encontradas:', uniqueKeys.length);
     if (uniqueKeys.length === 0) {
         return response.status(200).json({ keys: [], total: 0, healthy: 0 });
     }
@@ -106,10 +109,13 @@ export default async function handler(request, response) {
     // --- Puxa o estado COMPARTILHADO (visto por todas as instâncias serverless,
     // não só a que está rodando este teste agora) antes de testar cada chave. ---
     const stateByHash = new Map();
+    console.log('[DIAG] antes de getSupabaseAdmin');
     const supabaseAdmin = getSupabaseAdmin();
+    console.log('[DIAG] depois de getSupabaseAdmin, existe?', !!supabaseAdmin);
     if (supabaseAdmin) {
         try {
             const hashes = uniqueKeys.map(k => keyHash(k.key));
+            console.log('[DIAG] antes da query supabase, hashes:', hashes.length);
             // Teto de 8s nessa leitura — proteção extra pra nunca deixar o Supabase
             // travar a função inteira, mesmo se algo inesperado acontecer com ele.
             const { data } = await withTimeout(
@@ -119,11 +125,13 @@ export default async function handler(request, response) {
                     .in('key_hash', hashes),
                 8000
             );
+            console.log('[DIAG] depois da query supabase, linhas:', data?.length);
             for (const row of (data || [])) stateByHash.set(row.key_hash, row);
         } catch (e) {
             console.warn('[keys-status] Falha ao ler estado compartilhado (seguindo sem ele):', e.message);
         }
     }
+    console.log('[DIAG] antes do loop de teste de chaves');
 
     const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -255,8 +263,10 @@ export default async function handler(request, response) {
     const finalResults = [];
 
     for (let i = 0; i < uniqueKeys.length; i += BATCH_SIZE) {
+        console.log('[DIAG] iniciando lote', i);
         const batch = uniqueKeys.slice(i, i + BATCH_SIZE);
         const batchResults = await Promise.all(batch.map(k => checkKey(k)));
+        console.log('[DIAG] lote concluido', i, JSON.stringify(batchResults.map(r => r.status)));
         finalResults.push(...batchResults);
 
         if (i + BATCH_SIZE < uniqueKeys.length) {
