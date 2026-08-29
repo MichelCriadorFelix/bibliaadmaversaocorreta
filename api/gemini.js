@@ -7,7 +7,7 @@ import crypto from "crypto";
  * Motor calibrado para Gemini 3.7 Flash com Thinking Budget e compartilhamento de estado via Supabase.
  */
 export const config = {
-  maxDuration: 300, 
+  maxDuration: 60, 
 };
 
 export default async function handler(request, response) {
@@ -171,13 +171,20 @@ export default async function handler(request, response) {
     let lastError = null;
     let successResponse = null;
     const triedKeysLog = [];
+    const functionStartTime = Date.now();
 
-    // Timeout individual por tentativa de chave (evita travamento total da função)
+    // Timeout individual calibrado para a Vercel Serverless Function (max 60s)
     const isDeepTask = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd');
-    const perKeyTimeoutMs = isDeepTask ? 75000 : 25000;
+    const perKeyTimeoutMs = isDeepTask ? 30000 : 12000;
 
     // Tenta as chaves na ordem escalonada
     for (const apiKey of orderedKeysToTry) {
+        // Se estivermos próximos do limite global da função (50s), interrompe para não estourar o gateway
+        if (Date.now() - functionStartTime > 50000) {
+            console.warn('[Gemini Proxy] Limite de tempo global da função Vercel atingido antes de testar próximas chaves.');
+            break;
+        }
+
         const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
         triedKeysLog.push({ key: maskedKey, name: `API_KEY (Fim ${apiKey.slice(-4)})`, status: 'TENTANDO' });
         try {
@@ -562,15 +569,15 @@ export default async function handler(request, response) {
                 }
             }
 
-            // Normalizador Seguro de ThinkingConfig para Gemini 3.7 Flash (16k Máximo, 8k Médio)
+            // Normalizador Seguro de ThinkingConfig para Gemini 3.7 Flash
             const getThinkingConfig = (lvl) => {
-                if (!lvl) return { thinkingBudget: 8192 };
+                if (!lvl) return { thinkingBudget: 2048 };
                 const s = String(lvl).toLowerCase().trim();
                 if (s === 'minimal' || s === 'minimo' || s === 'mínimo') return { thinkingBudget: 0 };
-                if (s === 'low' || s === 'baixo') return { thinkingBudget: 2048 };
-                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 8192 };
-                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 16384 };
-                return { thinkingBudget: 8192 };
+                if (s === 'low' || s === 'baixo') return { thinkingBudget: 1024 };
+                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 2048 };
+                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 4096 };
+                return { thinkingBudget: 2048 };
             };
 
             // Seleção de Modelo Unificada: Gemini 3.7 Flash em 100% das tarefas
@@ -598,7 +605,7 @@ export default async function handler(request, response) {
                 config.thinkingConfig = { thinkingBudget: 1024 };
             } else if (taskType === 'dictionary' || taskType === 'commentary') {
                 config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingBudget: 2048 };
+                config.thinkingConfig = { thinkingBudget: 0 };
             } else {
                 config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingBudget: 0 };
