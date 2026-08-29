@@ -43,7 +43,7 @@ export const generateContent = async (
             
             onProgress?.({
                 percent: progressEstimated,
-                message: `Consultando Chave ${cycle}/43 (Tentativa ${cycle} de 43)...`,
+                message: `Sorteando Chave Aleatória (${cycle}/43 - Sem repetição)...`,
                 stage: 'querying',
                 cycle,
                 attempt: cycle,
