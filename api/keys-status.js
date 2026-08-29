@@ -127,7 +127,7 @@ export default async function handler(request, response) {
                     status: 'exhausted',
                     latency: 0,
                     msg: `Cota Excedida (Volta em ${secs}s)`,
-                    model: "gemini-3.7-flash"
+                    model: "gemini-3.6-flash"
                 };
             } else {
                 global.exhaustedKeys.delete(keyEntry.key);
@@ -144,7 +144,7 @@ export default async function handler(request, response) {
                     status: 'exhausted',
                     latency: 0,
                     msg: 'Cota Diária Esgotada',
-                    model: "gemini-3.7-flash"
+                    model: "gemini-3.6-flash"
                 };
             }
             if (remoteRow.exhausted_until && new Date(remoteRow.exhausted_until).getTime() > Date.now()) {
@@ -155,7 +155,7 @@ export default async function handler(request, response) {
                     status: 'exhausted',
                     latency: 0,
                     msg: `Cota Excedida (Volta em ${secs}s)`,
-                    model: "gemini-3.7-flash"
+                    model: "gemini-3.6-flash"
                 };
             }
         }
@@ -170,9 +170,9 @@ export default async function handler(request, response) {
                 }
             });
             
-            // Teste no Gemini 3.7 Flash com thinkingBudget numérico 0 (NUNCA thinkingLevel: 'minimal')
+            // Teste no Gemini 3.6 Flash com thinkingBudget numérico 0
             const callPromise = ai.models.generateContent({
-                model: "gemini-3.7-flash",
+                model: "gemini-3.6-flash",
                 contents: [{ role: "user", parts: [{ text: "ping" }] }],
                 config: { 
                     maxOutputTokens: 1, 
@@ -194,7 +194,7 @@ export default async function handler(request, response) {
                 status: 'active',
                 latency: Date.now() - start,
                 msg: 'OK',
-                model: "gemini-3.7-flash"
+                model: "gemini-3.6-flash"
             };
 
         } catch (e) {

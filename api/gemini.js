@@ -173,16 +173,16 @@ export default async function handler(request, response) {
     const triedKeysLog = [];
     const functionStartTime = Date.now();
 
-    // Timeout individual calibrado: 3 minutos para aulas densas, 1.5 minutos para dicionário, 45s para tarefas padrão
+    // Timeout individual calibrado por tentativa de chave (evita ficar preso em chaves lentas e permite testar muitas chaves da pool)
     const isDeepTask = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd');
     const isDictionaryTask = (taskType === 'dictionary');
-    const perKeyTimeoutMs = isDeepTask ? 180000 : (isDictionaryTask ? 90000 : 45000);
+    const perKeyTimeoutMs = isDeepTask ? 30000 : (isDictionaryTask ? 16000 : 10000);
 
     // Tenta as chaves na ordem escalonada
     for (const apiKey of orderedKeysToTry) {
-        // Se estivermos próximos do limite global da função (270s = 4.5 minutos), interrompe para não estourar o gateway
-        if (Date.now() - functionStartTime > 270000) {
-            console.warn('[Gemini Proxy] Limite de tempo global da função Vercel (270s) atingido antes de testar próximas chaves.');
+        // Se estivermos próximos do limite global de segurança (52 segundos), encerra para não gerar 504 no proxy da Vercel
+        if (Date.now() - functionStartTime > 52000) {
+            console.warn('[Gemini Proxy] Limite de tempo de segurança atingido antes de testar próximas chaves.');
             break;
         }
 
@@ -570,7 +570,7 @@ export default async function handler(request, response) {
                 }
             }
 
-            // Normalizador Seguro de ThinkingConfig para Gemini 3.7 Flash
+            // Normalizador Seguro de ThinkingConfig para Gemini 3.6 Flash / 3.7 Flash
             const getThinkingConfig = (lvl) => {
                 if (!lvl) return { thinkingBudget: 2048 };
                 const s = String(lvl).toLowerCase().trim();
@@ -581,8 +581,8 @@ export default async function handler(request, response) {
                 return { thinkingBudget: 2048 };
             };
 
-            // Seleção de Modelo Unificada: Gemini 3.7 Flash em 100% das tarefas
-            const modelToUse = 'gemini-3.7-flash';
+            // Seleção de Modelo Primário: Gemini 3.6 Flash (Padrão Bíblia ADMA)
+            const modelToUse = 'gemini-3.6-flash';
 
             const config = {
                 temperature: 0.3,
@@ -617,27 +617,47 @@ export default async function handler(request, response) {
                 config.responseSchema = schema;
             }
 
-            // Chamada com Timeout estrito por chave para evitar travamento infinito
-            const generatePromise = ai.models.generateContent({
-                model: modelToUse,
-                contents: [{ parts: [{ text: enhancedPrompt }] }],
-                config: config
-            });
+            // Modelo padrão: Gemini 3.6 Flash (com contingência no 3.7 se necessário)
+            const modelsToAttempt = ['gemini-3.6-flash', 'gemini-3.7-flash'];
+            let keyExecutionSuccess = false;
 
-            const aiResponse = await withTimeout(generatePromise, perKeyTimeoutMs, 'KEY_CALL_TIMEOUT');
+            for (const currentModel of modelsToAttempt) {
+                try {
+                    const currentConfig = { ...config };
 
-            if (!aiResponse.text) {
-                throw new Error("A IA retornou uma resposta vazia.");
+                    const generatePromise = ai.models.generateContent({
+                        model: currentModel,
+                        contents: [{ parts: [{ text: enhancedPrompt }] }],
+                        config: currentConfig
+                    });
+
+                    const aiResponse = await withTimeout(generatePromise, perKeyTimeoutMs, 'KEY_CALL_TIMEOUT');
+
+                    if (aiResponse?.text) {
+                        successResponse = aiResponse.text;
+                        triedKeysLog[triedKeysLog.length - 1].status = `SUCESSO (${currentModel})`;
+                        
+                        if (global.exhaustedKeys) {
+                            global.exhaustedKeys.delete(apiKey);
+                        }
+                        keyExecutionSuccess = true;
+                        break;
+                    }
+                } catch (subErr) {
+                    const subMsg = subErr.message || String(subErr);
+                    // Se for 503 (High Demand) no 3.6, tenta o 3.7 antes de trocar de chave
+                    if (subMsg.includes('503') || subMsg.includes('high demand') || subMsg.includes('UNAVAILABLE') || subMsg.includes('overloaded') || subMsg.includes('not found') || subMsg.includes('404')) {
+                        console.warn(`[Gemini Proxy] Modelo ${currentModel} indisponível temporariamente (${subMsg.slice(0, 80)}). Tentando contingência...`);
+                        continue;
+                    }
+                    // Se for 429 ou Timeout, propaga para o catch externo trocar de chave
+                    throw subErr;
+                }
             }
 
-            successResponse = aiResponse.text;
-            triedKeysLog[triedKeysLog.length - 1].status = 'SUCESSO';
-            
-            // Remove do registro local se havia sido marcada antes
-            if (global.exhaustedKeys) {
-                global.exhaustedKeys.delete(apiKey);
+            if (keyExecutionSuccess) {
+                break;
             }
-            break; 
 
         } catch (error) {
             lastError = error;
