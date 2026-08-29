@@ -1,9 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 /**
- * CONFIGURAÇÃO PARA VERCEL SERVERLESS FUNCTIONS - v118.0 LOAD BALANCER EDITION
- * Motor calibrado para Gemini 3 Flash Preview com Thinking Budget máximo (24k).
- * Versão v118.0: Implementação de Rotação Aleatória (Shuffle) para suporte a múltiplas abas simultâneas.
+ * CONFIGURAÇÃO PARA VERCEL SERVERLESS FUNCTIONS - LOAD BALANCER & TIMEOUT RESILIENT
+ * Motor calibrado para Gemini 3.7 Flash com Thinking Budget e compartilhamento de estado via Supabase.
  */
 export const config = {
   maxDuration: 300, 
@@ -28,7 +29,7 @@ export default async function handler(request, response) {
   }
 
   try {
-    // --- GESTÃO DE POOL DE CHAVES (LOAD BALANCER v125 - RESILIENTE) ---
+    // --- GESTÃO DE POOL DE CHAVES (LOAD BALANCER RESILIENTE) ---
     const rawKeys = [];
     
     // Captura explícita de variáveis padrão
@@ -54,7 +55,7 @@ export default async function handler(request, response) {
         }
     }
 
-    // 1. DEDUPLICAÇÃO CIRÚRGICA DE CHAVES
+    // 1. DEDUPLICAÇÃO DE CHAVES
     const uniqueKeys = Array.from(new Set(rawKeys.map(k => k.trim()))).filter(k => k.length > 10);
 
     if (uniqueKeys.length === 0) {
@@ -63,12 +64,56 @@ export default async function handler(request, response) {
          });
     }
 
-    // 2. CIRCUITO BREAKER AUTO-RECUPERÁVEL
+    // 2. INSTANCIAÇÃO LAZY DO CLIENT SUPABASE (DENTRO DO HANDLER)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
+                        process.env.SUPABASE_SECRET_KEY ||
+                        process.env.SUPABASE_ANON_KEY;
+    const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+
+    // Helpers de Hashing e Timeout Seguro
+    const hashKey = (k) => crypto.createHash('sha256').update(k.trim()).digest('hex');
+    const getTodayStr = () => new Date().toISOString().split('T')[0];
+
+    const withTimeout = async (promise, ms, timeoutMsg = 'TIMEOUT') => {
+      let timer;
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(timeoutMsg)), ms);
+      });
+      try {
+        return await Promise.race([promise, timeoutPromise]);
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    // 3. CONSULTA DE ESTADO REMOTO NO SUPABASE (TABELA gemini_key_state COM TIMEOUT)
+    const keyHashes = uniqueKeys.map(k => hashKey(k));
+    const remoteKeyStates = new Map();
+
+    if (supabase) {
+      try {
+        const queryPromise = supabase
+          .from('gemini_key_state')
+          .select('key_hash, exhausted_until, daily_exhausted_date')
+          .in('key_hash', keyHashes);
+        
+        const { data, error } = await withTimeout(queryPromise, 2500, 'SUPABASE_READ_TIMEOUT');
+        if (!error && Array.isArray(data)) {
+          for (const row of data) {
+            if (row?.key_hash) remoteKeyStates.set(row.key_hash, row);
+          }
+        }
+      } catch (e) {
+        // Fallback silencioso para memória local caso a tabela ainda não exista ou haja timeout
+      }
+    }
+
+    // 4. VERIFICAÇÃO DE MEMÓRIA LOCAL E LIMPEZA DE EXPIRADAS
     if (!global.exhaustedKeys) {
         global.exhaustedKeys = new Map();
     }
 
-    // Limpeza de expirações passadas
     const now = Date.now();
     for (const [key, expireTime] of global.exhaustedKeys.entries()) {
         if (now > expireTime) {
@@ -76,21 +121,40 @@ export default async function handler(request, response) {
         }
     }
 
-    // Se todas foram marcadas como esgotadas no passado, reseta para não travar a aplicação
-    let healthyActiveKeys = uniqueKeys.filter(key => !global.exhaustedKeys.has(key));
+    const todayStr = getTodayStr();
+    const isKeyExhausted = (k) => {
+      // 1. Memória local
+      if (global.exhaustedKeys.has(k)) {
+        const expireTime = global.exhaustedKeys.get(k);
+        if (now < expireTime) return true;
+      }
+      // 2. Supabase remoto
+      const h = hashKey(k);
+      if (remoteKeyStates.has(h)) {
+        const row = remoteKeyStates.get(h);
+        if (row.daily_exhausted_date === todayStr) return true;
+        if (row.exhausted_until && new Date(row.exhausted_until).getTime() > now) return true;
+      }
+      return false;
+    };
+
+    let healthyActiveKeys = uniqueKeys.filter(key => !isKeyExhausted(key));
+
+    // Se todas foram marcadas como esgotadas no passado (falso positivo), reseta para não travar a aplicação
     if (healthyActiveKeys.length === 0) {
         global.exhaustedKeys.clear();
         healthyActiveKeys = [...uniqueKeys];
     }
 
-    // 3. SHUFFLE ROTATION (Garante distribuição de carga em multi-abas e restarts Vercel)
+    // 5. SHUFFLE ROTATION (Garante distribuição de carga em concorrência e instâncias Vercel)
     const shuffledHealthy = [...healthyActiveKeys];
     for (let i = shuffledHealthy.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffledHealthy[i], shuffledHealthy[j]] = [shuffledHealthy[j], shuffledHealthy[i]];
     }
 
-    const orderedKeysToTry = [...shuffledHealthy];
+    const exhaustedFallback = uniqueKeys.filter(k => !shuffledHealthy.includes(k));
+    const orderedKeysToTry = [...shuffledHealthy, ...exhaustedFallback];
 
     let body = request.body;
     if (typeof body === 'string') {
@@ -108,7 +172,11 @@ export default async function handler(request, response) {
     let successResponse = null;
     const triedKeysLog = [];
 
-    // Tenta as chaves na ordem escalonada (Round-Robin) para esta requisição específica
+    // Timeout individual por tentativa de chave (evita travamento total da função)
+    const isDeepTask = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd');
+    const perKeyTimeoutMs = isDeepTask ? 75000 : 25000;
+
+    // Tenta as chaves na ordem escalonada
     for (const apiKey of orderedKeysToTry) {
         const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
         triedKeysLog.push({ key: maskedKey, name: `API_KEY (Fim ${apiKey.slice(-4)})`, status: 'TENTANDO' });
@@ -125,15 +193,15 @@ export default async function handler(request, response) {
             let systemInstruction = "Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito.";
             let enhancedPrompt = prompt;
 
-            // --- LÓGICA DE BUSCA RÁPIDA (NOVO v119.0) ---
+            // --- LÓGICA DE BUSCA RÁPIDA ---
             if (taskType === 'assistente_chat') {
                 systemInstruction = "Você é um buscador bíblico ultrarrápido. Retorne apenas os dados solicitados em JSON, sem explicações longas.";
             }
-            // --- GERADOR DE VERSÍCULOS BÍBLICOS DETALHADO (NOVO v124.0) ---
+            // --- GERADOR DE VERSÍCULOS BÍBLICOS DETALHADO ---
             else if (taskType === 'get_bible_verses') {
                 systemInstruction = "Você é um servo e gerador extremamente fiel dos textos da Bíblia Sagrada na tradução ACF (Almeida Corrigida Fiel). Forneça todos os versículos do capítulo solicitado no livro especificado sob formato de array JSON contendo número do versículo e texto de cada versículo. Seja extremamente fiel à ortografia e redação da ACF em português brasileiro, mantendo exatamente o número correto de versículos do capítulo e os textos originais, sem cortes ou paráfrase.";
             }
-            // --- LÓGICA DE BUSCA DE FONTES PRIMÁRIAS (NOVO v120.0) ---
+            // --- LÓGICA DE BUSCA DE FONTES PRIMÁRIAS ---
             else if (taskType === 'fetch_primary_source') {
                 systemInstruction = `
                     ATUE COMO: Um Bibliotecário de Fontes Primárias e Tradutor Erudito.
@@ -157,7 +225,7 @@ export default async function handler(request, response) {
                 `;
                 enhancedPrompt = `[BUSCA DE FONTE PRIMÁRIA]: Forneça o texto da seguinte referência: "${prompt}"`;
             }
-            // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR (NOVO v123.0 - CIRÚRGICO) ---
+            // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR ---
             else if (taskType === 'teacher_ebd' || taskType === 'upgrade_teacher_ebd') {
                 const isUpgrade = taskType === 'upgrade_teacher_ebd';
                 let depthInstruction = "";
@@ -251,7 +319,7 @@ export default async function handler(request, response) {
                     }
                 }
             }
-            // --- LÓGICA DE QUIZ (NOVO v105 - BLINDAGEM ANTI-ALUCINAÇÃO) ---
+            // --- LÓGICA DE QUIZ (BLINDAGEM ANTI-ALUCINAÇÃO) ---
             else if (taskType === 'quiz_gen') {
                 systemInstruction = `
                     ATUE COMO: Um Robô de Análise Textual Estrita (Sem Conhecimento Externo).
@@ -293,7 +361,7 @@ export default async function handler(request, response) {
                 `;
                 enhancedPrompt = prompt;
             }
-            // --- LÓGICA DE DICIONÁRIO (FONTE PRIMÁRIA + EXEGESE CONTEXTUAL + LINGUAGEM CLARA) ---
+            // --- LÓGICA DE DICIONÁRIO ---
             else if (taskType === 'dictionary') {
                 systemInstruction = `
                     ATUE COMO: Um Especialista em Crítica Textual e Línguas Originais (Hebraico Bíblico e Grego Koiné) E Exegeta Sênior.
@@ -313,7 +381,7 @@ export default async function handler(request, response) {
                 `;
                 enhancedPrompt = prompt;
             }
-            // --- LÓGICA DE EBD TEMÁTICA (SÉRIE OURO - APOSTILA DIDÁTICA PREMIUM v117.0 PhD IMPLÍCITO) ---
+            // --- LÓGICA DE EBD TEMÁTICA ---
             else if (taskType === 'thematic_ebd' || taskType === 'upgrade_thematic_ebd') {
                 let depthInstruction = "";
                 const pages = targetPages ? parseInt(targetPages) : 4;
@@ -367,40 +435,17 @@ export default async function handler(request, response) {
                     3. Se o assunto for curto, aprofunde-se na etimologia e contexto; se for extenso, sintetize e seja direto para caber no alvo de palavras.
                     4. OBEDIÊNCIA: O usuário pediu ${pages} páginas (~${baseWordCount} palavras). Entregue essa metragem com precisão.
 
-                    --- DIRETRIZES DE LINGUAGEM E TOM (CRÍTICO v117.0 - CLAREZA TOTAL) ---
-                    1. PROIBIÇÃO DE ARCAÍSMOS E PALAVRAS DIFÍCEIS: É ESTRITAMENTE PROIBIDO usar palavras antigas, pouco usuais, jargões acadêmicos desnecessários ou frases cerimoniais. Nossos alunos são humildes e precisam de clareza absoluta.
-                       - PROIBIDO: "Inefável", "Outrossim", "Destarte", "Profundo temor e reverência", "Exórdio", "Conspícuo", "Nesta magna ocasião", "Perscrutar", "Idiossincrasia", "Escatológico" (sem explicar).
-                       - PERMITIDO: Português claro, moderno, direto, robusto, universitário porém acessível (Nível B2 máximo). Se uma palavra for difícil até para um professor ler em voz alta, NÃO A USE. Substitua por um sinônimo simples.
-                    
-                    2. TERMOS TÉCNICOS E GLOSSÁRIO INTERATIVO (OBRIGATÓRIO): Sempre que usar um termo técnico, teológico, ou uma palavra em português que seja difícil ou pouco comum (ex: "Hipóstase", "Ontológico", "Perscrutar", "Niilismo"), você DEVE OBRIGATORIAMENTE envolver a palavra e sua explicação simples no seguinte formato exato: [[Palavra|Explicação simples e didática]].
-                       - Exemplo: "...isso configura uma [[Teofania|uma aparição visível de Deus no Antigo Testamento]]..."
-                       - Exemplo: "...o estudo do ser humano exige que olhemos para o fundamento [[ontológico|relativo à natureza do ser, àquilo que o ser humano essencialmente é]] da nossa existência."
-                       - USE ESSE RECURSO ABUNDANTEMENTE PARA FACILITAR A COMPREENSÃO.
+                    --- DIRETRIZES DE LINGUAGEM E TOM (CRÍTICO - CLAREZA TOTAL) ---
+                    1. PROIBIÇÃO DE ARCAÍSMOS E PALAVRAS DIFÍCEIS: É ESTRITAMENTE PROIBIDO usar palavras antigas, pouco usuais, jargões acadêmicos desnecessários ou frases cerimoniais.
+                    2. TERMOS TÉCNICOS E GLOSSÁRIO INTERATIVO (OBRIGATÓRIO): Sempre que usar um termo técnico ou teológico, envolva no formato: [[Palavra|Explicação simples e didática]].
+                    3. ZERO SAUDAÇÕES RELIGIOSAS (TEXTO DIRETO): Vá direto ao conteúdo.
+                    4. IDENTIDADE TEOLÓGICA IMPLÍCITA: Argumentação coerente, bíblica e conservadora sem rótulos explícitos.
+                    5. CLAREZA COM PROFUNDIDADE: O texto deve ser denso e acessível a qualquer leitor.
 
-                    3. ZERO SAUDAÇÕES RELIGIOSAS (TEXTO DIRETO): 
-                       - NÃO comece com "A Paz do Senhor", "Saudações", "Amados irmãos", "É com prazer" ou introduções solenes longas. 
-                       - Vá direto ao assunto acadêmico/histórico/teológico do primeiro tópico. O aluno quer aprender conteúdo bruto e profundo.
-
-                    4. IDENTIDADE TEOLÓGICA IMPLÍCITA (CÉREBRO PhD PENTECOSTAL): 
-                       - Pense, estruture e argumente como um Pentecostal Clássico e Arminiano Erudito (PhD).
-                       - MAS JAMAIS escreva "Nós pentecostais", "Como arminianos", "Nossa denominação", "Nossa teologia", "Como PhD", "Minha tese" or use esses rótulos explicitamente. 
-                       - A teologia deve ser a base invisível e natural do argumento, percebida pela força da exposição bíblica (Sola Scriptura).
-                       - O aluno deve sentir a firmeza doutrinária sem precisar ler o rótulo da doutrina.
-
-                    5. CLAREZA COM PROFUNDIDADE (EFEITO "AH! ENTENDI!"): 
-                       - O texto deve ser denso e detalhado (nível doutorado).
-                       - MAS explicado de forma que qualquer aluno (do jovem ao idoso) entenda perfeitamente. 
-                       - Evite o academicismo estéril. O objetivo é a compreensão total.
-
-                    --- DIRETRIZES DE COMANDO DO USUÁRIO (O QUE ENSINAR) ---
-                    O prompt do usuário contém a EMENTA OBRIGATÓRIA ou a aula atual a ser atualizada. Siga rigorosamente os tópicos existentes, adaptando o tamanho para atingir exatamente a meta de ${baseWordCount} palavras (${pages} páginas).
-
-                    --- REGRA DE OURO DE ENUMERAÇÃO (CRÍTICO) ---
-                    JAMAIS faça listas em linha (ex: "A, B e C"). 
-                    Crie listas numeradas (1., 2., 3...) com parágrafos explicativos claros para cada item.
+                    --- REGRA DE OURO DE ENUMERAÇÃO ---
+                    JAMAIS faça listas em linha. Crie listas numeradas (1., 2., 3...) com parágrafos explicativos claros para cada item.
 
                     --- ESTRUTURA PADRONIZADA ---
-                    
                     1. TÍTULO DO TEMA (Use # TÍTULO em Maiúsculo).
                     2. INTRODUÇÃO (Contextualize o problema histórico, a relevância atual e a tese central).
                     3. DESENVOLVIMENTO (Use ## TÍTULO DO TÓPICO e ### SUBTÓPICOS).
@@ -442,7 +487,7 @@ export default async function handler(request, response) {
             else if (taskType === 'ebd' || taskType === 'upgrade_ebd') {
                 let depthInstruction = "";
                 const pages = targetPages ? parseInt(targetPages) : 3;
-                const baseWordCount = pages * 600; // 600 palavras por página real (padrão de diagramação)
+                const baseWordCount = pages * 600;
                 const minWords = Math.round(baseWordCount * 0.85);
                 const maxWords = Math.round(baseWordCount * 1.15);
                 const wordCountTarget = `${minWords} a ${maxWords}`;
@@ -456,94 +501,37 @@ export default async function handler(request, response) {
                     depthInstruction = "Análise exegética e teológica aprofundada com idiomas originais (hebraico/grego), debates teológicos e contexto histórico detalhado, dimensionada com precisão para cobrir o capítulo dentro da meta estrita de palavras.";
                 }
 
-                // --- LÓGICA DE INTRODUÇÃO SELETIVA (100% FIEL AO PEDIDO DO ADMIN) ---
                 const introInstruction = (chapter === 1) 
                     ? "2. INTRODUÇÃO GERAL:\n           Texto rico contextualizando O LIVRO (autor, data, propósito) e o cenário deste primeiro capítulo."
                     : `2. INTRODUÇÃO DO CAPÍTULO:\n           FOCAR EXCLUSIVAMENTE no contexto imediato do capítulo ${chapter}. NÃO repita a introdução geral do livro de ${book} (autoria, data, etc), pois já foi dado nos capítulos anteriores. Vá direto ao ponto do enredo atual.`;
 
-                // --- WRITING STYLE PROFESSOR MICHEL FELIX (ESTRUTURA SUPREMA ADMA v81.0 + v82.0 / v113.0 INJECTION) ---
                 const WRITING_STYLE = `
         ATUE COMO: Professor Michel Felix.
         PERFIL: Teólogo Erudito, Acadêmico, Profundo e Conservador.
         
         INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
 
-                    --- PROTOCOLO PÉROLA DE OURO (v113.0 ATUALIZADO - IMPERIAL GOLD) ---
-                    1. DENSIDADE MULTIDIMENSIONAL: Traga a interpretação com contexto histórico, cultural, explicações de expressões, linguística, tipologia textual, geográfico, tradição judaica (Torá SheBeal Pe, Midrash, Talmud, e outros), documentos históricos contemporâneos, medidas e moedas. Se houver paralelos detalhados com essas interpretações, traga-os de forma elencada.
-                    2. RIGOR DOCUMENTAL (v113.0): É MANDATÓRIO e OBRIGATÓRIO citar fontes periciais para fundamentar as Pérolas de Ouro. SEMPRE que citar qualquer historiador (Josefo, Philo, Eusébio), a tradição judaica (Talmud, Mishná, Midrash), ou documentos da antiguidade, você DEVE OBRIGATORIAMENTE usar o formato interativo de 3 partes: {{Autor ou Obra | Referência Visível | Comando Oculto para o Bibliotecário}}. 
-                       - Exemplo Correto: {{Flávio Josefo | Antiguidades 18.3 | Traga o trecho exato que descreve Pôncio Pilatos introduzindo os estandartes em Jerusalém}}.
-                       - Exemplo Correto: {{Talmud | Tratado Hagigah 12a | Traga o comentário sobre a criação e os céus}}.
-                       - Exemplo Correto: {{Midrash Tanhuma | Bereshit 1 | Traga o comentário sobre a luz da criação}}.
-                       - É ESTRITAMENTE PROIBIDO citar essas fontes em texto plano sem usar as chaves duplas {{ }}.
-                    3. RIGOR HISTÓRICO E HONESTIDADE INTELECTUAL (CRÍTICO): Use as fontes primárias APENAS para elucidar o contexto histórico, cultural ou linguístico. É ESTRITAMENTE PROIBIDO forçar a fonte a endossar a sua teologia ou usar anacronismos (ex: dizer que Josefo refutava o gnosticismo). Deixe a fonte falar por si mesma, mesmo que a visão dela seja diferente da nossa. A Pérola de Ouro serve para trazer robustez histórica, não para validar forçadamente o seu argumento.
-                    4. MENÇÕES SEM CITAÇÃO: Se você for APENAS MENCIONAR um autor ou obra, sem fazer uma citação específica de um texto, NÃO use o formato {{ }}. Em vez disso, use o formato de Glossário: [[Flávio Josefo | Historiador judeu do século I...]].
-                    5. INTEGRAÇÃO CONTEXTUAL (v113.0): O termo anteriormente chamado de "EXEGESE MICROSCÓPICA E EXPANSÃO DO CONTEXTO" agora deve ser referenciado como "PÉROLA DE OURO" para identificar insights periciais profundos. 
-                    6. INJEÇÃO IN-LINE (v113.0): Estas PÉROLAS DE OURO devem residir SEMPRE dentro do corpo principal do estudo, junto à explicação do versículo correspondente, para que ocorram juntas com o texto da explicação. Inicie o insight com o prefix "**PÉROLA DE OURO:**" em negrito para destaque.
-                    7. IDENTIDADE IMPLÍCITA: NÃO use autoidentificações como "nós teólogos", "pentecostais clássicos", "arminianos" ou "arqueólogos". Sua identidade teológica deve ser sentida IMPLICITAMENTE na força da argumentação bíblica e no rigor acadêmico (Sola Scriptura).
-        6. FILTRAGEM DE REPETIÇÃO: Não fique mencionando o episódio de 1 Samuel 28 a menos que o versículo seja sobre o tema ou indispensável para a doutrina.
-        7. SELAGEM FINAL: As seções "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA" são o encerramento absoluto. Nada deve ser escrito após elas.
-        8. EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO): Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7)." NÃO crie listas de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
+                    --- PROTOCOLO PÉROLA DE OURO ---
+                    1. DENSIDADE MULTIDIMENSIONAL: Traga a interpretação com contexto histórico, cultural, explicações de expressões, linguística, tipologia textual, geográfico, tradição judaica (Torá SheBeal Pe, Midrash, Talmud, e outros), documentos históricos contemporâneos, medidas e moedas.
+                    2. RIGOR DOCUMENTAL: É MANDATÓRIO citar fontes periciais para fundamentar as Pérolas de Ouro no formato interativo de 3 partes: {{Autor ou Obra | Referência Visível | Comando Oculto para o Bibliotecário}}. 
+                    3. MENÇÕES SEM CITAÇÃO: Use formato de Glossário: [[Flávio Josefo | Historiador judeu do século I...]].
+                    4. INJEÇÃO IN-LINE: Estas PÉROLAS DE OURO devem residir SEMPRE dentro do corpo principal do estudo, junto à explicação do versículo correspondente. Inicie com "**PÉROLA DE OURO:**" em negrito.
+                    5. IDENTIDADE IMPLÍCITA: A teologia deve ser sentida na exegese e no rigor acadêmico.
+                    6. SELAGEM FINAL: As seções "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA" encerram o estudo.
+                    7. EMBASAMENTO BÍBLICO: Referências entre parênteses fluindo nos parágrafos.
 
         --- MANDATO DE VOLUME EXATO E RESTRITO (${pages} PÁGINAS = ${wordCountTarget} PALAVRAS) ---
         ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): O usuário definiu rigorosamente ${pages} páginas (~${baseWordCount} palavras). Não expanda desenfreadamente.
-        2. ATUALIZAÇÃO CIRÚRGICA: Mantenha o texto existente e aplique atualizações pontuais (glossários [[Termo|Explicação]], referências {{Autor|Ref|Busca}} e pérolas de ouro). Se a aula já for longa, COMPACTE e enxugue parágrafos redundantes para manter o tamanho estritamente dentro da faixa de ${wordCountTarget} palavras.
-        3. QUOTA FINAL PERMITIDA: O texto final NUNCA deve ultrapassar ${maxWords} palavras totais e nem ficar abaixo de ${minWords} palavras.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): O usuário selecionou ${pages} páginas (~${baseWordCount} palavras). Planeje o tamanho do texto estruturalmente para respeitar este limite com precisão cirúrgica.
-        2. QUOTA FINAL PERMITIDA: O texto final completo NUNCA deve ultrapassar ${maxWords} palavras totais e nem ficar abaixo de ${minWords} palavras.`}
-        3. INTEGRALIDADE ACADÊMICA: Cubra os versículos do capítulo de forma proporcional ao espaço disponível. Não omita a conclusão nem deixe seções cortadas.
+        2. ATUALIZAÇÃO CIRÚRGICA: Mantenha o texto existente e aplique atualizações pontuais. Se a aula já for longa, COMPACTE parágrafos redundantes para manter o tamanho estritamente dentro da faixa de ${wordCountTarget} palavras.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): Planeje o tamanho do texto estruturalmente para respeitar este limite com precisão cirúrgica.`}
+        3. INTEGRALIDADE ACADÊMICA: Cubra os versículos do capítulo de forma proporcional ao espaço disponível.
 
-        --- BLINDAGEM ANTI-HERESIA SUPREMA (100% OBRIGATÓRIO) ---
-        - 1 SAMUEL 28 (NECROMANCIA): Samuel NÃO voltou pelo poder da médium. Ensine que ou foi uma personificação demoníaca permitida por Deus ou uma intervenção soberana direta para juízo, NUNCA validando a consulta aos mortos.
-        - LUCAS 16:26 (O GRANDE ABISMO): Mantenha a separação intransponível entre o mundo dos mortos e dos vivos. O mundo espiritual é inacessível para consultas humanas.
-        - Defenda a Ortodoxia Conservadora e Pentecostal Clássica sem usar esses rótulos.
-
-        --- OBJETIVO SUPREMO: O EFEITO "AH! ENTENDI!" (CLAREZA E PROFUNDIDADE) ---
-        1. LINGUAGEM: O texto deve ser PROFUNDO, mas EXTREMAMENTE CLARO. O aluno (seja jovem ou idoso) deve ler e entender instantaneamente. Nossos alunos são humildes e precisam de clareza absoluta.
-        2. VOCABULÁRIO: É ESTRITAMENTE PROIBIDO usar palavras antigas, pouco usuais, jargões acadêmicos desnecessários ou frases cerimoniais. 
-           - PROIBIDO: "Inefável", "Outrossim", "Destarte", "Profundo temor e reverência", "Exórdio", "Conspícuo", "Nesta magna ocasião", "Perscrutar", "Idiossincrasia", "Escatológico" (sem explicar).
-           - PERMITIDO: Português claro, moderno, direto, robusto, universitário porém acessível (Nível B2 máximo). Se uma palavra for difícil até para um professor ler em voz alta, NÃO A USE. Substitua por um sinônimo simples.
-        3. TERMOS TÉCNICOS E GLOSSÁRIO INTERATIVO (OBRIGATÓRIO): Sempre que usar um termo técnico, teológico, ou uma palavra em português que seja difícil ou pouco comum (ex: "Hipóstase", "Ontológico", "Perscrutar", "Niilismo"), você DEVE OBRIGATORIAMENTE envolver a palavra e sua explicação simples no seguinte formato exato: [[Palavra|Explicação simples e didática]].
-           - Exemplo: "...isso configura uma [[Teofania|uma aparição visível de Deus no Antigo Testamento]]..."
-           - Exemplo: "...o estudo do ser humano exige que olhemos para o fundamento [[ontológico|relativo à natureza do ser, àquilo que o ser humano essencialmente é]] da nossa existência."
-           - USE ESSE RECURSO ABUNDANTEMENTE PARA FACILITAR A COMPREENSÃO.
-
-        --- PROTOCOLO DE SEGURANÇA TEOLÓGICA E DIDÁTICA (NÍVEL MÁXIMO - IMPLÍCITO) ---
-        1. A BÍBLIA EXPLICA A BÍBLIA: Antes de formular o comentário, verifique MENTALMENTE e RIGOROSAMENTE o CONTEXTO IMEDIATO (capítulo) e o CONTEXTO REMOTO (livros históricos paralelos, profetas contemporâneos, Novo Testamento) para garantir a coerência.
-        2. PRECISÃO CRONOLÓGICA E CONTEXTUAL: Ao explicar, evite anacronismos (ex: confundir reis, datas ou eventos que ainda não ocorreram na narrativa).
-
-        3. DIDÁTICA DOS TEXTOS POLÊMICOS E DIFÍCEIS:
-           - É EXCELENTE, DIDÁTICO e RECOMENDADO citar as principais correntes interpretativas divergentes para enriquecer a cultura do aluno (ex: "Alguns teólogos históricos interpretam como X, outros como Y...").
-           - CONTUDO, você deve OBRIGATORIAMENTE concluir defendendo a interpretação Ortodoxa e Biblicamente coerente.
-        
-        --- METODOLOGIA DE ENSINO ---
-        1. EXPLICAÇÃO CONTEXTUALIZADA: Agrupe os versículos em blocos temáticos claros e explique-os com profundidade proporcional ao tamanho de páginas solicitado.
-        2. PROIBIDO TRANSCREVER O TEXTO BÍBLICO: O aluno já tem a Bíblia. NÃO escreva o versículo por extenso. Cite apenas a referência e vá direto para a EXPLICAÇÃO.
-
-        --- IDIOMAS ORIGINAIS E ETIMOLOGIA (INDISPENSÁVEL) ---
-        1. PALAVRAS-CHAVE: Cite os termos originais (Hebraico no AT / Grego no NT) transliterados quando enriquecer o texto.
-        2. SIGNIFICADOS DE NOMES: Traga o significado etimológico de nomes de pessoas e lugares chave.
-
-        --- ESTRUTURA VISUAL OBRIGATÓRIA (BASEADA NO MODELO ADMA VIA MARKDOWN) ---
-        1. TÍTULO PRINCIPAL (OBRIGATÓRIO O USO DE HEADER NÍVEL 1 '# '):
-           # PANORÂMA BÍBLICO - ${book ? book.toUpperCase() : 'BÍBLIA'} ${chapter || ''} (PROF. MICHEL FELIX)
-
+        --- ESTRUTURA VISUAL OBRIGATÓRIA ---
+        1. TÍTULO PRINCIPAL: # PANORÂMA BÍBLICO - ${book ? book.toUpperCase() : 'BÍBLIA'} ${chapter || ''} (PROF. MICHEL FELIX)
         ${introInstruction}
-
-        3. TÓPICOS DO ESTUDO (OBRIGATÓRIO USO DE Numeração 1., 2., 3... E HEADER NÍVEL 2 '## '):
-           Exemplo:
-           ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: Gn X:Y-Z)
-           (Aqui entra a explicação detalhada do bloco de versículos. NÃO COPIE O TEXTO BÍBLICO, APENAS EXPLIQUE).
-           (INTEGRE AQUI A **PÉROLA DE OURO:** PARA ESTE TRECHO - PROTOCOLO v113.0 INTEGRADO CONTEXTUALMENTE COM FONTES RASTREÁVEIS).
-
-        4. SEÇÕES FINAIS OBRIGATÓRIAS (SELAGEM ABSOLUTA):
+        3. TÓPICOS DO ESTUDO: ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: Gn X:Y-Z)
+        4. SEÇÕES FINAIS:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
-           (Liste de forma enumerada se houver múltiplos pontos, ou texto corrido).
-
-           ### CURIOSIDADES E ARQUEOLOGIA
-           (OBRIGATÓRIO: Liste todos os itens de forma numerada 1., 2., 3., etc).
-
-        --- INSTRUÇÕES DE PAGINAÇÃO ---
-        1. Volume Total: EXATAMENTE ${pages} páginas (~${baseWordCount} palavras, intervalo: ${wordCountTarget} palavras).
-        2. Insira <hr class="page-break"> entre os tópicos principais para dividir as páginas.
+           ### CURIOSIDADES E ARQUEOLOGIA (Numerada 1., 2., 3...)
         `;
                 systemInstruction = WRITING_STYLE;
                 if (isUpgrade) {
@@ -601,7 +589,7 @@ export default async function handler(request, response) {
                 ]
             };
 
-            // Configuração precisa de thinkingConfig e maxOutputTokens (com suporte a 16k thinking)
+            // Configuração precisa de thinkingConfig e maxOutputTokens
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 config.maxOutputTokens = 32768;
                 config.thinkingConfig = getThinkingConfig(thinkingLevel);
@@ -621,11 +609,14 @@ export default async function handler(request, response) {
                 config.responseSchema = schema;
             }
 
-            const aiResponse = await ai.models.generateContent({
+            // Chamada com Timeout estrito por chave para evitar travamento infinito
+            const generatePromise = ai.models.generateContent({
                 model: modelToUse,
                 contents: [{ parts: [{ text: enhancedPrompt }] }],
                 config: config
             });
+
+            const aiResponse = await withTimeout(generatePromise, perKeyTimeoutMs, 'KEY_CALL_TIMEOUT');
 
             if (!aiResponse.text) {
                 throw new Error("A IA retornou uma resposta vazia.");
@@ -633,25 +624,80 @@ export default async function handler(request, response) {
 
             successResponse = aiResponse.text;
             triedKeysLog[triedKeysLog.length - 1].status = 'SUCESSO';
+            
+            // Remove do registro local se havia sido marcada antes
+            if (global.exhaustedKeys) {
+                global.exhaustedKeys.delete(apiKey);
+            }
             break; 
 
         } catch (error) {
             lastError = error;
-            const msg = error.message || '';
+            const msg = error.message || String(error);
+            
+            // 1. Timeout por sobrecarga ou lentidão da chave
+            if (msg.includes('KEY_CALL_TIMEOUT') || msg.includes('TIMEOUT') || msg.includes('AbortError')) {
+                triedKeysLog[triedKeysLog.length - 1].status = `TIMEOUT (${Math.round(perKeyTimeoutMs/1000)}s) - Passando para próxima chave`;
+                // NÃO marcar como esgotada ou inválida (apenas lenta momentaneamente)
+                continue;
+            }
+
             triedKeysLog[triedKeysLog.length - 1].status = 'FALHA: ' + msg.substring(0, 120);
             
-            // Registra cota atingida no Circuito com cooldown curto de 45 segundos
+            // 2. Cota excedida (429 / Quota / RESOURCE_EXHAUSTED)
             if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted') || msg.includes('RESOURCE_EXHAUSTED')) {
-                let cooldownMs = 45000;
-                const retryMatch = msg.match(/retry in ([\d.]+)s/);
-                if (retryMatch) {
-                    const secs = parseFloat(retryMatch[1]);
-                    if (!isNaN(secs)) cooldownMs = (secs * 1000) + 1000;
+                const isDaily = msg.toLowerCase().includes('per day') || msg.toLowerCase().includes('daily') || msg.toLowerCase().includes('budget');
+                let cooldownMs = 60000;
+                
+                if (isDaily) {
+                    cooldownMs = 4 * 60 * 60 * 1000;
+                    global.exhaustedKeys.set(apiKey, Date.now() + cooldownMs);
+                    if (supabase) {
+                        withTimeout(
+                            supabase.from('gemini_key_state').upsert({
+                                key_hash: hashKey(apiKey),
+                                daily_exhausted_date: todayStr,
+                                exhausted_until: null,
+                                updated_at: new Date().toISOString()
+                            }, { onConflict: 'key_hash' }),
+                            2000,
+                            'SUPABASE_WRITE_TIMEOUT'
+                        ).catch(() => {});
+                    }
+                } else {
+                    const retryMatch = msg.match(/retry in ([\d.]+)s/);
+                    if (retryMatch) {
+                        const secs = parseFloat(retryMatch[1]);
+                        if (!isNaN(secs)) cooldownMs = (secs * 1000) + 1000;
+                    }
+                    global.exhaustedKeys.set(apiKey, Date.now() + cooldownMs);
+                    if (supabase) {
+                        withTimeout(
+                            supabase.from('gemini_key_state').upsert({
+                                key_hash: hashKey(apiKey),
+                                exhausted_until: new Date(Date.now() + cooldownMs).toISOString(),
+                                updated_at: new Date().toISOString()
+                            }, { onConflict: 'key_hash' }),
+                            2000,
+                            'SUPABASE_WRITE_TIMEOUT'
+                        ).catch(() => {});
+                    }
                 }
-                global.exhaustedKeys.set(apiKey, Date.now() + cooldownMs);
-            } else if (msg.includes('API key not valid')) {
-                // Apenas chave inexistente/revogada
-                global.exhaustedKeys.set(apiKey, Date.now() + (30 * 60 * 1000));
+            } 
+            // 3. Chave inexistente / revogada
+            else if (msg.includes('API key not valid') || msg.includes('API_KEY_INVALID')) {
+                global.exhaustedKeys.set(apiKey, Date.now() + (24 * 60 * 60 * 1000));
+                if (supabase) {
+                    withTimeout(
+                        supabase.from('gemini_key_state').upsert({
+                            key_hash: hashKey(apiKey),
+                            exhausted_until: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString(),
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'key_hash' }),
+                        2000,
+                        'SUPABASE_WRITE_TIMEOUT'
+                    ).catch(() => {});
+                }
             }
 
             continue;
@@ -664,12 +710,12 @@ export default async function handler(request, response) {
         const triedCount = triedKeysLog.length;
         const totalKeys = uniqueKeys.length;
         return response.status(500).json({ 
-            error: `Falha na geração v118.0: Tentamos ${triedCount} de ${totalKeys} chaves disponíveis, mas todas falharam. Último erro: ${lastError?.message || 'Erro desconhecido.'}`, 
+            error: `Falha na geração: Tentamos ${triedCount} de ${totalKeys} chaves disponíveis, mas todas falharam. Último erro: ${lastError?.message || 'Erro desconhecido.'}`, 
             rotationLog: triedKeysLog 
         });
     }
   } catch (error) {
     console.error("Critical Server Error:", error);
-    return response.status(500).json({ error: 'Erro interno crítico no servidor de IA v118.0.' });
+    return response.status(500).json({ error: 'Erro interno crítico no servidor de IA.' });
   }
 }
