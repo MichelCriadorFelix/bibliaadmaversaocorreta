@@ -127,7 +127,7 @@ export default async function handler(request, response) {
                     status: 'exhausted',
                     latency: 0,
                     msg: `Cota Excedida (Volta em ${secs}s)`,
-                    model: "gemini-3.6-flash"
+                    model: "gemini-3.5-flash"
                 };
             } else {
                 global.exhaustedKeys.delete(keyEntry.key);
@@ -144,7 +144,7 @@ export default async function handler(request, response) {
                     status: 'exhausted',
                     latency: 0,
                     msg: 'Cota Diária Esgotada',
-                    model: "gemini-3.6-flash"
+                    model: "gemini-3.5-flash"
                 };
             }
             if (remoteRow.exhausted_until && new Date(remoteRow.exhausted_until).getTime() > Date.now()) {
@@ -155,7 +155,7 @@ export default async function handler(request, response) {
                     status: 'exhausted',
                     latency: 0,
                     msg: `Cota Excedida (Volta em ${secs}s)`,
-                    model: "gemini-3.6-flash"
+                    model: "gemini-3.5-flash"
                 };
             }
         }
@@ -170,44 +170,21 @@ export default async function handler(request, response) {
                 }
             });
             
-            // Teste resiliente de modelo: testa 3.6, 3.7 e 2.5
-            const testModels = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
+            // Teste exclusivo: Gemini 3.5 Flash (Sem rebaixamento ou fallback)
+            const TARGET_MODEL = 'gemini-3.5-flash';
             let testPassed = false;
-            let successModel = 'gemini-3.6-flash';
-            let lastTestErr = null;
+            let successModel = TARGET_MODEL;
 
-            for (const testModel of testModels) {
-                try {
-                    const testConfig = { maxOutputTokens: 1 };
-                    if (testModel.startsWith('gemini-3')) {
-                        testConfig.thinkingConfig = { thinkingBudget: 0 };
-                    }
+            const testConfig = { maxOutputTokens: 1, thinkingConfig: { thinkingBudget: 0 } };
 
-                    const callPromise = ai.models.generateContent({
-                        model: testModel,
-                        contents: [{ role: "user", parts: [{ text: "ping" }] }],
-                        config: testConfig
-                    });
+            const callPromise = ai.models.generateContent({
+                model: TARGET_MODEL,
+                contents: [{ role: "user", parts: [{ text: "ping" }] }],
+                config: testConfig
+            });
 
-                    await withTimeout(callPromise, 8000, 'KEY_TEST_TIMEOUT');
-                    testPassed = true;
-                    successModel = testModel;
-                    break;
-                } catch (subE) {
-                    lastTestErr = subE;
-                    const subMsg = subE.message || String(subE);
-                    // Se for 404, not found, 503 ou 429 específico desse modelo, tenta o próximo
-                    if (subMsg.includes('404') || subMsg.includes('not found') || subMsg.includes('503') || 
-                        subMsg.includes('high demand') || subMsg.includes('UNAVAILABLE') || subMsg.includes('429')) {
-                        continue;
-                    }
-                    throw subE;
-                }
-            }
-
-            if (!testPassed && lastTestErr) {
-                throw lastTestErr;
-            }
+            await withTimeout(callPromise, 8000, 'KEY_TEST_TIMEOUT');
+            testPassed = true;
 
             // Sucesso: limpa bloqueios prévios
             if (global.exhaustedKeys) {

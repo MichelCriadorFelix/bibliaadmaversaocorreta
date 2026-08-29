@@ -643,64 +643,39 @@ export default async function handler(request, response) {
                 config.responseSchema = schema;
             }
 
-            // Tentativa inteligente de modelo: Gemini 3.6 Flash / 3.7 Flash primário, e fallback para Gemini 2.5 Flash
-            const modelsToAttempt = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
-            let keyExecutionSuccess = false;
+            // Modelo Exclusivo: Gemini 3.5 Flash (Sem rebaixamento ou fallback para outros modelos)
+            const TARGET_MODEL = 'gemini-3.5-flash';
 
-            for (const currentModel of modelsToAttempt) {
-                try {
-                    const currentConfig = { ...config };
-                    // Se não for da família 3.x, remove thinkingConfig
-                    if (!currentModel.startsWith('gemini-3')) {
-                        delete currentConfig.thinkingConfig;
-                    }
+            const generatePromise = ai.models.generateContent({
+                model: TARGET_MODEL,
+                contents: [{ parts: [{ text: enhancedPrompt }] }],
+                config: config
+            });
 
-                    const generatePromise = ai.models.generateContent({
-                        model: currentModel,
-                        contents: [{ parts: [{ text: enhancedPrompt }] }],
-                        config: currentConfig
-                    });
+            const aiResponse = await withTimeout(generatePromise, perKeyTimeoutMs, 'KEY_CALL_TIMEOUT');
 
-                    const aiResponse = await withTimeout(generatePromise, perKeyTimeoutMs, 'KEY_CALL_TIMEOUT');
-
-                    if (aiResponse?.text) {
-                        successResponse = aiResponse.text;
-                        triedKeysLog[triedKeysLog.length - 1].status = `SUCESSO (${currentModel})`;
-                        
-                        if (global.exhaustedKeys) {
-                            global.exhaustedKeys.delete(apiKey);
-                        }
-
-                        // Atualiza no Supabase o timestamp de uso com sucesso desta chave
-                        if (supabase) {
-                            withTimeout(
-                                supabase.from('gemini_key_state').upsert({
-                                    key_hash: currentHash,
-                                    exhausted_until: null,
-                                    last_used_at: new Date().toISOString(),
-                                    updated_at: new Date().toISOString()
-                                }, { onConflict: 'key_hash' }),
-                                1500,
-                                'SUPABASE_WRITE_TIMEOUT'
-                            ).catch(() => {});
-                        }
-
-                        keyExecutionSuccess = true;
-                        break;
-                    }
-                } catch (subErr) {
-                    const subMsg = subErr.message || String(subErr);
-                    // Se for timeout, passa para a próxima chave
-                    if (subMsg.includes('KEY_CALL_TIMEOUT') || subMsg.includes('TIMEOUT') || subMsg.includes('AbortError')) {
-                        throw subErr;
-                    }
-                    // Para qualquer outro erro de modelo (400, 404, 429, 503, etc.), tenta o próximo modelo disponível (ex: 2.5 Flash)
-                    console.warn(`[Gemini Proxy] Modelo ${currentModel} falhou: ${subMsg.slice(0, 80)}. Tentando modelo alternativo...`);
-                    continue;
+            if (aiResponse?.text) {
+                successResponse = aiResponse.text;
+                triedKeysLog[triedKeysLog.length - 1].status = `SUCESSO (${TARGET_MODEL})`;
+                
+                if (global.exhaustedKeys) {
+                    global.exhaustedKeys.delete(apiKey);
                 }
-            }
 
-            if (keyExecutionSuccess) {
+                // Atualiza no Supabase o timestamp de uso com sucesso desta chave
+                if (supabase) {
+                    withTimeout(
+                        supabase.from('gemini_key_state').upsert({
+                            key_hash: currentHash,
+                            exhausted_until: null,
+                            last_used_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'key_hash' }),
+                        1500,
+                        'SUPABASE_WRITE_TIMEOUT'
+                    ).catch(() => {});
+                }
+
                 break;
             }
 
