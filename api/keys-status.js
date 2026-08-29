@@ -173,18 +173,28 @@ export default async function handler(request, response) {
                     await markKeyExhaustedShared(keyEntry.key, { exhaustedUntil: Date.now() + cooldownMs });
                 }
 
-            } else if (err.includes('API key not valid') || err.includes('API_KEY_INVALID') || err.includes('PERMISSION_DENIED') || err.includes('403')) {
-                // Sinal específico de que a CHAVE é o problema (revogada/inválida/sem permissão).
-                // Um 400 genérico (ex: parâmetro de requisição errado) NÃO significa chave
-                // inválida — bloquear por 4h nesse caso já causou um falso positivo em massa
-                // (43 chaves saudáveis marcadas como inválidas por causa de um parâmetro
-                // errado no próprio teste, não da chave).
+            } else if (err.includes('API key not valid') || err.includes('API_KEY_INVALID')) {
+                // A própria chave não existe (nunca existiu, foi excluída/revogada no Google
+                // Cloud). O Google devolve a MESMA mensagem genérica para "nunca existiu" e
+                // "foi apagada" — não dá pra distinguir os dois de fora, mas em ambos os
+                // casos a chave não serve mais e pode ser removida da lista de variáveis.
                 status = 'invalid';
-                msg = 'Chave Inválida';
+                msg = 'Chave Inválida (excluída/inexistente)';
+                await markKeyExhaustedShared(keyEntry.key, { exhaustedUntil: Date.now() + (4 * 60 * 60 * 1000) });
+            } else if (err.includes('PERMISSION_DENIED') || err.includes('403')) {
+                // A chave EXISTE mas está bloqueada (projeto suspenso, faturamento
+                // desativado, restrição de API/referrer no Google Cloud). Diferente de uma
+                // chave inválida: aqui vale checar o Console do Google Cloud, não apagar a
+                // variável — a chave pode voltar a funcionar se o bloqueio for removido lá.
+                status = 'blocked';
+                msg = 'Bloqueada / sem permissão (checar Google Cloud Console)';
                 await markKeyExhaustedShared(keyEntry.key, { exhaustedUntil: Date.now() + (4 * 60 * 60 * 1000) });
             } else if (err.includes('400') || err.includes('INVALID_ARGUMENT')) {
-                // 400 sem sinal de chave inválida = problema na requisição de teste em si
-                // (parâmetro, schema, etc.), não na chave. Não bloqueia — só reporta.
+                // 400 genérico sem sinal de chave inválida = problema na requisição de teste
+                // em si (parâmetro, schema, etc.), não na chave. Não bloqueia — só reporta.
+                // (Foi exatamente isso que causou um falso positivo em massa: 43 chaves
+                // saudáveis marcadas como inválidas por causa de um parâmetro errado no
+                // próprio teste, não da chave.)
                 status = 'erro';
                 msg = `Erro de requisição (não é a chave): ${err.substring(0, 80)}`;
             } else if (err.includes('503') || err.includes('Overloaded') || err.includes('high demand')) {
