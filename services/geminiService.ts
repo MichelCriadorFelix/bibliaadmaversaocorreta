@@ -37,18 +37,48 @@ export const generateContent = async (
     });
 
     for (let cycle = 1; cycle <= maxClientCycles; cycle++) {
+        let progressTimer: any = null;
         try {
             const attemptedCount = allRotationLogs.length;
-            const progressEstimated = Math.min(8 + Math.floor((attemptedCount / 43) * 72), 80);
+            const startPct = Math.min(8 + Math.floor((attemptedCount / 43) * 72), 30);
             
+            const stageMessages = [
+                `Conectando ao pool e acervo teológico (Chave #${cycle})...`,
+                `Analisando textos originais (Hebraico / Grego) de ${context?.book || 'Passagem'} ${context?.chapter || ''}...`,
+                `Executando exegese profunda e aplicando instruções do professor...`,
+                `Destrinchando versículos e formulando o efeito "Ah! Entendi!"...`,
+                `Injetando Pérolas de Ouro e Fontes Primárias (Josefo, Talmud, etc.)...`,
+                `Inserindo Glossários Interativos e Tipologia Cristocêntrica...`,
+                `Validando Curiosidades, Arqueologia e Metrado de Páginas...`
+            ];
+
+            let msgIdx = 0;
+            let currentPct = startPct;
+
             onProgress?.({
-                percent: progressEstimated,
-                message: `Sorteando Chave Aleatória (${cycle}/43 - Sem repetição)...`,
+                percent: currentPct,
+                message: cycle > 1 
+                    ? `Alternando Chave (${cycle}/43)... Analisando ${context?.book || 'Livro'} ${context?.chapter || ''}` 
+                    : stageMessages[0],
                 stage: 'querying',
                 cycle,
                 attempt: cycle,
                 totalKeys: 43
             });
+
+            // Ticker dinâmico que atualiza a cada 3.5s enquanto o modelo reflete
+            progressTimer = setInterval(() => {
+                msgIdx = (msgIdx + 1) % stageMessages.length;
+                currentPct = Math.min(currentPct + 8, 85);
+                onProgress?.({
+                    percent: currentPct,
+                    message: stageMessages[msgIdx],
+                    stage: 'processing',
+                    cycle,
+                    attempt: cycle,
+                    totalKeys: 43
+                });
+            }, 3500);
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s dedicados para a chave individual
@@ -73,6 +103,7 @@ export const generateContent = async (
                 })
             });
             clearTimeout(timeoutId);
+            if (progressTimer) clearInterval(progressTimer);
 
             const contentType = response.headers.get("content-type");
             let data: any = null;
@@ -150,6 +181,7 @@ export const generateContent = async (
             await new Promise(resolve => setTimeout(resolve, 400));
 
         } catch (error: any) {
+            if (progressTimer) clearInterval(progressTimer);
             console.warn(`[Gemini Router] Exceção no ciclo #${cycle}:`, error.message);
             lastErrorMessage = error.message || lastErrorMessage;
             if (error.name === 'AbortError') {
