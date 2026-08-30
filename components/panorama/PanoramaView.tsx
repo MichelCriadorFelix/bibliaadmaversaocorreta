@@ -206,6 +206,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         generationTime, setGenerationTime,
         currentStatusIndex, setCurrentStatusIndex,
         stats,
+        chapterFocusSuggestion, isLoadingFocusSuggestion,
         content, setContent,
         isGenerating, setIsGenerating,
         theologicalDensity, setTheologicalDensity,
@@ -637,6 +638,9 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                         currentStatusMessage={currentStatusMessage}
                         loadingStatusMessages={loadingStatusMessages}
                         book={book}
+                        chapter={chapter}
+                        chapterFocusSuggestion={chapterFocusSuggestion}
+                        isLoadingFocusSuggestion={isLoadingFocusSuggestion}
                         activeTab={activeTab}
                         bookDownloadStatus={bookDownloadStatus}
                         isCheckingDownload={isCheckingDownload}

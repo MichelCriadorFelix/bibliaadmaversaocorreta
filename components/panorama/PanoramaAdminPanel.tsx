@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Loader2, Info, FileText, Settings, Zap, Trash2, Edit, Save, X, RefreshCw, FileDown, Download, Brain } from 'lucide-react';
+import { Sparkles, Loader2, Info, FileText, Settings, Zap, Trash2, Edit, Save, X, RefreshCw, FileDown, Download, Brain, Lightbulb, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface PanoramaAdminPanelProps {
@@ -33,6 +33,9 @@ interface PanoramaAdminPanelProps {
     currentStatusMessage?: string;
     loadingStatusMessages: string[];
     book: string;
+    chapter: number;
+    chapterFocusSuggestion: string | null;
+    isLoadingFocusSuggestion: boolean;
     activeTab: string;
     bookDownloadStatus: {
         status: 'idle' | 'checking' | 'missing' | 'success';
@@ -76,6 +79,9 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
     currentStatusMessage,
     loadingStatusMessages,
     book,
+    chapter,
+    chapterFocusSuggestion,
+    isLoadingFocusSuggestion,
     activeTab,
     bookDownloadStatus,
     isCheckingDownload,
@@ -231,6 +237,37 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                             </div>
                             <div className="flex flex-col md:flex-row gap-6 items-center">
                                 <div className="flex-1 w-full">
+                                    {(isLoadingFocusSuggestion || chapterFocusSuggestion) && (
+                                        <div className="mb-4 p-4 rounded-2xl border-2 border-dashed border-[#C5A059]/40 bg-[#C5A059]/5 dark:bg-[#C5A059]/10">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Lightbulb className="w-3.5 h-3.5 text-[#C5A059] flex-shrink-0" />
+                                                <span className="text-[10px] font-black text-[#C5A059] uppercase tracking-widest">
+                                                    Sugestão para {book} {chapter}
+                                                </span>
+                                            </div>
+                                            {isLoadingFocusSuggestion ? (
+                                                <p className="text-xs text-gray-500 flex items-center gap-2">
+                                                    <Loader2 className="w-3 h-3 animate-spin" /> Gerando sugestão para este capítulo...
+                                                </p>
+                                            ) : (
+                                                <>
+                                                    <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+                                                        {chapterFocusSuggestion}
+                                                    </p>
+                                                    <button
+                                                        onClick={() => setCustomInstructions(
+                                                            customInstructions
+                                                                ? `${customInstructions}\n\n${chapterFocusSuggestion}`
+                                                                : (chapterFocusSuggestion || '')
+                                                        )}
+                                                        className="mt-3 text-[10px] font-bold text-[#8B0000] dark:text-[#C5A059] hover:underline flex items-center gap-1"
+                                                    >
+                                                        <Plus className="w-3 h-3" /> Usar esta sugestão
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-end mb-4">
                                         <label className="text-[10px] font-black text-[#8B0000] uppercase tracking-widest flex items-center gap-2">
                                             <Zap className="w-3 h-3" /> Instruções Customizadas (Opcional)

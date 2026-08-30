@@ -198,6 +198,11 @@ export default async function handler(request, response) {
             if (taskType === 'assistente_chat') {
                 systemInstruction = "Você é um buscador bíblico ultrarrápido. Retorne apenas os dados solicitados em JSON, sem explicações longas.";
             }
+            // --- SUGESTÃO DE PONTOS DE ATENÇÃO POR CAPÍTULO (pré-preenche "Instruções Customizadas") ---
+            else if (taskType === 'chapter_focus_suggestion') {
+                systemInstruction = "Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito. Aqui sua única tarefa é SUGERIR pontos de atenção para outro professor que vai preparar uma aula — você NÃO está escrevendo a aula em si, só uma lista curta de orientação.";
+                enhancedPrompt = `Para uma aula sobre ${book || ''} ${chapter || ''}, liste em até 4 itens curtos (uma linha cada, sem numeração, começando com "- ") os pontos que merecem atenção especial nesse capítulo: passagens teologicamente sensíveis ou frequentemente mal interpretadas, curiosidades histórico-arqueológicas notáveis, termos originais (hebraico/grego) que valem destaque, ou conexões bíblicas menos óbvias. Seja direto e específico deste capítulo — nada genérico que serviria para qualquer capítulo. Sem introduções, sem saudações, vá direto para a lista.`;
+            }
             // --- GERADOR DE VERSÍCULOS BÍBLICOS DETALHADO ---
             else if (taskType === 'get_bible_verses') {
                 systemInstruction = "Você é um servo e gerador extremamente fiel dos textos da Bíblia Sagrada na tradução ACF (Almeida Corrigida Fiel). Forneça todos os versículos do capítulo solicitado no livro especificado sob formato de array JSON contendo número do versículo e texto de cada versículo. Seja extremamente fiel à ortografia e redação da ACF em português brasileiro, mantendo exatamente o número correto de versículos do capítulo e os textos originais, sem cortes ou paráfrase.";
@@ -679,6 +684,11 @@ export default async function handler(request, response) {
                 config.maxOutputTokens = 32768; // > 20.000 tokens para análises léxicas e Strongs aprofundadas
             } else if (taskType === 'commentary') {
                 config.maxOutputTokens = 16384;
+            } else if (taskType === 'chapter_focus_suggestion') {
+                // Resposta curta (lista de até 4 itens), mas com folga real: mesmo sem thinkingConfig
+                // explícito, o modelo pode gastar uma boa fatia do teto só "pensando" antes de
+                // responder — um teto pequeno demais (512) cortava a resposta no meio da frase.
+                config.maxOutputTokens = 2048;
             } else {
                 config.maxOutputTokens = 16384;
             }

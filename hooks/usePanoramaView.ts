@@ -35,6 +35,10 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     const [generationTime, setGenerationTime] = useState(0);
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [stats, setStats] = useState({ wordCount: 0, charCount: 0, estimatedPages: 0 });
+    // Sugestão de "pontos de atenção" pré-gerada por capítulo (cacheada), pra pré-preencher
+    // Instruções Customizadas sem o professor precisar escrever do zero.
+    const [chapterFocusSuggestion, setChapterFocusSuggestion] = useState<string | null>(null);
+    const [isLoadingFocusSuggestion, setIsLoadingFocusSuggestion] = useState(false);
 
     const { 
         content, 
@@ -236,6 +240,49 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     useEffect(() => {
         if (activeTab === 'thematic') loadThemes();
     }, [activeTab, loadThemes]);
+
+    // Carrega (do cache) ou gera sob demanda a sugestão de pontos de atenção deste capítulo,
+    // só quando o painel de admin de EBD/Panorama é relevante (student/teacher). Falha
+    // silenciosamente — é uma sugestão opcional, nunca deve travar ou poluir o fluxo principal.
+    const loadOrGenerateFocusSuggestion = useCallback(async (b: string, c: number) => {
+        const key = generateChapterKey(b, c);
+        setChapterFocusSuggestion(null);
+        try {
+            const cached = await db.entities.ChapterFocusSuggestion.get(key);
+            if (cached && cached.suggestion) {
+                setChapterFocusSuggestion(cached.suggestion);
+                return;
+            }
+        } catch (e) {
+            // sem cache disponível, segue para gerar
+        }
+
+        setIsLoadingFocusSuggestion(true);
+        try {
+            const text = await generateContent(
+                `Pontos de atenção para ${b} ${c}`,
+                null,
+                false,
+                'chapter_focus_suggestion',
+                { book: b, chapter: c }
+            );
+            const clean = typeof text === 'string' ? text.trim() : '';
+            if (clean) {
+                setChapterFocusSuggestion(clean);
+                db.entities.ChapterFocusSuggestion.save({ chapter_key: key, book: b, chapter: c, suggestion: clean }).catch(() => {});
+            }
+        } catch (e) {
+            // Silencioso de propósito: não deve gerar toast de erro para uma sugestão opcional
+        } finally {
+            setIsLoadingFocusSuggestion(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isAdmin && (activeTab === 'student' || activeTab === 'teacher')) {
+            loadOrGenerateFocusSuggestion(book, chapter);
+        }
+    }, [book, chapter, isAdmin, activeTab, loadOrGenerateFocusSuggestion]);
 
     const calculateStats = useCallback((text: string) => {
         if (!text) return;
@@ -691,6 +738,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         generationTime, setGenerationTime,
         currentStatusIndex, setCurrentStatusIndex,
         stats,
+        chapterFocusSuggestion, isLoadingFocusSuggestion,
         content, setContent,
         isGenerating, setIsGenerating,
         theologicalDensity, setTheologicalDensity,

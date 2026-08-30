@@ -423,6 +423,19 @@ export const db = {
                 return item;
             }
         },
+        // Cache de sugestões de "pontos de atenção" por capítulo (pré-preenche Instruções
+        // Customizadas na tela de gerar aula). Gerado sob demanda na 1ª vez que o capítulo é
+        // aberto, e guardado aqui pra não gastar chamada de IA de novo nas próximas vezes.
+        ChapterFocusSuggestion: {
+            ...createHelpers('chapter_focus_suggestions'),
+            save: async (data: any) => {
+                const id = data.chapter_key;
+                const item = { ...data, id };
+                await idbManager.save(CONTENT_STORE, `chapter_focus_suggestions_${id}`, { ...item, __adma_col: 'chapter_focus_suggestions' });
+                await apiCall('save', 'chapter_focus_suggestions', { item });
+                return item;
+            }
+        },
         Commentary: createHelpers('commentaries'),
         Dictionary: createHelpers('dictionaries'),
         PanoramaBiblico: createHelpers('panorama_biblico'),
