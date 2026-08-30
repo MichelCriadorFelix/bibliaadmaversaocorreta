@@ -1,116 +1,265 @@
 import React, { useState } from "react";
-import { Workflow, Maximize2, X, Terminal, Sparkles, ChevronDown } from "lucide-react";
+import {
+  Workflow,
+  Maximize2,
+  X,
+  Terminal,
+  Sparkles,
+  ChevronDown,
+  ArrowRight,
+  GitFork,
+  CheckCircle2,
+} from "lucide-react";
 
-interface DiagramStep {
-  stepNumber: number;
-  text: string;
-  connectorText?: string;
+export interface DiagramNode {
+  id: string;
+  title: string;
+  subtext?: string;
+  resultText?: string;
 }
 
-interface ParsedDiagram {
+export interface DiagramLevel {
+  levelIndex: number;
+  connectorText?: string;
+  nodes: DiagramNode[];
+}
+
+export interface ParsedDiagram {
   isDiagram: boolean;
   title: string;
-  steps: DiagramStep[];
+  levels: DiagramLevel[];
+  rawText: string;
 }
 
 export function parseAsciiDiagram(rawText: string): ParsedDiagram {
-  const lines = rawText.split("\n").map((l) => l.trim()).filter(Boolean);
-  if (lines.length === 0) {
-    return { isDiagram: false, title: "", steps: [] };
+  const cleanCodeText = rawText.replace(/^```[a-zA-Z]*\n?|\n?```$/g, "").trim();
+  const rawLines = cleanCodeText.split("\n");
+
+  if (rawLines.length === 0) {
+    return { isDiagram: false, title: "", levels: [], rawText };
   }
 
-  // Check if it has ASCII box characters or diagram elements
-  const hasDiagramChars = /[┌└┐┘├┤┬┴┼│\u2500-\u257F▼↓]|\+[\-\=]{3,}\+|\[.*\]/.test(rawText);
-  if (!hasDiagramChars && lines.length < 2) {
-    return { isDiagram: false, title: "", steps: [] };
+  // Helper: check if a line is purely ASCII box borders (e.g. +-----+ or +==============+)
+  const isBorderLine = (str: string) => {
+    const s = str.trim();
+    return (
+      /^[\+\|\-\=\_\s\u2500-\u257F]+$/.test(s) &&
+      !s.includes("[") &&
+      !s.includes("]") &&
+      !s.includes("(") &&
+      !s.includes(")") &&
+      !/[a-zA-Z0-9]/.test(s)
+    );
+  };
+
+  // ----------------------------------------------------------------------
+  // STRATEGY 1: ASCII Pipe Box Table (e.g. +------+ with | col 1 | col 2 |)
+  // ----------------------------------------------------------------------
+  const pipeLines = rawLines.filter((l) => {
+    const t = l.trim();
+    return t.startsWith("|") && t.endsWith("|") && !isBorderLine(t);
+  });
+
+  if (pipeLines.length >= 1 && (rawLines.some((l) => l.includes("+")) || pipeLines.length >= 2)) {
+    let title = "";
+    const contentRows: string[][] = [];
+
+    for (const l of pipeLines) {
+      const rawCells = l.split("|");
+      if (rawCells.length >= 3) {
+        // remove first and last empty elements produced by outer |
+        const cells = rawCells.slice(1, rawCells.length - 1).map((c) => c.trim());
+        if (cells.length === 1 && cells[0].length > 0 && !title && contentRows.length === 0) {
+          title = cells[0];
+        } else if (cells.some((c) => c.length > 0)) {
+          contentRows.push(cells);
+        }
+      }
+    }
+
+    if (contentRows.length > 0) {
+      const maxCols = Math.max(...contentRows.map((r) => r.length));
+
+      if (maxCols >= 1) {
+        const columnItems: { title: string; subtexts: string[]; resultText?: string }[] = [];
+
+        for (let colIdx = 0; colIdx < maxCols; colIdx++) {
+          const colLines: string[] = [];
+          for (const row of contentRows) {
+            const val = row[colIdx] || "";
+            if (val) colLines.push(val);
+          }
+
+          if (colLines.length > 0) {
+            const colTitle = colLines[0];
+            let resultText: string | undefined = undefined;
+            const subtexts: string[] = [];
+
+            for (let k = 1; k < colLines.length; k++) {
+              const line = colLines[k];
+              const resMatch = line.match(/^(?:Resultado|Consequência|Implicação|Efeito|->|--->|=>|===>)[:\s]*(.*)/i);
+              if (resMatch && resMatch[1]) {
+                resultText = resMatch[1].trim();
+              } else {
+                subtexts.push(line);
+              }
+            }
+
+            columnItems.push({
+              title: colTitle,
+              subtexts,
+              resultText,
+            });
+          }
+        }
+
+        if (columnItems.length > 0) {
+          const nodes: DiagramNode[] = columnItems.map((item, idx) => ({
+            id: `box-node-${idx + 1}`,
+            title: item.title,
+            subtext: item.subtexts.length > 0 ? item.subtexts.join(" • ") : undefined,
+            resultText: item.resultText,
+          }));
+
+          return {
+            isDiagram: true,
+            title,
+            levels: [{ levelIndex: 1, nodes }],
+            rawText,
+          };
+        }
+      }
+    }
   }
 
+  // ----------------------------------------------------------------------
+  // STRATEGY 2: Bracket & Arrow Flow Diagram ([Node], ▼, --->)
+  // ----------------------------------------------------------------------
   let title = "";
   let startIndex = 0;
 
-  if (lines.length > 0 && /^\[.*\]$/.test(lines[0])) {
-    title = lines[0].slice(1, -1).trim();
+  const firstTrimmed = rawLines[0].trim();
+  if (/^\[(.*?)\]$/.test(firstTrimmed) && rawLines.length > 1) {
+    const match = firstTrimmed.match(/^\[(.*?)\]$/);
+    if (match) {
+      title = match[1].trim();
+      startIndex = 1;
+    }
+  } else if (/^#+\s+/.test(firstTrimmed)) {
+    title = firstTrimmed.replace(/^#+\s+/, "").trim();
     startIndex = 1;
-  } else if (lines.length > 0 && /^#+\s+/.test(lines[0])) {
-    title = lines[0].replace(/^#+\s+/, "").trim();
+  } else if (firstTrimmed.toUpperCase().startsWith("ESQUEMA")) {
+    title = firstTrimmed.replace(/^ESQUEMA[:\s]*/i, "").trim();
     startIndex = 1;
   }
 
-  const cleanText = (str: string) => {
-    return str
-      .replace(/^[┌└┐┘├┤┬┴┼│|─\-+=#\s\u2500-\u257F]+|[┌└┐┘├┤┬┴┼│|─\-+=#\s\u2500-\u257F]+$/g, "")
-      .replace(/^[\+│|─\-]+\s*/, "")
-      .replace(/\s*[\+│|─\-]+$/, "")
-      .trim();
-  };
+  const levels: DiagramLevel[] = [];
+  let pendingConnectorText = "";
 
-  const isBoxBorder = (str: string) => {
-    const withoutASCII = str.replace(/[┌└┐┘├┤┬┴┼─\-+=#\u2500-\u257F\s\+]/g, "");
-    return str.length >= 3 && withoutASCII.length === 0;
-  };
+  for (let i = startIndex; i < rawLines.length; i++) {
+    const line = rawLines[i].trim();
+    if (!line) continue;
 
-  const steps: DiagramStep[] = [];
-  let currentBoxText: string[] = [];
-  let inBox = false;
+    const bracketMatches = Array.from(line.matchAll(/\[([^\]]+)\]/g));
 
-  for (let i = startIndex; i < lines.length; i++) {
-    const line = lines[i];
+    if (bracketMatches.length > 0) {
+      const levelNodes: DiagramNode[] = [];
 
-    if (isBoxBorder(line)) {
-      if (inBox && currentBoxText.length > 0) {
-        // Box closed
-        const textJoined = currentBoxText.join(" ");
-        let cleanT = textJoined;
-        const numMatch = cleanT.match(/^(\d+)\.\s*(.*)/);
-        let stepNum = steps.length + 1;
-        if (numMatch) {
-          stepNum = parseInt(numMatch[1], 10);
-          cleanT = numMatch[2];
+      for (let mIdx = 0; mIdx < bracketMatches.length; mIdx++) {
+        const match = bracketMatches[mIdx];
+        const rawNodeTitle = match[1].trim();
+
+        let resultText = "";
+        const afterBracketIndex = (match.index || 0) + match[0].length;
+        const lineAfter = line.slice(afterBracketIndex);
+        const arrowMatch = lineAfter.match(/(?:--->|---|->|===>|=>)\s*(.*)/);
+        if (arrowMatch && arrowMatch[1]) {
+          resultText = arrowMatch[1].trim();
         }
-        steps.push({
-          stepNumber: stepNum,
-          text: cleanT,
-          connectorText: "",
+
+        levelNodes.push({
+          id: `node-${levels.length + 1}-${mIdx + 1}`,
+          title: rawNodeTitle,
+          resultText: resultText || undefined,
         });
-        currentBoxText = [];
-        inBox = false;
-      } else {
-        // Box opened
-        inBox = true;
       }
-      continue;
-    }
 
-    if (inBox) {
-      const cleaned = cleanText(line);
-      if (cleaned) currentBoxText.push(cleaned);
+      if (i + 1 < rawLines.length) {
+        const nextLine = rawLines[i + 1].trim();
+        if (
+          nextLine.startsWith("(") &&
+          !nextLine.includes("[") &&
+          !isBorderLine(nextLine)
+        ) {
+          const parenMatches = Array.from(nextLine.matchAll(/\(([^)]+)\)/g));
+          if (parenMatches.length > 0) {
+            parenMatches.forEach((pMatch, pIdx) => {
+              if (levelNodes[pIdx]) {
+                levelNodes[pIdx].subtext = pMatch[1].trim();
+              } else if (levelNodes.length > 0) {
+                const lastNode = levelNodes[levelNodes.length - 1];
+                lastNode.subtext = lastNode.subtext
+                  ? `${lastNode.subtext} | ${pMatch[1].trim()}`
+                  : pMatch[1].trim();
+              }
+            });
+            i++;
+          }
+        }
+      }
+
+      levels.push({
+        levelIndex: levels.length + 1,
+        connectorText: pendingConnectorText || undefined,
+        nodes: levelNodes,
+      });
+
+      pendingConnectorText = "";
     } else {
-      // Outside box: check if connector text like (Purificação e Aceitação)
-      const match = line.match(/\((.*?)\)/);
-      if (match && match[1] && steps.length > 0) {
-        steps[steps.length - 1].connectorText = match[1].trim();
+      if (isBorderLine(line)) continue;
+
+      const connParenMatch = line.match(/\((.*?)\)/);
+      if (connParenMatch && connParenMatch[1]) {
+        pendingConnectorText = connParenMatch[1].trim();
+      } else {
+        const cleanConn = line
+          .replace(/^[│||\-+=#\s\u2500-\u257F▼v\>\<]+|[│||\-+=#\s\u2500-\u257F▼v\>\<]+$/g, "")
+          .trim();
+        if (cleanConn && cleanConn.length > 2 && !cleanConn.startsWith("(")) {
+          pendingConnectorText = cleanConn;
+        }
       }
     }
   }
 
-  if (currentBoxText.length > 0) {
-    const textJoined = currentBoxText.join(" ");
-    let cleanT = textJoined;
-    const numMatch = cleanT.match(/^(\d+)\.\s*(.*)/);
-    let stepNum = steps.length + 1;
-    if (numMatch) {
-      stepNum = parseInt(numMatch[1], 10);
-      cleanT = numMatch[2];
+  // ----------------------------------------------------------------------
+  // STRATEGY 3: Fallback sequential steps
+  // ----------------------------------------------------------------------
+  if (levels.length === 0) {
+    const fallbackLines = rawLines
+      .filter((l) => !isBorderLine(l.trim()) && l.trim().length > 0)
+      .map((l) => l.trim().replace(/^[\-*\u2022•\d+\.\s]+/, "").trim())
+      .filter(Boolean);
+
+    if (fallbackLines.length > 0) {
+      fallbackLines.forEach((fText, idx) => {
+        levels.push({
+          levelIndex: idx + 1,
+          nodes: [{ id: `fb-${idx + 1}`, title: fText }],
+        });
+      });
     }
-    steps.push({
-      stepNumber: stepNum,
-      text: cleanT,
-      connectorText: "",
-    });
   }
 
-  const isDiagram = steps.length > 0;
-  return { isDiagram, title, steps };
+  const isDiagram =
+    levels.length >= 2 ||
+    (levels.length === 1 &&
+      (levels[0].nodes.length >= 2 ||
+        !!levels[0].connectorText ||
+        !!levels[0].nodes[0]?.resultText ||
+        !!levels[0].nodes[0]?.subtext));
+
+  return { isDiagram, title, levels, rawText };
 }
 
 interface EbdDiagramBlockProps {
@@ -127,10 +276,17 @@ export const EbdDiagramBlock: React.FC<EbdDiagramBlockProps> = ({
 
   const parsed = parseAsciiDiagram(codeText);
 
-  // If parsing as steps failed, or user chooses text mode:
+  // If it's not a real diagram, render cleanly as standard paragraph text
+  if (!parsed.isDiagram) {
+    return (
+      <div className="my-2 text-gray-800 dark:text-gray-300 text-lg md:text-xl leading-relaxed text-justify outline-none">
+        {parseInline(codeText)}
+      </div>
+    );
+  }
+
   const renderVisualContent = () => {
-    if (!parsed.isDiagram || parsed.steps.length === 0) {
-      // Fallback clean pre box with wrapped text for non-step diagrams
+    if (!parsed.isDiagram || parsed.levels.length === 0) {
       return (
         <div className="p-4 md:p-6 bg-[#FDFBF7] dark:bg-[#141414] rounded-xl border border-[#C5A059]/30 text-left overflow-x-auto">
           <pre className="font-mono text-xs md:text-sm leading-relaxed text-[#8B0000] dark:text-[#C5A059] whitespace-pre-wrap break-words">
@@ -141,60 +297,119 @@ export const EbdDiagramBlock: React.FC<EbdDiagramBlockProps> = ({
     }
 
     return (
-      <div className="flex flex-col gap-3 w-full my-2">
-        {parsed.steps.map((step, idx) => (
-          <React.Fragment key={idx}>
-            {/* Step Card */}
-            <div className="group relative bg-gradient-to-r from-[#FDFBF7] via-white to-[#FDFBF7] dark:from-[#18181b] dark:via-[#1e1e24] dark:to-[#18181b] p-4 md:p-6 rounded-2xl border-2 border-[#C5A059]/40 dark:border-[#C5A059]/30 shadow-md hover:shadow-lg transition-all flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full">
-              {/* Step Badge */}
-              <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-[#C5A059] to-[#8B0000] text-white font-cinzel font-bold text-xs md:text-sm flex items-center justify-center shadow-md ring-2 ring-[#C5A059]/20">
-                {String(step.stepNumber).padStart(2, "0")}
-              </div>
+      <div className="flex flex-col items-center gap-4 w-full my-3 select-text">
+        {parsed.levels.map((level, lIdx) => {
+          const isBranching = level.nodes.length >= 2;
 
-              {/* Step Text Content */}
-              <div className="flex-1 text-left font-serif text-sm md:text-base leading-relaxed text-gray-900 dark:text-gray-100 font-medium">
-                {parseInline(step.text)}
-              </div>
-            </div>
+          return (
+            <React.Fragment key={`level-${lIdx}`}>
+              {/* Connector from previous level */}
+              {lIdx > 0 && (
+                <div className="flex flex-col items-center justify-center my-1 relative py-1 w-full max-w-md">
+                  {/* Vertical Glowing Line */}
+                  <div className="w-0.5 h-6 bg-gradient-to-b from-[#C5A059] to-[#8B0000] dark:from-[#C5A059] dark:to-[#EEDC9A]" />
 
-            {/* Connector Arrow & Pill Badge between steps */}
-            {idx < parsed.steps.length - 1 && (
-              <div className="flex flex-col items-center justify-center my-1 relative py-1">
-                {/* Vertical Line */}
-                <div className="w-0.5 h-6 bg-gradient-to-b from-[#C5A059] to-[#8B0000]/60 dark:from-[#C5A059]/80 dark:to-[#C5A059]/20" />
+                  {/* Connector Badge */}
+                  {level.connectorText ? (
+                    <div className="my-1.5 px-4 py-1.5 rounded-full bg-[#8B0000] dark:bg-[#C5A059] text-white dark:text-gray-950 font-cinzel text-xs md:text-sm font-bold tracking-wide shadow-lg uppercase border border-amber-200/40 dark:border-amber-900/40 animate-in fade-in duration-300 max-w-[95%] text-center break-words">
+                      {parseInline(level.connectorText)}
+                    </div>
+                  ) : (
+                    <div className="p-1 rounded-full bg-[#C5A059]/20 text-[#C5A059] my-0.5">
+                      <ChevronDown className="w-4 h-4 text-[#C5A059] animate-bounce" />
+                    </div>
+                  )}
 
-                {/* Optional Connector Pill */}
-                {step.connectorText ? (
-                  <div className="my-1 px-3 py-1 rounded-full bg-[#8B0000] dark:bg-[#C5A059] text-white dark:text-gray-950 font-cinzel text-[11px] md:text-xs font-bold tracking-wide shadow-md uppercase border border-amber-200/30 dark:border-amber-900/30 animate-in fade-in duration-300 max-w-[90%] text-center break-words">
-                    {parseInline(step.connectorText)}
+                  <div className="w-0.5 h-4 bg-gradient-to-b from-[#8B0000] to-[#C5A059] dark:from-[#C5A059] dark:to-[#C5A059]/60" />
+                </div>
+              )}
+
+              {/* Branching Header Indicator */}
+              {isBranching && (
+                <div className="flex items-center justify-center gap-2 my-1 w-full">
+                  <div className="h-[1px] flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-[#C5A059]/50" />
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C5A059]/15 border border-[#C5A059]/30 text-[#C5A059] text-[11px] font-cinzel font-bold tracking-widest uppercase">
+                    <GitFork className="w-3.5 h-3.5" />
+                    <span>Ramificação / Subdivisões ({level.nodes.length} Ramos)</span>
                   </div>
-                ) : (
-                  <div className="p-1 rounded-full bg-[#C5A059]/20 text-[#C5A059] my-0.5">
-                    <ChevronDown className="w-4 h-4 text-[#C5A059] animate-bounce" />
-                  </div>
-                )}
+                  <div className="h-[1px] flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-[#C5A059]/50" />
+                </div>
+              )}
 
-                {/* Vertical Bottom Segment */}
-                {step.connectorText && (
-                  <div className="w-0.5 h-4 bg-gradient-to-b from-[#8B0000]/60 to-[#C5A059] dark:from-[#C5A059]/60 dark:to-[#C5A059]" />
-                )}
+              {/* Level Nodes Container */}
+              <div
+                className={`w-full ${
+                  isBranching
+                    ? `grid grid-cols-1 sm:grid-cols-${Math.min(
+                        level.nodes.length,
+                        3
+                      )} gap-4 sm:gap-6`
+                    : "flex flex-col items-center"
+                }`}
+              >
+                {level.nodes.map((node, nIdx) => (
+                  <div
+                    key={node.id}
+                    className={`group relative bg-gradient-to-br from-[#FFFDF9] via-white to-[#FDF9F0] dark:from-[#1a1a1e] dark:via-[#161619] dark:to-[#121214] p-4 md:p-6 rounded-2xl border-2 border-[#C5A059]/50 dark:border-[#C5A059]/40 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between w-full ${
+                      !isBranching ? "max-w-2xl" : ""
+                    }`}
+                  >
+                    {/* Top Row: Badge + Node Title */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-[#C5A059] to-[#8B0000] text-white font-cinzel font-black text-xs md:text-sm flex items-center justify-center shadow-md border border-amber-200/40">
+                        {isBranching
+                          ? `${String(level.levelIndex).padStart(
+                              2,
+                              "0"
+                            )}.${String.fromCharCode(65 + nIdx)}`
+                          : String(level.levelIndex).padStart(2, "0")}
+                      </div>
+
+                      <div className="flex-1 text-left">
+                        <h4 className="font-cinzel font-bold text-base md:text-lg leading-snug text-[#8B0000] dark:text-[#EEDC9A] tracking-wide">
+                          {parseInline(node.title)}
+                        </h4>
+
+                        {/* Subtext description if present */}
+                        {node.subtext && (
+                          <div className="mt-2 text-xs md:text-sm text-gray-800 dark:text-gray-200 font-serif italic bg-[#C5A059]/10 dark:bg-[#C5A059]/15 p-2.5 rounded-xl border-l-4 border-[#C5A059] leading-relaxed">
+                            {parseInline(node.subtext)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Result / Arrow Consequence if present */}
+                    {node.resultText && (
+                      <div className="mt-3.5 pt-3 border-t border-[#C5A059]/20 flex items-center gap-2 text-xs md:text-sm text-emerald-800 dark:text-emerald-300 font-medium bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-500/30">
+                        <ArrowRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                        <span className="leading-snug">
+                          <strong className="font-cinzel font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider text-[11px] block sm:inline mr-1">
+                            Resultado / Implicação:
+                          </strong>
+                          {parseInline(node.resultText)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            )}
-          </React.Fragment>
-        ))}
+            </React.Fragment>
+          );
+        })}
       </div>
     );
   };
 
   return (
     <>
-      <div className="w-full my-6 rounded-2xl border-2 border-[#C5A059]/40 dark:border-[#C5A059]/30 bg-[#FDFBF7]/90 dark:bg-[#121214] shadow-xl overflow-hidden transition-all">
+      <div className="w-full my-6 rounded-2xl border-2 border-[#C5A059]/40 dark:border-[#C5A059]/30 bg-[#FDFBF7]/95 dark:bg-[#121214] shadow-xl overflow-hidden transition-all">
         {/* Top Header Controls Bar */}
         <div className="px-4 py-3 bg-gradient-to-r from-[#2A1810] via-[#3D2314] to-[#2A1810] border-b border-[#C5A059]/30 flex items-center justify-between text-white">
           <div className="flex items-center gap-2 min-w-0">
-            <Workflow className="w-4 h-4 text-[#C5A059] flex-shrink-0" />
+            <Workflow className="w-4.5 h-4.5 text-[#C5A059] flex-shrink-0 animate-pulse" />
             <h4 className="font-cinzel text-xs md:text-sm font-bold tracking-wide text-[#FDFBF7] truncate">
-              {parsed.title || "Esquema / Fluxograma Teológico"}
+              {parsed.title || "ESQUEMA & FLUXOGRAMA TEOLÓGICO"}
             </h4>
           </div>
 
@@ -202,9 +417,15 @@ export const EbdDiagramBlock: React.FC<EbdDiagramBlockProps> = ({
             {/* Toggle Mode Button */}
             {parsed.isDiagram && (
               <button
-                onClick={() => setViewMode(viewMode === "visual" ? "text" : "visual")}
+                onClick={() =>
+                  setViewMode(viewMode === "visual" ? "text" : "visual")
+                }
                 className="px-2.5 py-1 rounded-lg text-[11px] font-sans font-medium bg-white/10 hover:bg-white/20 text-amber-200 border border-amber-500/30 flex items-center gap-1.5 transition-all"
-                title={viewMode === "visual" ? "Ver Texto Original" : "Ver Infográfico"}
+                title={
+                  viewMode === "visual"
+                    ? "Ver Texto Original ASCII"
+                    : "Ver Infográfico Visual"
+                }
               >
                 {viewMode === "visual" ? (
                   <>

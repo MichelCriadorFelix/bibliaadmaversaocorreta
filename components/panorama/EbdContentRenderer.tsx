@@ -429,7 +429,53 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
           tr.startsWith("+---") ||
           (tr.startsWith("|") && tr.indexOf("|", 1) !== -1);
 
-        if (isTableLine) {
+        // Explicit check for ASCII diagram connectors (e.g. arrows, vertical bars, or code blocks)
+        // Note: MUST NOT match glossary items like [[ Term | Description ]] or [ Word ]
+        const isAsciiConnectorLine = (str: string) => {
+          const t = str.trim();
+          if (!t) return false;
+          if (t.startsWith("[[") || t.startsWith("[")) return false; // Ignore glossary terms!
+          return (
+            t.includes("--->") ||
+            t.includes("===>") ||
+            /^[│||\-+=#\s\u2500-\u257F▼v\>\<]+$/.test(t)
+          );
+        };
+
+        if (isAsciiConnectorLine(tr)) {
+          // Peek ahead to see if there are consecutive diagram lines
+          let j = i;
+          const diagLines = [];
+          while (j < rawLines.length) {
+            const nextLine = rawLines[j];
+            const trNext = nextLine.trim();
+            if (trNext.length === 0) break;
+            if (
+              isAsciiConnectorLine(trNext) ||
+              trNext.startsWith("(") ||
+              trNext.startsWith("+") ||
+              trNext.startsWith("|") ||
+              trNext.startsWith("v") ||
+              trNext.startsWith("▼")
+            ) {
+              diagLines.push(nextLine);
+              j++;
+            } else {
+              break;
+            }
+          }
+
+          if (diagLines.length >= 2) {
+            groupedBlocks.push({
+              type: "code",
+              text: diagLines.join("\n"),
+              originalIndex: i,
+            });
+            i = j - 1;
+          } else {
+            groupedBlocks.push({ type: "line", text: line, originalIndex: i });
+          }
+        } else if (isTableLine) {
           // Peek ahead to see if there are consecutive table lines
           let j = i;
           const tableLines = [];
@@ -564,14 +610,10 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             <div
               key={`table-${groupIdx}`}
               id={`read-block-${idx}`}
-              className={`my-8 relative group ${activeClass}`}
+              className={`my-8 relative group ${activeClass} w-full`}
             >
               {renderAnnotationButton()}
-              <div className="bg-gray-50 dark:bg-black/50 p-4 md:p-6 rounded-xl overflow-x-auto font-mono text-sm md:text-base leading-snug shadow-inner border border-[#C5A059]/20 mt-2">
-                <pre className="text-gray-800 dark:text-gray-200 block whitespace-pre">
-                  {block.text}
-                </pre>
-              </div>
+              <EbdDiagramBlock codeText={block.text} parseInline={parseInline} />
             </div>
           );
         }
