@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Sparkles, Plus, Edit, PenLine } from "lucide-react";
 import { db } from "../../services/database";
 import { AnnotationModal } from "./AnnotationModal";
+import { EbdDiagramBlock } from "./EbdDiagramBlock";
 
 interface EbdContentRendererProps {
   pages: string[];
@@ -550,14 +551,10 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             <div
               key={`code-${groupIdx}`}
               id={`read-block-${idx}`}
-              className={`my-12 relative group ${activeClass} w-full`}
+              className={`my-8 relative group ${activeClass} w-full`}
             >
               {renderAnnotationButton()}
-              <div className="bg-gradient-to-b from-[#FDFBF7] to-[#F5F5DC]/30 dark:from-[#121212] dark:to-[#1a1a1a] p-4 md:p-8 rounded-2xl overflow-x-auto shadow-inner border-2 border-[#C5A059]/30 mx-auto max-w-full flex justify-center text-center">
-                <pre className="font-mono text-[10px] md:text-sm leading-relaxed text-[#8B0000] dark:text-[#C5A059] inline-block text-left whitespace-pre">
-                  <code>{codeClean}</code>
-                </pre>
-              </div>
+              <EbdDiagramBlock codeText={codeClean} parseInline={parseInline} />
             </div>
           );
         }
