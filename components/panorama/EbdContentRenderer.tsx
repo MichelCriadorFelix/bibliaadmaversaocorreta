@@ -610,10 +610,14 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             <div
               key={`table-${groupIdx}`}
               id={`read-block-${idx}`}
-              className={`my-8 relative group ${activeClass} w-full`}
+              className={`my-8 relative group ${activeClass}`}
             >
               {renderAnnotationButton()}
-              <EbdDiagramBlock codeText={block.text} parseInline={parseInline} />
+              <div className="bg-gray-50 dark:bg-black/50 p-4 md:p-6 rounded-xl overflow-x-auto font-mono text-sm md:text-base leading-snug shadow-inner border border-[#C5A059]/20 mt-2">
+                <pre className="text-gray-800 dark:text-gray-200 block whitespace-pre">
+                  {block.text}
+                </pre>
+              </div>
             </div>
           );
         }

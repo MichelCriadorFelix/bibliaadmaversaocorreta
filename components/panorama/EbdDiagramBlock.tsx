@@ -39,7 +39,7 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
     return { isDiagram: false, title: "", levels: [], rawText };
   }
 
-  // Helper: check if a line is purely ASCII box borders (e.g. +-----+ or +==============+)
+  // Filter out lines that are purely ASCII box top/bottom borders (e.g. +-----+ or +==============+)
   const isBorderLine = (str: string) => {
     const s = str.trim();
     return (
@@ -47,94 +47,10 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
       !s.includes("[") &&
       !s.includes("]") &&
       !s.includes("(") &&
-      !s.includes(")") &&
-      !/[a-zA-Z0-9]/.test(s)
+      !s.includes(")")
     );
   };
 
-  // ----------------------------------------------------------------------
-  // STRATEGY 1: ASCII Pipe Box Table (e.g. +------+ with | col 1 | col 2 |)
-  // ----------------------------------------------------------------------
-  const pipeLines = rawLines.filter((l) => {
-    const t = l.trim();
-    return t.startsWith("|") && t.endsWith("|") && !isBorderLine(t);
-  });
-
-  if (pipeLines.length >= 1 && (rawLines.some((l) => l.includes("+")) || pipeLines.length >= 2)) {
-    let title = "";
-    const contentRows: string[][] = [];
-
-    for (const l of pipeLines) {
-      const rawCells = l.split("|");
-      if (rawCells.length >= 3) {
-        // remove first and last empty elements produced by outer |
-        const cells = rawCells.slice(1, rawCells.length - 1).map((c) => c.trim());
-        if (cells.length === 1 && cells[0].length > 0 && !title && contentRows.length === 0) {
-          title = cells[0];
-        } else if (cells.some((c) => c.length > 0)) {
-          contentRows.push(cells);
-        }
-      }
-    }
-
-    if (contentRows.length > 0) {
-      const maxCols = Math.max(...contentRows.map((r) => r.length));
-
-      if (maxCols >= 1) {
-        const columnItems: { title: string; subtexts: string[]; resultText?: string }[] = [];
-
-        for (let colIdx = 0; colIdx < maxCols; colIdx++) {
-          const colLines: string[] = [];
-          for (const row of contentRows) {
-            const val = row[colIdx] || "";
-            if (val) colLines.push(val);
-          }
-
-          if (colLines.length > 0) {
-            const colTitle = colLines[0];
-            let resultText: string | undefined = undefined;
-            const subtexts: string[] = [];
-
-            for (let k = 1; k < colLines.length; k++) {
-              const line = colLines[k];
-              const resMatch = line.match(/^(?:Resultado|Consequência|Implicação|Efeito|->|--->|=>|===>)[:\s]*(.*)/i);
-              if (resMatch && resMatch[1]) {
-                resultText = resMatch[1].trim();
-              } else {
-                subtexts.push(line);
-              }
-            }
-
-            columnItems.push({
-              title: colTitle,
-              subtexts,
-              resultText,
-            });
-          }
-        }
-
-        if (columnItems.length > 0) {
-          const nodes: DiagramNode[] = columnItems.map((item, idx) => ({
-            id: `box-node-${idx + 1}`,
-            title: item.title,
-            subtext: item.subtexts.length > 0 ? item.subtexts.join(" • ") : undefined,
-            resultText: item.resultText,
-          }));
-
-          return {
-            isDiagram: true,
-            title,
-            levels: [{ levelIndex: 1, nodes }],
-            rawText,
-          };
-        }
-      }
-    }
-  }
-
-  // ----------------------------------------------------------------------
-  // STRATEGY 2: Bracket & Arrow Flow Diagram ([Node], ▼, --->)
-  // ----------------------------------------------------------------------
   let title = "";
   let startIndex = 0;
 
@@ -160,15 +76,18 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
     const line = rawLines[i].trim();
     if (!line) continue;
 
+    // Check if line contains bracketed nodes like [ Node Title ]
     const bracketMatches = Array.from(line.matchAll(/\[([^\]]+)\]/g));
 
     if (bracketMatches.length > 0) {
+      // It's a level line with nodes!
       const levelNodes: DiagramNode[] = [];
 
       for (let mIdx = 0; mIdx < bracketMatches.length; mIdx++) {
         const match = bracketMatches[mIdx];
         const rawNodeTitle = match[1].trim();
 
+        // Check if there is an inline result arrow after this node on the same line (e.g., ---> Result)
         let resultText = "";
         const afterBracketIndex = (match.index || 0) + match[0].length;
         const lineAfter = line.slice(afterBracketIndex);
@@ -184,6 +103,7 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
         });
       }
 
+      // Check the NEXT line for parenthetical subtexts (e.g., (Santo vs. Profano) (Limpo vs. Impuro))
       if (i + 1 < rawLines.length) {
         const nextLine = rawLines[i + 1].trim();
         if (
@@ -197,13 +117,14 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
               if (levelNodes[pIdx]) {
                 levelNodes[pIdx].subtext = pMatch[1].trim();
               } else if (levelNodes.length > 0) {
+                // If there are more subtexts than nodes, append to the last node
                 const lastNode = levelNodes[levelNodes.length - 1];
                 lastNode.subtext = lastNode.subtext
                   ? `${lastNode.subtext} | ${pMatch[1].trim()}`
                   : pMatch[1].trim();
               }
             });
-            i++;
+            i++; // Skip the next line as we consumed it as subtext
           }
         }
       }
@@ -216,8 +137,10 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
 
       pendingConnectorText = "";
     } else {
+      // It's a connector line, arrow line, or subtext line
       if (isBorderLine(line)) continue;
 
+      // Extract text inside parentheses on connector lines, e.g. ▼ (Removidos por Misael e Elzafã) or (Lv 9:22)
       const connParenMatch = line.match(/\((.*?)\)/);
       if (connParenMatch && connParenMatch[1]) {
         pendingConnectorText = connParenMatch[1].trim();
@@ -232,9 +155,7 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
     }
   }
 
-  // ----------------------------------------------------------------------
-  // STRATEGY 3: Fallback sequential steps
-  // ----------------------------------------------------------------------
+  // Fallback: If no bracketed nodes found, parse bullet points or plain lines as sequential steps
   if (levels.length === 0) {
     const fallbackLines = rawLines
       .filter((l) => !isBorderLine(l.trim()) && l.trim().length > 0)
@@ -251,6 +172,7 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
     }
   }
 
+  // Strict check for real diagrams: Must have at least 2 levels OR multiple nodes/connectors/results
   const isDiagram =
     levels.length >= 2 ||
     (levels.length === 1 &&
