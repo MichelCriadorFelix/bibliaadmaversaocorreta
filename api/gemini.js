@@ -541,11 +541,12 @@ export default async function handler(request, response) {
         ATUE COMO: Professor Michel Felix.
         PERFIL: Teólogo Erudito, Exegeta Sênior, Doutor em Bíblia e História Antiga, com Didática Magistral de Elite (Padrão Ouro EBD Panorama).
         
-        DIRETRIZ SUPREMA - O EFEITO "AH! ENTENDI!":
-        1. DIDÁTICA CRISTALINA: O seu objetivo principal é fazer o aluno ter uma revelação clara do texto, gerando aquele momento mágico: "Ah! Agora eu entendi por que Deus ordenou isso!".
-        2. O PORQUÊ DE CADA COISA: Nunca mencione um rito, sacrifício, lei, costume ou expressão sem explicar a razão de ser, a raiz espiritual e o contexto cultural por trás.
+        DIRETRIZ PEDAGÓGICA SUPREMA (100% IMPLÍCITA):
+        1. CLAREZA E REVELAÇÃO EXEGÉTICA: O seu objetivo pedagógico é destrinchar cada detalhe do texto de forma tão clara e profunda que o leitor compreenda instantaneamente a razão de ser de cada mandamento, ritual e costume divino.
+        2. O PORQUÊ DE CADA DETALHE: Nunca mencione um rito, sacrifício, lei ou costume sem explicar a raiz espiritual, o significado simbólico e o contexto histórico cultural.
         3. ENUMERAÇÃO DIDÁTICA: Quando explicar sequências de versículos, mandamentos, passos ou elementos rituais/teológicos, use SEMPRE listas numeradas (1., 2., 3...) com parágrafos explicativos claros e completos para cada item, em vez de aglomerar tudo em texto corrido.
-        4. PRIORIDADE MÁXIMA PARA AS INSTRUÇÕES CUSTOMIZADAS DO PROFESSOR: Caso haja instruções customizadas no pedido (ex: foco especial em versículos específicos, explicações detalhadas, ênfases), obedeça-as com rigor cirúrgico absoluto.
+        4. PROIBIÇÃO ABSOLUTA DE METALINGUAGEM: Termos como "Efeito Ah! Entendi", "Ah! Entendi", "Padrão Ouro", "Metrado", "Instruções Customizadas", "Diretriz do Professor" pertencem estritamente aos bastidores e JAMAIS podem ser escritos, mencionados ou usados como títulos, subtítulos ou no corpo do texto final. A didática deve ser 100% natural, fluida, reverente e teológica.
+        5. PRIORIDADE MÁXIMA PARA AS ORIENTAÇÕES DO PROFESSOR: Caso haja ênfases específicas no pedido (ex: foco especial em versículos específicos, explicações detalhadas de pontos difíceis), aplique-as com rigor cirúrgico.
 
         INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
 
@@ -571,7 +572,7 @@ export default async function handler(request, response) {
         1. TÍTULO PRINCIPAL: # PANORAMA BÍBLICO - ${book ? book.toUpperCase() : 'BÍBLIA'} ${chapter || ''} (PROF. MICHEL FELIX)
         ${introInstruction}
         3. TÓPICOS DO ESTUDO: ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: ${book || 'Livro'} X:Y-Z)
-           - Desenvolva cada tópico com subtópicos ### se necessário, destrinchando os versículos, aplicando o efeito 'Ah! Entendi!', inserindo listas enumeradas explicativas, glossários [[Termo|Significado]] e Pérolas de Ouro {{Autor|Ref|Comando}}.
+           - Desenvolva cada tópico com subtópicos ### temáticos descritivos quando necessário, destrinchando os versículos com profundidade, listas enumeradas explicativas, glossários [[Termo|Significado]] e Pérolas de Ouro {{Autor|Ref|Comando}}.
         4. SEÇÕES FINAIS:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
            ### CURIOSIDADES E ARQUEOLOGIA (Numerada 1., 2., 3...)
@@ -579,7 +580,7 @@ export default async function handler(request, response) {
                 systemInstruction = WRITING_STYLE;
                 if (isUpgrade) {
                     enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO - ALVO EXATO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]: 
-                    Aplique todas as diretrizes do Professor Michel Felix (Efeito 'Ah! Entendi!', explicação detalhada dos porquês, enumerações onde aplicável, glossários interativos [[Termo|Explicação]], fontes {{Autor|Ref|Comando}}, pérolas de ouro e tipologia).
+                    Aplique todas as diretrizes do Professor Michel Felix (explicação detalhada dos porquês, clareza máxima, enumerações onde aplicável, glossários interativos [[Termo|Explicação]], fontes {{Autor|Ref|Comando}}, pérolas de ouro e tipologia). Nunca inclua termos de metalinguagem no texto.
                     
                     SOLICITAÇÃO / TEXTO DA AULA PARA ATUALIZAR:
                     """
@@ -597,8 +598,8 @@ export default async function handler(request, response) {
                     
                     DIRETRIZES FINAIS DE EXECUÇÃO:
                     1. Execute a exegese completa do capítulo solicitado (${book || ''} ${chapter || ''}) obedecendo estritamente a quaisquer instruções e ênfases fornecidas acima.
-                    2. Gere o EFEITO "AH! ENTENDI!": destrinche os versículos de forma clara, explicando o porquê de cada detalhe com listas enumeradas explicativas onde for didático.
-                    3. Aplique o Glossário Interativo [[Termo|Explicação]] em abundância.
+                    2. Clareza Didática Absoluta: destrinche os versículos de forma profunda e cristalina, explicando a razão de cada detalhe com listas enumeradas explicativas onde for didático. Nunca use rótulos de metalinguagem (como 'Ah! Entendi' ou 'Efeito Ah Entendi').
+                    3. Aplique o Glossário Interativo [[Termo|Explicação]] em abundância ao longo do texto.
                     4. Insira as Pérolas de Ouro no formato {{Autor ou Obra | Ref | Comando Oculto}}.
                     5. Encerre obrigatoriamente com "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA".
                     6. Mantenha o tamanho rigorosamente entre ${minWords} e ${maxWords} palavras (${pages} páginas).`;
@@ -765,8 +766,16 @@ export default async function handler(request, response) {
     }
 
     if (successResponse) {
+        // Sanitização de Metalinguagem: remove qualquer vazamento acidental de termos internos de instrução
+        let sanitizedText = successResponse
+            .replace(/(###?\s*)?O\s+EFEITO\s+["'“”]?AH!?\s*ENTENDI!?["'“”]?\s*:\s*/gi, '$1')
+            .replace(/(###?\s*)?EFEITO\s+["'“”]?AH!?\s*ENTENDI!?["'“”]?\s*:\s*/gi, '$1')
+            .replace(/["'“”]?EFEITO\s+AH!?\s*ENTENDI!?["'“”]?/gi, '')
+            .replace(/\bPADRÃO\s+OURO\s*:\s*/gi, '')
+            .replace(/\bMETRADO\s+RESTRITO\s*:\s*/gi, '');
+
         return response.status(200).json({ 
-            text: successResponse, 
+            text: sanitizedText, 
             rotationLog: triedKeysLog,
             poolTotal: uniqueKeys.length 
         });
