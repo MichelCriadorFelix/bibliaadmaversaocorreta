@@ -695,10 +695,14 @@ export default async function handler(request, response) {
     const failedHashes = [];
     const functionStartTime = Date.now();
 
-    // Timeout por chave calibrado (Expandido para 180s devido ao alto volume de tokens do Marco Teológico)
-    const isDeepTask = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd');
-    const isDictionaryTask = (taskType === 'dictionary');
-    const perKeyTimeoutMs = isDeepTask ? 180000 : (isDictionaryTask ? 30000 : 20000);
+    // Teto único de tempo por chave, alinhado ao maxDuration real da função (300s), com margem
+    // de segurança para overhead (leitura de chaves, Supabase, serialização da resposta).
+    // Não é mais calibrado por tipo de tarefa: isso exigia medir e recalibrar toda vez que o
+    // tempo real de geração mudava (aconteceu com EBD e de novo com quiz_gen) e sempre quebrava
+    // de novo. Uma resposta rápida retorna na hora de qualquer forma — o teto é só uma rede de
+    // segurança contra travamento, não um limite de performance, então não custa deixá-lo alto
+    // para toda tarefa.
+    const perKeyTimeoutMs = 280000;
 
     for (const apiKey of keysToTryInThisInvocation) {
         const currentHash = hashKey(apiKey);

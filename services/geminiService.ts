@@ -81,7 +81,7 @@ export const generateContent = async (
             }, 3500);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 250000); // 250s dedicados (Para acompanhar o timeout expandido do backend de 180s+)
+            const timeoutId = setTimeout(() => controller.abort(), 295000); // 295s — o backend agora usa um teto único de 280s para qualquer tarefa; o cliente precisa esperar um pouco mais que isso pra nunca desistir antes do servidor.
             
             const response = await fetch('/api/gemini', {
                 method: 'POST',
