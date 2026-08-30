@@ -657,8 +657,8 @@ export default async function handler(request, response) {
                 config.responseSchema = schema;
             }
 
-            // Modelo Exclusivo: Gemini 3.7 Flash (Sem rebaixamento ou fallback para outros modelos)
-            const TARGET_MODEL = 'gemini-3.7-flash';
+            // Modelo Exclusivo: Gemini 3.6 Flash (Sem rebaixamento ou fallback para outros modelos)
+            const TARGET_MODEL = 'gemini-3.6-flash';
 
             const generatePromise = ai.models.generateContent({
                 model: TARGET_MODEL,
