@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BIBLE_BOOKS, generateChapterKey } from '../constants';
 import { useEbdData } from './useEbdData';
 import { useThematicData } from './useThematicData';
@@ -244,11 +244,22 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     // Carrega (do cache) ou gera sob demanda a sugestão de pontos de atenção deste capítulo,
     // só quando o painel de admin de EBD/Panorama é relevante (student/teacher). Falha
     // silenciosamente — é uma sugestão opcional, nunca deve travar ou poluir o fluxo principal.
+    //
+    // GUARDA CONTRA CONDIÇÃO DE CORRIDA: como o Panorama sempre abre em Gênesis 1 por padrão,
+    // navegar até o capítulo desejado (ex: Levítico 4) dispara uma geração PARA CADA capítulo
+    // pelo qual se passa no caminho. Sem essa guarda, uma resposta de um capítulo ANTERIOR podia
+    // chegar DEPOIS da resposta do capítulo atual (ordem de rede não é garantida) e sobrescrever
+    // a sugestão certa com uma de outro capítulo — era exatamente o "muda pra outra do nada".
+    // latestRequestKeyRef sempre guarda a chave do ÚLTIMO capítulo pedido; qualquer resposta que
+    // chegue depois de a chave ter mudado é silenciosamente descartada.
+    const latestRequestKeyRef = useRef<string>('');
     const loadOrGenerateFocusSuggestion = useCallback(async (b: string, c: number) => {
         const key = generateChapterKey(b, c);
+        latestRequestKeyRef.current = key;
         setChapterFocusSuggestion(null);
         try {
             const cached = await db.entities.ChapterFocusSuggestion.get(key);
+            if (latestRequestKeyRef.current !== key) return; // capítulo já mudou, descarta
             if (cached && cached.suggestion) {
                 setChapterFocusSuggestion(cached.suggestion);
                 return;
@@ -257,6 +268,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             // sem cache disponível, segue para gerar
         }
 
+        if (latestRequestKeyRef.current !== key) return; // capítulo já mudou, nem começa a gerar
         setIsLoadingFocusSuggestion(true);
         try {
             const text = await generateContent(
@@ -268,13 +280,17 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             );
             const clean = typeof text === 'string' ? text.trim() : '';
             if (clean) {
-                setChapterFocusSuggestion(clean);
                 db.entities.ChapterFocusSuggestion.save({ chapter_key: key, book: b, chapter: c, suggestion: clean }).catch(() => {});
+                if (latestRequestKeyRef.current === key) {
+                    setChapterFocusSuggestion(clean);
+                }
             }
         } catch (e) {
             // Silencioso de propósito: não deve gerar toast de erro para uma sugestão opcional
         } finally {
-            setIsLoadingFocusSuggestion(false);
+            if (latestRequestKeyRef.current === key) {
+                setIsLoadingFocusSuggestion(false);
+            }
         }
     }, []);
 
