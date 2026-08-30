@@ -200,8 +200,19 @@ export default async function handler(request, response) {
             }
             // --- SUGESTÃO DE PONTOS DE ATENÇÃO POR CAPÍTULO (pré-preenche "Instruções Customizadas") ---
             else if (taskType === 'chapter_focus_suggestion') {
-                systemInstruction = "Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito. Aqui sua única tarefa é SUGERIR pontos de atenção para outro professor que vai preparar uma aula — você NÃO está escrevendo a aula em si, só uma lista curta de orientação.";
-                enhancedPrompt = `Para uma aula sobre ${book || ''} ${chapter || ''}, liste em até 4 itens curtos (uma linha cada, sem numeração, começando com "- ") os pontos que merecem atenção especial nesse capítulo: passagens teologicamente sensíveis ou frequentemente mal interpretadas, curiosidades histórico-arqueológicas notáveis, termos originais (hebraico/grego) que valem destaque, ou conexões bíblicas menos óbvias. Seja direto e específico deste capítulo — nada genérico que serviria para qualquer capítulo. Sem introduções, sem saudações, vá direto para a lista.`;
+                systemInstruction = `Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito, operando sob a mesma lente doutrinária do motor principal (Arminiano, Pré-tribulacionista/Pré-milenista, Ortodoxo/Trinitariano, Pentecostal Continuísta, Apologeta Anti-heresias, Hermenêutica de Alta Precisão).
+
+                Aqui sua única tarefa é SUGERIR, em tópicos curtos, pontos de atenção para OUTRO PROFESSOR que vai preparar a aula — você NÃO está escrevendo a aula em si, nem uma explicação teológica completa, só um mapa rápido do que vale a pena focar.`;
+                enhancedPrompt = `Para uma aula sobre ${book || ''} ${chapter || ''}, liste de 4 a 6 itens curtos (uma linha cada, sem numeração, começando com "- ") apontando o que merece atenção especial NESTE capítulo específico. Escolha, entre os que realmente se aplicarem a este capítulo (não force todos, alguns capítulos não têm heresia associada, por exemplo):
+
+1. TEMA DOUTRINÁRIO RELEVANTE: se o capítulo toca algum tema que está na lente doutrinária do sistema (ex: soteriologia, escatologia, dons espirituais, natureza de Cristo), aponte que vale reforçar esse ponto na aula — sem escrever a explicação inteira, só sinalizar.
+2. HERESIA OU CORRENTE INTERPRETATIVA PROBLEMÁTICA: se alguma passagem deste capítulo é historicamente associada a uma interpretação heterodoxa ou heresia (ex: usada por algum grupo pra defender algo fora da ortodoxia), cite EM POUCAS PALAVRAS qual é essa corrente e qual é a refutação/interpretação correta ortodoxa — pra o professor já saber que precisa endereçar isso.
+3. CURIOSIDADE HISTÓRICO-ARQUEOLÓGICA: algo pouco óbvio sobre o contexto, costume, geografia ou achado arqueológico ligado ao capítulo.
+4. O PORQUÊ DE UM TERMO OU RITUAL: alguma palavra original (hebraico/grego) ou ritual/costume mencionado cujo significado profundo ou razão de existir vale a pena explicar (não só citar, mas o "porquê por trás").
+5. ALGO QUE SOA ESTRANHO HOJE: um costume, lei ou detalhe do texto que parece estranho, chocante ou sem sentido pra um leitor moderno, e que se beneficia de contexto explicativo.
+6. CONEXÃO QUE ESCLARECE: uma referência cruzada com outro texto bíblico, com a tradição judaica, com um historiador antigo, ou uma fonte primária que ajuda a entender melhor este capítulo.
+
+Seja direto e específico deste capítulo — nada genérico que serviria para qualquer capítulo. Sem introduções, sem saudações, sem numerar as categorias acima no texto final (elas são só um guia interno seu), vá direto para a lista de itens.`;
             }
             // --- GERADOR DE VERSÍCULOS BÍBLICOS DETALHADO ---
             else if (taskType === 'get_bible_verses') {
@@ -556,44 +567,12 @@ export default async function handler(request, response) {
         6. MENÇÕES SEM CITAÇÃO: Quando apenas mencionar um autor ou obra histórica sem citação exata, use formato de Glossário: [[Flávio Josefo | Historiador judeu do século I d.C.]].
         7. INJEÇÃO IN-LINE: Insira pelo menos 1 a 2 PÉROLAS DE OURO por tópico principal, SEMPRE no corpo do texto junto à explicação do versículo. Inicie com "**PÉROLA DE OURO:**" em negrito.
         8. GLOSSÁRIO INTERATIVO ABUNDANTE (OBRIGATÓRIO): Para qualquer termo técnico, teológico, hebraico, grego ou palavra pouco usual em português, use obrigatoriamente DOIS COLCHETES: [[Palavra/Termo | Explicação simples e didática para leigo]]. (Exemplo: [[Ontológico | Relativo à natureza essencial do ser]]). JAMAIS use colchete simples [ ] para glossário no meio do texto comum.
-        9. PROTOCOLO DE ESQUEMAS E FLUXOGRAMAS (ESTRUTURADO): Sempre que incluir um esquema teológico ou fluxograma de etapas/comparação, use a sintaxe de bloco de código \`\`\`esquema com elementos entre colchetes [ Nome do Elemento ]:
-           - Exemplo de Fluxo Linear:
-             \`\`\`esquema
-             [ Cadáveres no Santuário ]
-                    |
-                    ▼ (Removidos por Misael e Elzafã)
-             [ Fora do Arraial ] ---> Preserva a pureza do Tabernáculo
-             \`\`\`
-           - Exemplo de Ramificação (2+ colunas):
-             \`\`\`esquema
-             [ Abstinência de Vinho e Bebida Forte (Lv 10:9) ]
-                                    |
-                                    ▼ (Instrução a Israel - Lv 10:11)
-             [ Discernimento Ritual ]    [ Ensino dos Estatutos ]
-             (Santo vs. Profano)         (Limpo vs. Impuro)
-             \`\`\`
-           - Exemplo de Hierarquia/Tabela Comparativa (várias categorias com os MESMOS atributos —
-             ex: níveis de responsabilidade, tipos de oferta, categorias de pessoas): NUNCA junte
-             vários atributos numa única linha separados por barra "|". Em vez disso, cada categoria
-             é o SEU PRÓPRIO [ Nó ], seguido de uma linha "Rótulo: valor" por atributo, do maior
-             para o menor nível de responsabilidade/gravidade:
-             \`\`\`esquema
-             [ Sacerdote Ungido (v. 3-12) ]
-             Animal Requerido: Novilho sem defeito
-             Destino do Sangue: Aspergido perante o Véu
-
-             [ Toda a Congregação (v. 13-21) ]
-             Animal Requerido: Novilho sem defeito
-             Destino do Sangue: Aspergido perante o Véu
-
-             [ Líder / Príncipe (v. 22-26) ]
-             Animal Requerido: Bode (macho) sem defeito
-             Destino do Sangue: Chifres do Altar de Holocaustos
-
-             [ Cidadão Comum (v. 27-35) ]
-             Animal Requerido: Cabra ou Cordeiro (fêmea) sem defeito
-             Destino do Sangue: Chifres do Altar de Holocaustos
-             \`\`\`
+        9. PROIBIÇÃO DE ESQUEMAS/FLUXOGRAMAS EM BLOCO DE CÓDIGO: NUNCA use blocos de código
+           (\`\`\`esquema ou qualquer \`\`\`) nem "caixas" tipo [ Nó ] ---> para representar hierarquias,
+           comparações ou fluxos. Esse formato polui a aula e desperdiça palavras que deveriam ir
+           para o texto explicativo em si. Quando precisar comparar categorias, listar etapas ou
+           mostrar uma hierarquia, escreva isso como TEXTO CORRIDO ou lista numerada normal
+           (1., 2., 3...) dentro do próprio parágrafo — nunca como diagrama separado.
         10. EMBASAMENTO BÍBLICO FLUÍDO: Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
         11. SELAGEM FINAL OBRIGATÓRIA: Todo estudo encerra com:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
@@ -685,10 +664,10 @@ export default async function handler(request, response) {
             } else if (taskType === 'commentary') {
                 config.maxOutputTokens = 16384;
             } else if (taskType === 'chapter_focus_suggestion') {
-                // Resposta curta (lista de até 4 itens), mas com folga real: mesmo sem thinkingConfig
+                // Resposta curta (lista de 4-6 itens), mas com folga real: mesmo sem thinkingConfig
                 // explícito, o modelo pode gastar uma boa fatia do teto só "pensando" antes de
                 // responder — um teto pequeno demais (512) cortava a resposta no meio da frase.
-                config.maxOutputTokens = 2048;
+                config.maxOutputTokens = 3072;
             } else {
                 config.maxOutputTokens = 16384;
             }
