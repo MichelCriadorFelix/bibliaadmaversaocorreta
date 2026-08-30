@@ -568,14 +568,19 @@ Seja direto e específico deste capítulo — nada genérico que serviria para q
            - Exemplo: "...segundo {{Flávio Josefo | Antiguidades 3.8.1 | Traga o relato sobre a consagração do tabernáculo e a ordem do fogo sagrado}}, o sacerdócio..."
            - Exemplo: "...como elucida o {{Talmud | Tratado Yoma 21b | Traga a discussão sobre os milagres do fogo contínuo sobre o altar}}..."
         6. MENÇÕES SEM CITAÇÃO: Quando apenas mencionar um autor ou obra histórica sem citação exata, use formato de Glossário: [[Flávio Josefo | Historiador judeu do século I d.C.]].
-        7. INJEÇÃO IN-LINE: Insira pelo menos 1 a 2 PÉROLAS DE OURO por tópico principal, SEMPRE no corpo do texto junto à explicação do versículo. Inicie com "**PÉROLA DE OURO:**" em negrito.
+        7. INJEÇÃO IN-LINE (PROIBIDO CITAÇÃO SECA): Insira pelo menos 1 a 2 PÉROLAS DE OURO por tópico principal. "**PÉROLA DE OURO:**" NUNCA pode vir sozinho seguido apenas da citação {{...}} — isso é ERRO GRAVE. A citação {{...}} tem que estar DENTRO de uma frase completa que já explica, em português simples, o que essa fonte revela ou confirma, ANTES ou DEPOIS da citação, na MESMA linha.
+           - ERRADO (proibido): "**PÉROLA DE OURO:** {{Talmud | Tratado Shabbat 69a | ...}}"
+           - CERTO: "**PÉROLA DE OURO:** O rabino também reconhecia que um erro cometido sem querer não isenta a pessoa de reparar o mal causado, como mostra {{Talmud | Tratado Shabbat 69a | Traga a discussão sobre responsabilidade por erro involuntário}}."
         8. GLOSSÁRIO INTERATIVO ABUNDANTE (OBRIGATÓRIO): Para qualquer termo técnico, teológico, hebraico, grego ou palavra pouco usual em português, use obrigatoriamente DOIS COLCHETES: [[Palavra/Termo | Explicação simples e didática para leigo]]. (Exemplo: [[Ontológico | Relativo à natureza essencial do ser]]). JAMAIS use colchete simples [ ] para glossário no meio do texto comum.
-        9. PROIBIÇÃO DE ESQUEMAS/FLUXOGRAMAS EM BLOCO DE CÓDIGO: NUNCA use blocos de código
-           (\`\`\`esquema ou qualquer \`\`\`) nem "caixas" tipo [ Nó ] ---> para representar hierarquias,
-           comparações ou fluxos. Esse formato polui a aula e desperdiça palavras que deveriam ir
-           para o texto explicativo em si. Quando precisar comparar categorias, listar etapas ou
-           mostrar uma hierarquia, escreva isso como TEXTO CORRIDO ou lista numerada normal
-           (1., 2., 3...) dentro do próprio parágrafo — nunca como diagrama separado.
+        9. PROIBIÇÃO ABSOLUTA DE ESQUEMAS, FLUXOGRAMAS E TABELAS: NUNCA use blocos de código
+           (\`\`\`esquema ou qualquer \`\`\`), "caixas" tipo [ Nó ] ---> , NEM TABELAS EM MARKDOWN
+           (formato | Coluna 1 | Coluna 2 | com linha separadora |---|---|) para representar
+           hierarquias, comparações ou fluxos — NENHUMA DESSAS TRÊS FORMAS é permitida, sem
+           exceção. Esse formato polui a aula e desperdiça palavras que deveriam ir para o texto
+           explicativo em si. Quando precisar comparar categorias (ex: o que cada tipo de pecador
+           oferece, onde o sangue é aplicado em cada caso), escreva isso como TEXTO CORRIDO ou
+           lista numerada normal (1., 2., 3...) dentro do próprio parágrafo, frase por frase —
+           NUNCA como tabela, grade ou diagrama separado.
         10. EMBASAMENTO BÍBLICO FLUÍDO: Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
         11. SELAGEM FINAL OBRIGATÓRIA: Todo estudo encerra com:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
