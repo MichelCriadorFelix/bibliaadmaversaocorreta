@@ -69,6 +69,68 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
     startIndex = 1;
   }
 
+  // STRATEGY 0: Tabela markdown de verdade (cabeçalho | colunas | seguido de uma linha
+  // separadora ---|---|---, e depois as linhas de dados). Formato que a IA às vezes usa em vez
+  // do "[ Nó ] / Rótulo: valor" ensinado no prompt — sem isso, cai tudo como texto cru com pipes.
+  // Cada LINHA de dados vira um card (o valor da 1ª coluna é o título; as demais colunas viram
+  // fatos rotulados pelo próprio cabeçalho), reaproveitando o mesmo formato "facts" das tiers.
+  {
+    const sepIndex = rawLines.findIndex((l, idx) => {
+      if (idx <= startIndex) return false;
+      const t = l.trim();
+      return t.length > 0 && /^[-|\s]+$/.test(t) && t.includes("-") && t.includes("|");
+    });
+
+    if (sepIndex > startIndex) {
+      const headerLine = rawLines[sepIndex - 1]?.trim() || "";
+      const headerCells = headerLine.includes("|")
+        ? headerLine.split("|").map((c) => c.trim()).filter(Boolean)
+        : [];
+
+      if (headerCells.length >= 2) {
+        const dataRows: string[][] = [];
+        let k = sepIndex + 1;
+        while (k < rawLines.length) {
+          const rowLine = rawLines[k].trim();
+          if (!rowLine || !rowLine.includes("|")) break;
+          dataRows.push(rowLine.split("|").map((c) => c.trim()));
+          k++;
+        }
+
+        if (dataRows.length > 0) {
+          // Usa uma linha "[ Título ]" logo acima da tabela como título do esquema, se existir
+          let tableTitle = title;
+          for (let t = sepIndex - 2; t >= startIndex; t--) {
+            const cand = rawLines[t].trim();
+            if (!cand) continue;
+            const bracketOnly = cand.match(/^\[(.*?)\]$/);
+            if (bracketOnly) tableTitle = bracketOnly[1].trim();
+            break;
+          }
+
+          const tableLevels: DiagramLevel[] = dataRows.map((cells, rIdx) => {
+            const facts = headerCells
+              .slice(1)
+              .map((label, cIdx) => ({ label, value: cells[cIdx + 1] || "" }))
+              .filter((f) => f.value.length > 0);
+            return {
+              levelIndex: rIdx + 1,
+              nodes: [
+                {
+                  id: `table-row-${rIdx + 1}`,
+                  title: cells[0] || `Item ${rIdx + 1}`,
+                  facts,
+                },
+              ],
+            };
+          });
+
+          return { isDiagram: true, title: tableTitle, levels: tableLevels, rawText };
+        }
+      }
+    }
+  }
+
   const levels: DiagramLevel[] = [];
   let pendingConnectorText = "";
 
