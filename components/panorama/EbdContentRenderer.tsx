@@ -550,12 +550,14 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             <div
               key={`code-${groupIdx}`}
               id={`read-block-${idx}`}
-              className={`my-8 relative group ${activeClass}`}
+              className={`my-12 relative group ${activeClass} w-full`}
             >
               {renderAnnotationButton()}
-              <pre className="bg-[#1a1a1a] dark:bg-black text-[#e5e5e5] p-4 md:p-6 rounded-xl overflow-x-auto font-mono text-sm md:text-base leading-snug shadow-2xl border border-[#333] mt-2">
-                <code className="block whitespace-pre">{codeClean}</code>
-              </pre>
+              <div className="bg-gradient-to-b from-[#FDFBF7] to-[#F5F5DC]/30 dark:from-[#121212] dark:to-[#1a1a1a] p-4 md:p-8 rounded-2xl overflow-x-auto shadow-inner border-2 border-[#C5A059]/30 mx-auto max-w-full flex justify-center text-center">
+                <pre className="font-mono text-[10px] md:text-sm leading-relaxed text-[#8B0000] dark:text-[#C5A059] inline-block text-left whitespace-pre">
+                  <code>{codeClean}</code>
+                </pre>
+              </div>
             </div>
           );
         }
@@ -717,6 +719,30 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                   </div>
                 );
               })}
+            </div>
+          );
+        }
+
+        if (/^[\*\-]\s/.test(tr)) {
+          const contentPart = tr.substring(2).trim();
+          return (
+            <div
+              key={idx}
+              className={`mb-10 flex gap-4 md:gap-6 items-start animate-in slide-in-from-left-6 group ${activeClass}`}
+            >
+              <span className="font-cinzel font-black text-3xl text-[#C5A059] opacity-80 shrink-0 select-none mt-1 group-hover:text-[#8B0000] transition-colors duration-500">
+                •
+              </span>
+              <div className="flex-1 pt-1">
+                <div
+                  id={`read-block-${idx}`}
+                  className="font-cormorant text-xl md:text-2xl leading-relaxed text-gray-900 dark:text-gray-100 text-justify tracking-wide font-medium outline-none"
+                  style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}
+                >
+                  {renderAnnotationButton()}
+                  {renderLineWithHighlights(idx, parseInline(contentPart))}
+                </div>
+              </div>
             </div>
           );
         }

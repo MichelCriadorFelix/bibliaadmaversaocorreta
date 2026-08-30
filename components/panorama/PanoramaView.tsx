@@ -73,9 +73,48 @@ const getBookVariations = (b: BibleBook) => {
     addVar(b.name);
     addVar(b.abbrev);
     
-    if (b.name === "Salmos") {
-        addVar("Salmo");
-    }
+    if (b.name === "Gênesis") addVar("Gn");
+    if (b.name === "Êxodo") addVar("Êx");
+    if (b.name === "Levítico") addVar("Lv");
+    if (b.name === "Números") addVar("Nm");
+    if (b.name === "Deuteronômio") addVar("Dt");
+    if (b.name === "Judas") addVar("Jd");
+    if (b.name === "Filemom") { addVar("Fm"); addVar("Flm"); }
+    if (b.name === "Obadias") addVar("Ob");
+    if (b.name === "Efésios") { addVar("Ef"); addVar("Efes"); }
+    if (b.name === "Filipenses") { addVar("Fp"); addVar("Fil"); }
+    if (b.name === "Colossenses") { addVar("Cl"); addVar("Col"); }
+    if (b.name === "Hebreus") { addVar("Hb"); addVar("Heb"); }
+    if (b.name === "Tiago") { addVar("Tg"); addVar("Tia"); }
+    if (b.name === "Apocalipse") { addVar("Ap"); addVar("Apoc"); }
+    if (b.name === "Atos") addVar("At");
+    if (b.name === "Mateus") { addVar("Mt"); addVar("Mat"); }
+    if (b.name === "Marcos") { addVar("Mc"); addVar("Marc"); }
+    if (b.name === "Lucas") { addVar("Lc"); addVar("Luc"); }
+    if (b.name === "João") addVar("Jo");
+    if (b.name === "Romanos") { addVar("Rm"); addVar("Rom"); }
+    if (b.name === "Gálatas") { addVar("Gl"); addVar("Gal"); }
+    if (b.name === "Tito") addVar("Tt");
+    if (b.name === "Salmos") { addVar("Sl"); addVar("Sal"); addVar("Salmo"); }
+    if (b.name === "Provérbios") { addVar("Pv"); addVar("Prov"); }
+    if (b.name === "Eclesiastes") { addVar("Ec"); addVar("Ecl"); }
+    if (b.name === "Cantares") { addVar("Ct"); addVar("Cant"); }
+    if (b.name === "Isaías") { addVar("Is"); addVar("Isaias"); }
+    if (b.name === "Jeremias") { addVar("Jr"); addVar("Jer"); }
+    if (b.name === "Lamentações") { addVar("Lm"); addVar("Lam"); }
+    if (b.name === "Ezequiel") { addVar("Ez"); addVar("Ezeq"); }
+    if (b.name === "Daniel") { addVar("Dn"); addVar("Dan"); }
+    if (b.name === "Oséias") addVar("Os");
+    if (b.name === "Joel") addVar("Jl");
+    if (b.name === "Amós") addVar("Am");
+    if (b.name === "Jonas") addVar("Jn");
+    if (b.name === "Miquéias") { addVar("Mq"); addVar("Miq"); }
+    if (b.name === "Naum") addVar("Na");
+    if (b.name === "Habacuque") { addVar("Hc"); addVar("Hab"); }
+    if (b.name === "Sofonias") { addVar("Sf"); addVar("Sof"); }
+    if (b.name === "Ageu") addVar("Ag");
+    if (b.name === "Zacarias") { addVar("Zc"); addVar("Zac"); }
+    if (b.name === "Malaquias") { addVar("Ml"); addVar("Mal"); }
     
     // Handle numbered books like "1 Samuel" or "1sm"
     const match = b.name.match(/^(\d)\s+(.*)/);
@@ -104,7 +143,7 @@ const bookNamesPattern = BIBLE_BOOKS.flatMap(getBookVariations)
     .map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('|');
 
-const bibleRegex = new RegExp(`(^|[\\s\\(\\["',;]+)(${bookNamesPattern}\\.?)\\s+(\\d+):(\\d+(?:-\\d+(?::\\d+)?)?(?:,\\s*(?!(?:${bookNamesPattern})\\b)(?:\\d+:)?\\d+(?:-\\d+(?::\\d+)?)?)*)`, 'gi');
+const bibleRegex = new RegExp(`(^|[\\s\\(\\["',;]+)(${bookNamesPattern}\\.?)\\s+(\\d+)(?::(\\d+(?:-\\d+(?::\\d+)?)?(?:,\\s*(?!(?:${bookNamesPattern})\\b)(?:\\d+:)?\\d+(?:-\\d+(?::\\d+)?)?)*))?`, 'gi');
 
 const loadingStatusMessages = [
     "Iniciando Protocolo Magnum Opus One-Shot v116.0...",
@@ -258,8 +297,8 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
             if (i + 4 < parts.length) {
                 const prefix = parts[i + 1];
                 const bookRaw = parts[i + 2];
-                const chapter = parseInt(parts[i + 3]);
-                const verses = parts[i + 4];
+                const chapterOrVerse = parseInt(parts[i + 3]);
+                let verses = parts[i + 4];
                 
                 // Resolve book name
                 const cleanRaw = (bookRaw || '').toLowerCase().replace(/[\s\.]/g, "");
@@ -275,26 +314,58 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                 });
                 
                 const resolvedBook = bookData ? bookData.name : bookRaw.replace(/\.$/, '');
+                const isSingleChapter = ["Judas", "Filemom", "2 João", "3 João", "Obadias"].includes(resolvedBook);
+
+                let currentChapter = chapterOrVerse;
+                
+                if (!verses) {
+                    if (isSingleChapter) {
+                        verses = chapterOrVerse.toString();
+                        currentChapter = 1;
+                    } else {
+                        // Just a chapter reference, don't make it clickable
+                        result.push(`${prefix}${bookRaw} ${chapterOrVerse}`);
+                        continue;
+                    }
+                }
 
                 result.push(prefix);
-                const verseParts = verses.split(',').map(v => v.trim());
-                verseParts.forEach((v, idx) => {
-                    let currentChapter = chapter;
-                    let currentVerses = v;
-                    // Somente trata como mudança de capítulo se a string tiver um ':' e não tiver um '-' ANTES do ':' (ex: "7:1" vs "8-7:38")
-                    if (v.includes(':') && (!v.includes('-') || v.indexOf(':') < v.indexOf('-'))) {
-                        const [c, ve] = v.split(':');
-                        currentChapter = parseInt(c);
-                        currentVerses = ve;
+                const hadExplicitVerses = !!parts[i + 4];
+                const items = verses.split(/([,;])\s*/).map(x => x.trim()).filter(Boolean);
+                let activeChapter = currentChapter;
+
+                for (let idx = 0; idx < items.length; idx++) {
+                    const item = items[idx];
+                    if (item === ',' || item === ';') {
+                        result.push(`${item} `);
+                        continue;
                     }
-                    
+
+                    let c = activeChapter;
+                    let ve = item;
+                    // Somente trata como mudança de capítulo se a string tiver um ':' e não tiver um '-' ANTES do ':' (ex: "7:1" vs "8-7:38")
+                    if (item.includes(':') && (!item.includes('-') || item.indexOf(':') < item.indexOf('-'))) {
+                        const [chap, versePart] = item.split(':');
+                        c = parseInt(chap);
+                        ve = versePart;
+                        activeChapter = c;
+                    }
+
+                    let label = item;
+                    if (idx === 0) {
+                        if (hadExplicitVerses) {
+                            label = `${bookRaw} ${currentChapter}:${item}`;
+                        } else {
+                            label = `${bookRaw} ${item}`;
+                        }
+                    }
+
                     result.push(
-                        <BibleReference key={`${keyPrefix}-${i}-${idx}`} book={resolvedBook} chapter={currentChapter} verses={currentVerses} isAdmin={isAdmin || userProgress?.role === 'admin'}>
-                            {idx === 0 ? `${bookRaw} ${chapter}:${v}` : v}
+                        <BibleReference key={`${keyPrefix}-${i}-${idx}`} book={resolvedBook} chapter={c} verses={ve} isAdmin={isAdmin || userProgress?.role === 'admin'}>
+                            {label}
                         </BibleReference>
                     );
-                    if (idx < verseParts.length - 1) result.push(', ');
-                });
+                }
             }
         }
         return result;
@@ -338,7 +409,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
     };
 
     const parseInline = (t: string): React.ReactNode => {
-        const parts = t.split(/(\{\{.*?\|.*?\}\}|\[\[.*?\|.*?\]\]|\*\*.*?\*\*|\*.*?\*)/g);
+        const parts = t.split(/(\{\{.*?\|.*?\}\}|\[\[.*?\|.*?\]\]|\*\*(?!\s).*?(?<!\s)\*\*|\*(?!\s).*?(?<!\s)\*)/g);
         return parts.map((part, i) => {
             if (!part) return null;
             
