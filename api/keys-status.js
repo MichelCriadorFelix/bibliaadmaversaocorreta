@@ -127,7 +127,7 @@ export default async function handler(request, response) {
                     status: 'exhausted',
                     latency: 0,
                     msg: `Cota Excedida (Volta em ${secs}s)`,
-                    model: "gemini-3.5-flash"
+                    model: "gemini-3.6-flash"
                 };
             } else {
                 global.exhaustedKeys.delete(keyEntry.key);
@@ -144,7 +144,7 @@ export default async function handler(request, response) {
                     status: 'exhausted',
                     latency: 0,
                     msg: 'Cota Diária Esgotada',
-                    model: "gemini-3.5-flash"
+                    model: "gemini-3.6-flash"
                 };
             }
             if (remoteRow.exhausted_until && new Date(remoteRow.exhausted_until).getTime() > Date.now()) {
@@ -155,7 +155,7 @@ export default async function handler(request, response) {
                     status: 'exhausted',
                     latency: 0,
                     msg: `Cota Excedida (Volta em ${secs}s)`,
-                    model: "gemini-3.5-flash"
+                    model: "gemini-3.6-flash"
                 };
             }
         }
@@ -171,7 +171,7 @@ export default async function handler(request, response) {
             });
             
             // Teste exclusivo: Gemini 3.5 Flash (Sem rebaixamento ou fallback)
-            const TARGET_MODEL = 'gemini-3.5-flash';
+            const TARGET_MODEL = 'gemini-3.6-flash';
             let testPassed = false;
             let successModel = TARGET_MODEL;
 
