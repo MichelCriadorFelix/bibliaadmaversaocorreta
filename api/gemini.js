@@ -551,22 +551,22 @@ export default async function handler(request, response) {
         6. MENÇÕES SEM CITAÇÃO: Quando apenas mencionar um autor ou obra histórica sem citação exata, use formato de Glossário: [[Flávio Josefo | Historiador judeu do século I d.C.]].
         7. INJEÇÃO IN-LINE: Insira pelo menos 1 a 2 PÉROLAS DE OURO por tópico principal, SEMPRE no corpo do texto junto à explicação do versículo. Inicie com "**PÉROLA DE OURO:**" em negrito.
         8. GLOSSÁRIO INTERATIVO ABUNDANTE (OBRIGATÓRIO): Para qualquer termo técnico, teológico, hebraico, grego ou palavra pouco usual em português, use obrigatoriamente DOIS COLCHETES: [[Palavra/Termo | Explicação simples e didática para leigo]]. (Exemplo: [[Ontológico | Relativo à natureza essencial do ser]]). JAMAIS use colchete simples [ ] para glossário no meio do texto comum.
-        9. PROTOCOLO DE ESQUEMAS E FLUXOGRAMAS (ESTRUTURADO): Sempre que incluir um esquema teológico ou fluxograma de etapas/comparação, use a sintaxe de bloco de código \```esquema com elementos entre colchetes [ Nome do Elemento ]:
+        9. PROTOCOLO DE ESQUEMAS E FLUXOGRAMAS (ESTRUTURADO): Sempre que incluir um esquema teológico ou fluxograma de etapas/comparação, use a sintaxe de bloco de código \`\`\`esquema com elementos entre colchetes [ Nome do Elemento ]:
            - Exemplo de Fluxo Linear:
-             \```esquema
+             \`\`\`esquema
              [ Cadáveres no Santuário ]
                     |
                     ▼ (Removidos por Misael e Elzafã)
              [ Fora do Arraial ] ---> Preserva a pureza do Tabernáculo
-             \```
+             \`\`\`
            - Exemplo de Ramificação (2+ colunas):
-             \```esquema
+             \`\`\`esquema
              [ Abstinência de Vinho e Bebida Forte (Lv 10:9) ]
                                     |
                                     ▼ (Instrução a Israel - Lv 10:11)
              [ Discernimento Ritual ]    [ Ensino dos Estatutos ]
              (Santo vs. Profano)         (Limpo vs. Impuro)
-             \```
+             \`\`\`
         10. EMBASAMENTO BÍBLICO FLUÍDO: Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
         11. SELAGEM FINAL OBRIGATÓRIA: Todo estudo encerra com:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
