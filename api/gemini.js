@@ -540,11 +540,24 @@ Seja direto e específico deste capítulo — nada genérico que serviria para q
         IMPORTANTE: NÃO cite esses rótulos ("Como um arminiano...") no texto. Eles devem moldar de forma orgânica e absoluta a sua interpretação e o conteúdo gerado!
 
         DIRETRIZ DE IDIOMA E PURISMO VERBAL (RIGOROSO - PORTUGUÊS DO BRASIL):
-        1. Escreva 100% em Português do Brasil (pt-BR) límpido, gramaticalmente irrepreensível e natural.
+        1. Escreva 100% em Português do Brasil (pt-BR) límpido, gramativamente irrepreensível e natural.
         2. É ESTRITAMENTE PROIBIDO o uso de palavras em francês (ex: 'Loin', 'Bref', 'Chez'), inglês ou galicismos/estrangeirismos de outros idiomas modernos no texto da aula.
         3. AS ÚNICAS EXCEÇÕES PERMITIDAS a vocábulos não-portugueses são:
            - Termos das línguas bíblicas originais (Hebraico, Grego Koiné, Aramaico) e sua transliteração;
            - Expressões em Latim teológico/jurídico consagrado (ex: Sola Scriptura, Imago Dei, Ex nihilo).
+
+        DIRETRIZ DE PRECISÃO ONOMÁSTICA E NOMES BÍBLICOS (PADRÃO BRASILEIRO - ARC / ACF / ARA / NVI):
+        1. PRECISÃO CIRÚRGICA DOS NOMES DE PERSONAGENS: Use rigorosamente a nomenclatura dos personagens, povos e lugares bíblicos consagrada nas traduções bíblicas em português do Brasil (Almeida Revista e Corrigida - ARC, Almeida Corrigida Fiel - ACF, Almeida Revista e Atualizada - ARA, Nova Versão Internacional - NVI).
+        2. PROIBIÇÃO ABSOLUTA DE CONFUSÃO OU TROCA DE NOMES BÍBLICOS PARECIDOS: Tenha atenção redobrada com personagens que possuem nomes fonética ou graficamente semelhantes. Jamais confunda ou troque seus nomes:
+           - ZAQUEU (o publicano / cobrador de impostos de Jericó que subiu na figueira brava e restituiu quatro vezes, Lc 19:1-10) NUNCA pode ser chamado de "Zacarias" (Zacarias é o profeta do Antigo Testamento ou o sacerdote pai de João Batista em Lc 1).
+           - ELIAS (o profeta do Monte Carmelo, 1 Rs 17–2 Rs 2) vs. ELISEU (o discípulo e sucessor com a porção dobrada, 2 Rs 2–13).
+           - SAUL (primeiro rei de Israel, 1 Sm) vs. SAULO / PAULO (apóstolo dos gentios, Atos).
+           - HERODES O GRANDE (matou os infantes em Mt 2) vs. HERODES ANTIPAS (tetrarca que decapitou João Batista e zombou de Jesus em Lc 23) vs. HERODES AGRIPA I (matou Tiago e prendeu Pedro em At 12) vs. HERODES AGRIPA II (ouviu Paulo em At 25–26).
+           - TIAGO FILHO DE ZEBEDEU (irmão de João, mártir em At 12) vs. TIAGO FILHO DE ALFEU vs. TIAGO IRMÃO DO SENHOR (pastor em Jerusalém e autor da epístola de Tiago).
+           - MARIA MADALENA (de quem saíram sete demônios, testemunha da ressurreição) vs. MARIA DE BETÂNIA (irmã de Marta e Lázaro que ungiu os pés de Jesus) vs. MARIA MÃE DE JESUS.
+           - NICODEMOS (fariseu e príncipe dos judeus que foi a Jesus de noite, Jo 3) vs. NICOLAU (prosélito de Antioquia, At 6).
+           - BARABÁS (o salteador solto no lugar de Jesus) vs. BARNABÉ (o levita companheiro de Paulo) vs. BARTIMEU (o cego de Jericó, Mc 10) vs. BARSABÁS (José chamado Barsabás, At 1).
+        3. CHECAGEM OBRIGATÓRIA DE CITAÇÃO: Antes de citar qualquer personagem em um relato ou versículo, confirme se a referência bíblica (ex: Lc 19:8) corresponde ao nome exato do personagem em português (Zaqueu).
 
         DIRETRIZ PEDAGÓGICA SUPREMA (100% IMPLÍCITA):
         1. PÚBLICO-ALVO — LINGUAGEM DE EBD, NÃO DE SEMINÁRIO: O leitor é um aluno leigo de Escola Bíblica Dominical, com conhecimento bíblico e teológico limitado — isto NÃO é uma aula de teologia acadêmica. Toda vez que um conceito complexo surgir (culpa objetiva, intenção subjetiva, hamartologia, etc.), explique-o com palavras do dia a dia ANTES ou NO LUGAR do rótulo técnico (ex: em vez de "a culpa objetiva não é anulada pela intenção subjetiva do indivíduo", escreva algo como "o erro continua sendo pecado mesmo que a pessoa não tivesse a intenção de pecar"). Evite palavras como "fulcral", "per se", "intrínseco" e similares quando existe uma palavra comum que diz a mesma coisa. Isso vale mesmo quando o termo técnico vier das Instruções Customizadas do professor (regra 6 abaixo) — traduza para linguagem simples ao usá-lo na aula, nunca copie o jargão sem traduzir.
@@ -916,7 +929,13 @@ Seja direto e específico deste capítulo — nada genérico que serviria para q
             .replace(/(###?\s*)?EFEITO\s+["'“”]?AH!?\s*ENTENDI!?["'“”]?\s*:\s*/gi, '$1')
             .replace(/["'“”]?EFEITO\s+AH!?\s*ENTENDI!?["'“”]?/gi, '')
             .replace(/\bPADRÃO\s+OURO\s*:\s*/gi, '')
-            .replace(/\bMETRADO\s+RESTRITO\s*:\s*/gi, '');
+            .replace(/\bMETRADO\s+RESTRITO\s*:\s*/gi, '')
+            // Correção onomástica de segurança (ex: modelo confundindo Zaqueu com Zacarias em Lc 19 / cobrador de impostos)
+            .replace(/\bZacarias(,\s*(?:o\s+)?(?:publicano|cobrador\s+de\s+impostos))/gi, 'Zaqueu$1')
+            .replace(/\bZacarias(\s*,?\s*ao\s+receber\s+a\s+salvação\s+em\s+sua\s+casa)/gi, 'Zaqueu$1')
+            .replace(/\bZacarias(\s*,?\s*que\s+subiu\s+na\s+(?:figueira|árvore))/gi, 'Zaqueu$1')
+            .replace(/\bZacarias(\s*,?\s*(?:devolveu|restituiu|devolveria|restituiria)\s+quatro\s+vezes)/gi, 'Zaqueu$1')
+            .replace(/\bZacarias(\s*\(?\s*Lc(?:as)?\.?\s*19)/gi, 'Zaqueu$1');
 
         return response.status(200).json({ 
             text: sanitizedText, 
