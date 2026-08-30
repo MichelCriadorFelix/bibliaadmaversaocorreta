@@ -104,7 +104,7 @@ const bookNamesPattern = BIBLE_BOOKS.flatMap(getBookVariations)
     .map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('|');
 
-const bibleRegex = new RegExp(`(^|[\\s\\(\\["',;]+)(${bookNamesPattern}\\.?)\\s+(\\d+):(\\d+(?:-\\d+)?(?:,\\s*(?!(?:${bookNamesPattern})\\b)(?:\\d+:)?\\d+(?:-\\d+)?)*)`, 'gi');
+const bibleRegex = new RegExp(`(^|[\\s\\(\\["',;]+)(${bookNamesPattern}\\.?)\\s+(\\d+):(\\d+(?:-\\d+(?::\\d+)?)?(?:,\\s*(?!(?:${bookNamesPattern})\\b)(?:\\d+:)?\\d+(?:-\\d+(?::\\d+)?)?)*)`, 'gi');
 
 const loadingStatusMessages = [
     "Iniciando Protocolo Magnum Opus One-Shot v116.0...",
@@ -281,7 +281,8 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                 verseParts.forEach((v, idx) => {
                     let currentChapter = chapter;
                     let currentVerses = v;
-                    if (v.includes(':')) {
+                    // Somente trata como mudança de capítulo se a string tiver um ':' e não tiver um '-' ANTES do ':' (ex: "7:1" vs "8-7:38")
+                    if (v.includes(':') && (!v.includes('-') || v.indexOf(':') < v.indexOf('-'))) {
                         const [c, ve] = v.split(':');
                         currentChapter = parseInt(c);
                         currentVerses = ve;
@@ -289,7 +290,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                     
                     result.push(
                         <BibleReference key={`${keyPrefix}-${i}-${idx}`} book={resolvedBook} chapter={currentChapter} verses={currentVerses} isAdmin={isAdmin || userProgress?.role === 'admin'}>
-                            {idx === 0 ? `${bookRaw} ${chapter}:${verses}` : v}
+                            {idx === 0 ? `${bookRaw} ${chapter}:${v}` : v}
                         </BibleReference>
                     );
                     if (idx < verseParts.length - 1) result.push(', ');

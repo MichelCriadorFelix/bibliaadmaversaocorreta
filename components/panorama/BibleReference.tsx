@@ -93,7 +93,12 @@ export const BibleReference: React.FC<BibleReferenceProps> = ({ book, chapter, v
                 const range = part.split('-');
                 if (range.length === 2) {
                     const start = parseInt(range[0].trim());
-                    const end = parseInt(range[1].trim());
+                    // Se o segundo termo tem um ':', é uma referência cruzada de capítulos (ex: 8-7:38)
+                    const endPart = range[1].trim();
+                    let end = parseInt(endPart);
+                    if (endPart.includes(':') || end < start) {
+                        end = 176; // Salmos 119 tem 176 versículos, limite máximo seguro
+                    }
                     for (let i = start; i <= end; i++) requestedNumbers.add(i);
                 } else {
                     requestedNumbers.add(parseInt(part.trim()));
