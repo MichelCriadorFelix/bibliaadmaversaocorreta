@@ -479,7 +479,7 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
 
   return (
     <div
-      className="space-y-8 md:space-y-12 animate-in fade-in duration-1000 relative select-text"
+      className="space-y-5 md:space-y-7 animate-in fade-in duration-1000 relative select-text"
       onMouseUp={handleMouseUpOrTouchEnd}
       onTouchEnd={handleMouseUpOrTouchEnd}
     >
@@ -693,26 +693,28 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             /(\*\*PÉROLA DE OURO:\*\*|\*\*PÉROLA DE OURO\*\*|PÉROLA DE OURO:|PÉROLA DE OURO)/i,
           );
           return (
-            <div key={idx} className={`mb-6 md:mb-8 ${activeClass}`}>
+            <div key={idx} className={`mt-8 mb-3 md:mb-4 ${activeClass}`}>
               {parts.map((p, i) => {
                 if (!p) return null;
                 if (p.toUpperCase().match(/PÉROLA DE OURO/)) {
                   return (
                     <div
                       key={i}
-                      className="text-[#000000] bg-gradient-to-br from-[#C5A059] to-[#9e8045] px-4 py-3 md:px-6 md:py-4 rounded-xl border-l-[6px] border-[#8B0000] shadow-lg font-black my-4 tracking-wider uppercase text-sm md:text-base select-none"
+                      className="text-[#000000] bg-gradient-to-br from-[#C5A059] to-[#9e8045] px-4 py-3 md:px-6 md:py-3.5 rounded-xl border-l-[6px] border-[#8B0000] shadow-lg font-black mt-2 mb-1 tracking-wider uppercase text-sm md:text-base select-none"
                     >
                       {p.replace(/\*\*/g, "").trim()}
                     </div>
                   );
                 }
+                const cleanedSub = p.replace(/^[\s\*_.:]+|[\s\*_.:]+$/g, "").trim();
+                if (!cleanedSub) return null;
                 return (
                   <div
                     key={i}
                     id={`read-block-${idx}`}
-                    className="text-gray-800 dark:text-gray-300 text-lg md:text-xl leading-relaxed text-justify mt-2 outline-none"
+                    className="text-[#C5A059] dark:text-[#EEDC9A] font-serif italic text-base md:text-lg font-bold mt-1.5 mb-2 tracking-wide block outline-none pl-1"
                   >
-                    {renderLineWithHighlights(idx, parseInline(p))}
+                    {renderLineWithHighlights(idx, parseInline(cleanedSub))}
                   </div>
                 );
               })}

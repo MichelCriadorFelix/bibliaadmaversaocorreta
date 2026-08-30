@@ -372,9 +372,9 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
     };
 
     const parseHistoricalSources = (text: string, keyPrefix: string): React.ReactNode[] => {
-        // Regex para detectar fontes históricas comuns e suas referências
-        // Ex: Midrash Rabbah (Gênesis Rabbah 1:1), Flávio Josefo, Antiguidades..., Talmud (Tratado...)
-        const sourceRegex = /(Talmud|Mishn[áa]|Midrash(?:\s+[A-Z][a-z]+)?|Guemer[áa]|Gemara|Fl[áa]vio\s+Josefo|Josefo|Philo\s+de\s+Alexandria|Philo|Fil[oó]n\s+de\s+Alexandria|Eus[eé]bio\s+de\s+Cesareia|Eusebio|Pais\s+da\s+Igreja|Manuscritos\s+do\s+Mar\s+Morto)(?:\s*([\(\[][^\]\)]+[\)\]]|,\s*[^,.\n]+(?:,\s*[^,.\n]+)*))?/gi;
+        // Regex para detectar fontes históricas e rabínicas comuns e suas referências
+        // Ex: Midrash Rabbah, Levítico Rabá 20:6, Talmud (Tratado Yoma 53a), Flávio Josefo, etc.
+        const sourceRegex = /(Talmud|Mishn[áa]|Midrash(?:\s+[A-Z\u00C0-\u00FF][a-z\u00C0-\u00FF]+)?|(?:Gênesis|Êxodo|Levítico|Números|Deuteronômio|Bereshit|Shemot|Vayikra|Bamidbar|Devarim)\s+Rab[áa]|Targum(?:\s+[A-Z\u00C0-\u00FF][a-z\u00C0-\u00FF]+)?|Guemer[áa]|Gemara|Fl[áa]vio\s+Josefo|Josefo|Philo\s+de\s+Alexandria|Philo|Fil[oó]n\s+de\s+Alexandria|Eus[eé]bio\s+de\s+Cesareia|Eusebio|Pais\s+da\s+Igreja|Manuscritos\s+do\s+Mar\s+Morto|Septuaginta|Vulgata)(?:\s*([\(\[][^\]\)]+[\)\]]|,\s*[^,.\n]+(?:,\s*[^,.\n]+)*|\s+\d+:\d+))?/gi;
         
         const parts: React.ReactNode[] = [];
         let lastIndex = 0;
