@@ -683,7 +683,7 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
 
         const isH3 = tr.startsWith("###");
         if (isH3) {
-          const title = tr.replace(/###/g, "").trim();
+          const title = tr.replace(/^#+\s*/, "").trim();
           const isPremium =
             title.toUpperCase().includes("TIPOLOGIA") ||
             title.toUpperCase().includes("CURIOSIDADES") ||
@@ -722,7 +722,7 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
 
         const isH2 = tr.startsWith("##");
         if (isH2) {
-          const title = tr.replace(/##/g, "").trim();
+          const title = tr.replace(/^#+\s*/, "").trim();
           return (
             <h2
               key={idx}

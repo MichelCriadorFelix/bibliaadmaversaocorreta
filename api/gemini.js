@@ -572,19 +572,32 @@ Seja direto e específico deste capítulo — nada genérico que serviria para q
            - ERRADO (proibido): "**PÉROLA DE OURO:** {{Talmud | Tratado Shabbat 69a | ...}}"
            - CERTO: "**PÉROLA DE OURO:** O rabino também reconhecia que um erro cometido sem querer não isenta a pessoa de reparar o mal causado, como mostra {{Talmud | Tratado Shabbat 69a | Traga a discussão sobre responsabilidade por erro involuntário}}."
         8. GLOSSÁRIO INTERATIVO ABUNDANTE (OBRIGATÓRIO): Para qualquer termo técnico, teológico, hebraico, grego ou palavra pouco usual em português, use obrigatoriamente DOIS COLCHETES: [[Palavra/Termo | Explicação simples e didática para leigo]]. (Exemplo: [[Ontológico | Relativo à natureza essencial do ser]]). JAMAIS use colchete simples [ ] para glossário no meio do texto comum.
-        9. PROIBIÇÃO ABSOLUTA DE ESQUEMAS, FLUXOGRAMAS E TABELAS: NUNCA use blocos de código
-           (\`\`\`esquema ou qualquer \`\`\`), "caixas" tipo [ Nó ] ---> , NEM TABELAS EM MARKDOWN
-           (formato | Coluna 1 | Coluna 2 | com linha separadora |---|---|) para representar
-           hierarquias, comparações ou fluxos — NENHUMA DESSAS TRÊS FORMAS é permitida, sem
-           exceção. Esse formato polui a aula e desperdiça palavras que deveriam ir para o texto
-           explicativo em si. Quando precisar comparar categorias (ex: o que cada tipo de pecador
-           oferece, onde o sangue é aplicado em cada caso), escreva isso como TEXTO CORRIDO ou
-           lista numerada normal (1., 2., 3...) dentro do próprio parágrafo, frase por frase —
-           NUNCA como tabela, grade ou diagrama separado.
+        9. PROIBIÇÃO ABSOLUTA DE ESQUEMAS, FLUXOGRAMAS E TABELAS (EM QUALQUER FORMATO, INCLUSIVE
+           DENTRO DE UM PARÁGRAFO NORMAL): NUNCA use blocos de código (\`\`\`esquema ou qualquer
+           \`\`\`), NUNCA use "caixas" tipo [ Nó ] ---> , NUNCA use TABELAS EM MARKDOWN (formato
+           | Coluna 1 | Coluna 2 | com linha separadora |---|---|), e NUNCA use um "[Título entre
+           colchetes]" seguido de itens numerados com seta "->" dentro de um mesmo bloco (mesmo
+           que tudo fique espremido em uma única linha ou parágrafo, sem nenhum bloco de código).
+           - ERRADO (proibido, mesmo sem crase nenhuma): "[Hierarquia Espiritual em Levítico 4]
+             1. Sumo Sacerdote (Erro afeta toda a nação -> Sangue levado ao Santo Lugar) 2. Toda
+             a Congregação (Erro coletivo -> Sangue levado ao Santo Lugar) 3. O Líder (Erro de
+             autoridade -> Sangue no Altar do Pátio)"
+           - CERTO: "Quanto maior a responsabilidade de quem pecou, maior a exigência do ritual:
+             quando o Sumo Sacerdote ou toda a congregação erra, o sangue precisa ser levado até
+             o Santo Lugar, porque o erro contamina a nação inteira; já quando é o líder ou uma
+             pessoa comum que peca, o sangue fica apenas no Altar do Pátio, porque o erro afeta
+             um círculo menor."
+           NENHUMA DESSAS FORMAS é permitida, sem exceção. Esse formato polui a aula e desperdiça
+           palavras que deveriam ir para o texto explicativo em si. Quando precisar comparar
+           categorias (ex: o que cada tipo de pecador oferece, onde o sangue é aplicado em cada
+           caso), escreva isso SEMPRE como TEXTO CORRIDO fluido, com frases completas conectando
+           as ideias (como no exemplo CERTO acima) — nunca como lista telegráfica de rótulos entre
+           parênteses com seta.
         10. EMBASAMENTO BÍBLICO FLUÍDO: Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
         11. SELAGEM FINAL OBRIGATÓRIA: Todo estudo encerra com:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
            ### CURIOSIDADES E ARQUEOLOGIA (Numerada 1., 2., 3...)
+        12. PESO MENOR PARA AS SEÇÕES FINAIS: TIPOLOGIA e CURIOSIDADES são um bônus complementar — a "cereja do bolo" — NÃO o prato principal da aula. Os parágrafos do corpo principal da aula (os tópicos numerados) podem e devem ser mais longos e densos, com profundidade total. Já os parágrafos de TIPOLOGIA e CURIOSIDADES devem ser bem mais curtos e diretos (2 a 4 linhas cada, no máximo), um insight rápido e específico por parágrafo — sem repetir com o mesmo nível de detalhe o que já foi dito na aula principal.
 
         --- MANDATO DE VOLUME EXATO E RESTRITO (${pages} PÁGINAS = ${wordCountTarget} PALAVRAS) ---
         ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): O usuário definiu rigorosamente ${pages} páginas (~${baseWordCount} palavras). Não expanda desenfreadamente.
@@ -599,6 +612,7 @@ Seja direto e específico deste capítulo — nada genérico que serviria para q
         4. SEÇÕES FINAIS:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
            ### CURIOSIDADES E ARQUEOLOGIA (Numerada 1., 2., 3...)
+        5. NÍVEIS DE TÍTULO — SOMENTE ESTES TRÊS, NUNCA MAIS: "#" (só o título principal, uma vez), "##" (tópico do estudo) e "###" (subtópico, incluindo dentro de TIPOLOGIA e CURIOSIDADES). É PROIBIDO usar "####" ou mais cerquilhas, e é PROIBIDO criar sub-subtópicos numerados dentro de TIPOLOGIA/CURIOSIDADES usando "#" — se precisar de itens dentro dessas seções, use texto corrido ou "1., 2., 3." simples, sem cerquilha nenhuma na frente.
         `;
                 systemInstruction = WRITING_STYLE;
                 if (isUpgrade) {
@@ -832,8 +846,69 @@ Seja direto e específico deste capítulo — nada genérico que serviria para q
     }
 
     if (successResponse) {
+        // Rede de segurança: mesmo proibido no prompt, o modelo às vezes ainda espreme uma
+        // "hierarquia" tipo "[Título] 1. Item (condição -> resultado) 2. Item2 (...)" num único
+        // parágrafo, sem crase nenhuma (então nenhum parser de esquema detecta isso). Reescreve
+        // esse padrão específico como uma lista numerada legível em vez de texto cru com setas.
+        const desflowchartify = (text) => {
+            const blockRegex = /\[([^\[\]]{2,100})\]\s*((?:\d+\.\s*[^()\[\]]+\([^()]*?(?:->|→)[^()]*?\)\s*){2,})/g;
+            return text.replace(blockRegex, (match, title, itemsBlock) => {
+                const itemRegex = /(\d+)\.\s*([^()]+?)\s*\(([^()]*?)(?:->|→)\s*([^()]*?)\)/g;
+                const lines = [];
+                let m;
+                while ((m = itemRegex.exec(itemsBlock)) !== null) {
+                    const [, num, label, cond, result] = m;
+                    lines.push(`${num}. **${label.trim()}**: ${cond.trim()}, resultando em ${result.trim().toLowerCase()}.`);
+                }
+                if (lines.length < 2) return match;
+                return `\n\n${title.trim()}:\n\n${lines.join('\n')}\n\n`;
+            });
+        };
+
+        // Rede de segurança: nenhum bloco ```...``` legítimo é esperado neste tipo de conteúdo
+        // (aula de EBD, não código) — qualquer cerca sobrevivente é sempre um esquema/ASCII-art
+        // disfarçado (ex: caixa desenhada com +----+ e |...|), então é removida por completo.
+        const stripCodeFences = (text) => text.replace(/```[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n');
+
+        // Rede de segurança: converte qualquer tabela markdown restante (fora de cerca de código,
+        // formato | Col1 | Col2 | com linha separadora |---|---|) em lista numerada legível.
+        const detableify = (text) => {
+            const lines = text.split('\n');
+            const out = [];
+            const isPipeRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+            const isSepRow = (l) => /^\s*\|(\s*:?-{2,}:?\s*\|)+\s*$/.test(l);
+            const splitCells = (l) => l.split('|').map(c => c.trim()).filter((c, idx, arr) => !(idx === 0 && c === '') && !(idx === arr.length - 1 && c === ''));
+            let i = 0;
+            while (i < lines.length) {
+                const line = lines[i];
+                if (isPipeRow(line) && i + 1 < lines.length && isSepRow(lines[i + 1])) {
+                    const headerCells = splitCells(line);
+                    let j = i + 2;
+                    const dataRows = [];
+                    while (j < lines.length && isPipeRow(lines[j])) {
+                        dataRows.push(splitCells(lines[j]));
+                        j++;
+                    }
+                    if (dataRows.length >= 1 && headerCells.length >= 2) {
+                        const restHeaders = headerCells.slice(1);
+                        const listLines = dataRows.map((cells, idx) => {
+                            const label = (cells[0] || '').replace(/\*\*/g, '').trim();
+                            const parts = restHeaders.map((h, hi) => `${h}: ${(cells[hi + 1] || '').replace(/\*\*/g, '').trim()}`);
+                            return `${idx + 1}. **${label}** — ${parts.join('; ')}.`;
+                        });
+                        out.push(...listLines);
+                        i = j;
+                        continue;
+                    }
+                }
+                out.push(line);
+                i++;
+            }
+            return out.join('\n');
+        };
+
         // Sanitização de Metalinguagem: remove qualquer vazamento acidental de termos internos de instrução
-        let sanitizedText = successResponse
+        let sanitizedText = detableify(stripCodeFences(desflowchartify(successResponse)))
             .replace(/(###?\s*)?O\s+EFEITO\s+["'“”]?AH!?\s*ENTENDI!?["'“”]?\s*:\s*/gi, '$1')
             .replace(/(###?\s*)?EFEITO\s+["'“”]?AH!?\s*ENTENDI!?["'“”]?\s*:\s*/gi, '$1')
             .replace(/["'“”]?EFEITO\s+AH!?\s*ENTENDI!?["'“”]?/gi, '')
