@@ -170,7 +170,7 @@ export default async function handler(request, response) {
                 }
             });
             
-            // Teste exclusivo: Gemini 3.5 Flash (Sem rebaixamento ou fallback)
+            // Teste exclusivo: Gemini 3.6 Flash (Sem rebaixamento ou fallback)
             const TARGET_MODEL = 'gemini-3.6-flash';
             let testPassed = false;
             let successModel = TARGET_MODEL;

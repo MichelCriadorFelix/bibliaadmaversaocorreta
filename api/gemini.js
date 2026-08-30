@@ -4,7 +4,7 @@ import crypto from "crypto";
 
 /**
  * CONFIGURAÇÃO PARA VERCEL SERVERLESS FUNCTIONS - LOAD BALANCER & TIMEOUT RESILIENT
- * Motor calibrado para Gemini 3.7 Flash com Thinking Budget e compartilhamento de estado via Supabase.
+ * Motor calibrado EXCLUSIVAMENTE para Gemini 3.6 Flash com Thinking Budget e compartilhamento de estado via Supabase.
  */
 export const config = {
   maxDuration: 300, 
