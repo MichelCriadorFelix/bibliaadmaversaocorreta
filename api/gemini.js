@@ -629,8 +629,8 @@ export default async function handler(request, response) {
                 return { thinkingBudget: 2048 };
             };
 
-            // Seleção de Modelo Primário: Gemini 3.7 Flash (Padrão Bíblia ADMA)
-            const modelToUse = 'gemini-3.7-flash';
+            // Seleção de Modelo Primário: Gemini 3.6 Flash (Padrão Bíblia ADMA)
+            const modelToUse = 'gemini-3.6-flash';
 
             const config = {
                 temperature: 0.3,
@@ -698,8 +698,8 @@ export default async function handler(request, response) {
                 }
             });
             
-            // Modelo Exclusivo: Gemini 3.7 Flash (Sem rebaixamento ou fallback para outros modelos)
-            const TARGET_MODEL = 'gemini-3.7-flash';
+            // Modelo Exclusivo: Gemini 3.6 Flash (Sem rebaixamento ou fallback para outros modelos)
+            const TARGET_MODEL = 'gemini-3.6-flash';
 
             const generatePromise = ai.models.generateContent({
                 model: TARGET_MODEL,
