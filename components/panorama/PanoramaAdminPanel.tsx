@@ -36,6 +36,7 @@ interface PanoramaAdminPanelProps {
     chapter: number;
     chapterFocusSuggestion: string | null;
     isLoadingFocusSuggestion: boolean;
+    regenerateFocusSuggestion: () => void;
     activeTab: string;
     bookDownloadStatus: {
         status: 'idle' | 'checking' | 'missing' | 'success';
@@ -82,6 +83,7 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
     chapter,
     chapterFocusSuggestion,
     isLoadingFocusSuggestion,
+    regenerateFocusSuggestion,
     activeTab,
     bookDownloadStatus,
     isCheckingDownload,
@@ -239,11 +241,21 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                 <div className="flex-1 w-full">
                                     {(isLoadingFocusSuggestion || chapterFocusSuggestion) && (
                                         <div className="mb-4 p-4 rounded-2xl border-2 border-dashed border-[#C5A059]/40 bg-[#C5A059]/5 dark:bg-[#C5A059]/10">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Lightbulb className="w-3.5 h-3.5 text-[#C5A059] flex-shrink-0" />
-                                                <span className="text-[10px] font-black text-[#C5A059] uppercase tracking-widest">
-                                                    Sugestão para {book} {chapter}
-                                                </span>
+                                            <div className="flex items-center justify-between gap-2 mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Lightbulb className="w-3.5 h-3.5 text-[#C5A059] flex-shrink-0" />
+                                                    <span className="text-[10px] font-black text-[#C5A059] uppercase tracking-widest">
+                                                        Sugestão para {book} {chapter}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={regenerateFocusSuggestion}
+                                                    disabled={isLoadingFocusSuggestion}
+                                                    title="Gerar outra sugestão para este capítulo"
+                                                    className="text-[10px] font-bold text-[#C5A059] hover:underline flex items-center gap-1 disabled:opacity-50 flex-shrink-0"
+                                                >
+                                                    <RefreshCw className={`w-3 h-3 ${isLoadingFocusSuggestion ? 'animate-spin' : ''}`} /> Gerar outra
+                                                </button>
                                             </div>
                                             {isLoadingFocusSuggestion ? (
                                                 <p className="text-xs text-gray-500 flex items-center gap-2">

@@ -253,19 +253,22 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     // latestRequestKeyRef sempre guarda a chave do ÚLTIMO capítulo pedido; qualquer resposta que
     // chegue depois de a chave ter mudado é silenciosamente descartada.
     const latestRequestKeyRef = useRef<string>('');
-    const loadOrGenerateFocusSuggestion = useCallback(async (b: string, c: number) => {
+    const loadOrGenerateFocusSuggestion = useCallback(async (b: string, c: number, skipCache: boolean = false) => {
         const key = generateChapterKey(b, c);
         latestRequestKeyRef.current = key;
         setChapterFocusSuggestion(null);
-        try {
-            const cached = await db.entities.ChapterFocusSuggestion.get(key);
-            if (latestRequestKeyRef.current !== key) return; // capítulo já mudou, descarta
-            if (cached && cached.suggestion) {
-                setChapterFocusSuggestion(cached.suggestion);
-                return;
+
+        if (!skipCache) {
+            try {
+                const cached = await db.entities.ChapterFocusSuggestion.get(key);
+                if (latestRequestKeyRef.current !== key) return; // capítulo já mudou, descarta
+                if (cached && cached.suggestion) {
+                    setChapterFocusSuggestion(cached.suggestion);
+                    return;
+                }
+            } catch (e) {
+                // sem cache disponível, segue para gerar
             }
-        } catch (e) {
-            // sem cache disponível, segue para gerar
         }
 
         if (latestRequestKeyRef.current !== key) return; // capítulo já mudou, nem começa a gerar
@@ -293,6 +296,12 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             }
         }
     }, []);
+
+    // Gera outra sugestão pra este mesmo capítulo, ignorando (e depois substituindo) o cache —
+    // usado pelo botão "Gerar outra sugestão" quando a atual não agrada.
+    const regenerateFocusSuggestion = useCallback(() => {
+        loadOrGenerateFocusSuggestion(book, chapter, true);
+    }, [book, chapter, loadOrGenerateFocusSuggestion]);
 
     useEffect(() => {
         if (isAdmin && (activeTab === 'student' || activeTab === 'teacher')) {
@@ -754,7 +763,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         generationTime, setGenerationTime,
         currentStatusIndex, setCurrentStatusIndex,
         stats,
-        chapterFocusSuggestion, isLoadingFocusSuggestion,
+        chapterFocusSuggestion, isLoadingFocusSuggestion, regenerateFocusSuggestion,
         content, setContent,
         isGenerating, setIsGenerating,
         theologicalDensity, setTheologicalDensity,

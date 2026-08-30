@@ -78,6 +78,12 @@ const getBookVariations = (b: BibleBook) => {
     if (b.name === "Levítico") addVar("Lv");
     if (b.name === "Números") addVar("Nm");
     if (b.name === "Deuteronômio") addVar("Dt");
+    if (b.name === "Josué") addVar("Jos");
+    if (b.name === "Juízes") { addVar("Jz"); addVar("Juí"); }
+    if (b.name === "Rute") addVar("Rt");
+    if (b.name === "Esdras") addVar("Ed");
+    if (b.name === "Neemias") { addVar("Ne"); addVar("Neem"); }
+    if (b.name === "Ester") { addVar("Et"); addVar("Est"); }
     if (b.name === "Judas") addVar("Jd");
     if (b.name === "Filemom") { addVar("Fm"); addVar("Flm"); }
     if (b.name === "Obadias") addVar("Ob");
@@ -206,7 +212,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         generationTime, setGenerationTime,
         currentStatusIndex, setCurrentStatusIndex,
         stats,
-        chapterFocusSuggestion, isLoadingFocusSuggestion,
+        chapterFocusSuggestion, isLoadingFocusSuggestion, regenerateFocusSuggestion,
         content, setContent,
         isGenerating, setIsGenerating,
         theologicalDensity, setTheologicalDensity,
@@ -641,6 +647,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                         chapter={chapter}
                         chapterFocusSuggestion={chapterFocusSuggestion}
                         isLoadingFocusSuggestion={isLoadingFocusSuggestion}
+                        regenerateFocusSuggestion={regenerateFocusSuggestion}
                         activeTab={activeTab}
                         bookDownloadStatus={bookDownloadStatus}
                         isCheckingDownload={isCheckingDownload}
