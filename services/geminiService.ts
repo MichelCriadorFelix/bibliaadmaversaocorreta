@@ -81,7 +81,7 @@ export const generateContent = async (
             }, 3500);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s dedicados para a chave individual
+            const timeoutId = setTimeout(() => controller.abort(), 250000); // 250s dedicados (Para acompanhar o timeout expandido do backend de 180s+)
             
             const response = await fetch('/api/gemini', {
                 method: 'POST',

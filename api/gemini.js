@@ -191,37 +191,6 @@ export default async function handler(request, response) {
     // Limita a 1 chave por invocação (chamada estritamente individual 1 a 1 x/43)
     const keysToTryInThisInvocation = shuffledKeys.slice(0, Math.max(1, Math.min(Number(batchSize) || 1, 1)));
 
-    let lastError = null;
-    let successResponse = null;
-    const triedKeysLog = [];
-    const failedHashes = [];
-    const functionStartTime = Date.now();
-
-    // Timeout por chave calibrado (Cada invocação trata 1 chave individual com até 55s dedicados)
-    const isDeepTask = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd');
-    const isDictionaryTask = (taskType === 'dictionary');
-    const perKeyTimeoutMs = isDeepTask ? 55000 : (isDictionaryTask ? 30000 : 20000);
-
-    for (const apiKey of keysToTryInThisInvocation) {
-        const currentHash = hashKey(apiKey);
-        // Se estivermos próximos do limite seguro da função (58s), encerra este lote para o cliente acionar o próximo
-        if (Date.now() - functionStartTime > 57000) {
-            console.warn('[Gemini Proxy] Limite de segurança do lote atingido. Delegando para próxima rodada.');
-            break;
-        }
-
-        const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
-        triedKeysLog.push({ key: maskedKey, keyHash: currentHash, name: `API_KEY (Fim ${apiKey.slice(-4)})`, status: 'TENTANDO' });
-        try {
-            const ai = new GoogleGenAI({ 
-                apiKey: apiKey,
-                httpOptions: {
-                    headers: {
-                        'User-Agent': 'aistudio-build',
-                    }
-                }
-            });
-            
             let systemInstruction = "Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito.";
             let enhancedPrompt = prompt;
 
@@ -667,6 +636,38 @@ export default async function handler(request, response) {
                 config.responseSchema = schema;
             }
 
+
+    let lastError = null;
+    let successResponse = null;
+    const triedKeysLog = [];
+    const failedHashes = [];
+    const functionStartTime = Date.now();
+
+    // Timeout por chave calibrado (Expandido para 180s devido ao alto volume de tokens do Marco Teológico)
+    const isDeepTask = (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd');
+    const isDictionaryTask = (taskType === 'dictionary');
+    const perKeyTimeoutMs = isDeepTask ? 180000 : (isDictionaryTask ? 30000 : 20000);
+
+    for (const apiKey of keysToTryInThisInvocation) {
+        const currentHash = hashKey(apiKey);
+        // Se estivermos próximos do limite seguro da função (280s, maxDuration = 300s), encerra este lote
+        if (Date.now() - functionStartTime > 280000) {
+            console.warn('[Gemini Proxy] Limite de segurança do lote atingido. Delegando para próxima rodada.');
+            break;
+        }
+
+        const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
+        triedKeysLog.push({ key: maskedKey, keyHash: currentHash, name: `API_KEY (Fim ${apiKey.slice(-4)})`, status: 'TENTANDO' });
+        try {
+            const ai = new GoogleGenAI({ 
+                apiKey: apiKey,
+                httpOptions: {
+                    headers: {
+                        'User-Agent': 'aistudio-build',
+                    }
+                }
+            });
+            
             // Modelo Exclusivo: Gemini 3.6 Flash (Sem rebaixamento ou fallback para outros modelos)
             const TARGET_MODEL = 'gemini-3.6-flash';
 
