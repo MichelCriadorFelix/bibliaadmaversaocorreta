@@ -581,14 +581,14 @@ export default async function handler(request, response) {
                 if (isUpgrade) {
                     enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO - ALVO EXATO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]: 
                     Aplique todas as diretrizes do Professor Michel Felix (explicação detalhada dos porquês, clareza máxima, enumerações onde aplicável, glossários interativos [[Termo|Explicação]], fontes {{Autor|Ref|Comando}}, pérolas de ouro e tipologia). Nunca inclua termos de metalinguagem no texto.
-                    INSTRUÇÃO OBRIGATÓRIA: Toda afirmação e regra deve estar acompanhada da referência bíblica exata no texto (texto cruzado para embasamento forte, ex: Lv 6:27-28; Hb 9:22).
+                    INSTRUÇÃO OBRIGATÓRIA (CRUZAMENTO BÍBLICO): Toda afirmação e regra deve estar acompanhada da referência bíblica exata no texto. Você DEVE fazer cruzamentos temáticos com outros textos e livros da Bíblia (ex: conectar Levítico a Hebreus, Êxodo, Novo Testamento) para embasar a interpretação e trazer maior clareza.
                     
                     SOLICITAÇÃO / TEXTO DA AULA PARA ATUALIZAR:
                     """
                     ${prompt}
                     """
                     
-                    Reescreva e aprimore o conteúdo acima garantindo o rigor (com farto embasamento bíblico), a didática e o tamanho exato de ${wordCountTarget} palavras (${pages} páginas).`;
+                    Reescreva e aprimore o conteúdo acima garantindo o rigor (com farto cruzamento bíblico), a didática e o tamanho exato de ${wordCountTarget} palavras (${pages} páginas).`;
                 } else {
                     enhancedPrompt = `[GERAÇÃO DE PANORAMA BÍBLICO MAGNUM OPUS - ALVO EXATO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
                     
@@ -600,7 +600,7 @@ export default async function handler(request, response) {
                     DIRETRIZES FINAIS DE EXECUÇÃO:
                     1. Execute a exegese completa do capítulo solicitado (${book || ''} ${chapter || ''}) obedecendo estritamente a quaisquer instruções e ênfases fornecidas acima.
                     2. Clareza Didática Absoluta: destrinche os versículos de forma profunda e cristalina, explicando a razão de cada detalhe com listas enumeradas explicativas onde for didático. Nunca use rótulos de metalinguagem (como 'Ah! Entendi' ou 'Efeito Ah Entendi').
-                    3. TEXTO CRUZADO E EMBASAMENTO BÍBLICO (OBRIGATÓRIO): Para ABSOLUTAMENTE TODA afirmação, regra de ritual ou explicação, você DEVE inserir a referência bíblica exata no meio do texto (ex: Lv 6:27-28; Hb 9:22). Faça conexões cruzadas com outros textos da Bíblia para fortalecer o argumento. Jamais deixe uma regra solta sem o versículo que a ordena.
+                    3. TEXTO CRUZADO E EMBASAMENTO BÍBLICO (OBRIGATÓRIO): Não se limite ao texto base! Para embasar a interpretação e trazer máxima clareza, você DEVE obrigatoriamente fazer conexões cruzadas com outros textos e livros da Bíblia que possuem o mesmo contexto teológico (ex: conectar Levítico com Êxodo, Hebreus ou Cartas Paulinas). Para ABSOLUTAMENTE TODA afirmação, insira a referência bíblica exata no meio do texto (ex: Lv 6:27-28; Hb 9:22). Jamais deixe um argumento solto sem o versículo que o ordena e seu paralelo cruzado.
                     4. Aplique o Glossário Interativo [[Termo|Explicação]] em abundância ao longo do texto.
                     5. Insira as Pérolas de Ouro no formato {{Autor ou Obra | Ref | Comando Oculto}}.
                     6. Encerre obrigatoriamente com "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA".
