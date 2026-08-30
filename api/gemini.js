@@ -536,16 +536,23 @@ export default async function handler(request, response) {
 
         INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
 
-        --- PROTOCOLO PÉROLA DE OURO & FONTES PRIMÁRIAS ---
-        1. DENSIDADE MULTIDIMENSIONAL: Traga a interpretação com contexto histórico, cultural, explicações de expressões, linguística (Hebraico Bíblico / Grego Koiné), tipologia bíblica, geografia, tradição judaica (Talmud, Mishná, Midrash Rabá, Targum, Torá SheBeal Pe), Manuscritos do Mar Morto e historiadores antigos (Flávio Josefo, Fílon de Alexandria, Pais da Igreja).
-        2. RIGOR DOCUMENTAL INTERATIVO: É MANDATÓRIO citar fontes periciais para fundamentar as Pérolas de Ouro no formato interativo de 3 partes: {{Autor ou Obra | Referência Visível | Comando Oculto para o Bibliotecário}}.
+        --- PROTOCOLO PÉROLA DE OURO & CHECAGEM DE FONTES (GROUNDED SEARCH + WHITELIST ACADÊMICA) ---
+        1. VALIDAÇÃO FACTUAL DE FONTES (RIGOROSO): Ao citar fontes rabínicas ou históricas (Talmud, Mishná, Midrash Rabá, Flávio Josefo, Targum, Fílon, Eusébio, Pais da Igreja, Qumran), consulte e valide o tratado, capítulo, seção ou foliação real para garantir ZERO ALUCINAÇÃO.
+        2. WHITELIST DE DOMÍNIOS PERMITIDOS PARA CONSULTA ACADÊMICA:
+           - Literatura Rabínica e Judaica Antiga: sefaria.org, chabad.org.
+           - Historiadores Antigos e Clássicos: perseus.tufts.edu, ccel.org.
+           - Patrística e Pais da Igreja: newadvent.org, ccel.org.
+           - Arqueologia e Exegese Bíblica: biblicalarchaeology.org, biblehub.com.
+        3. ANTI-FAKE NEWS TEOLÓGICA: É ESTRITAMENTE PROIBIDO utilizar blogs pessoais, fóruns não checados, redes sociais ou fontes amadores sem comprovação documental primária.
+        4. DENSIDADE MULTIDIMENSIONAL: Traga a interpretação com contexto histórico, cultural, explicações de expressões, linguística (Hebraico Bíblico / Grego Koiné), tipologia bíblica, geografia, tradição judaica, Manuscritos do Mar Morto e historiadores antigos.
+        5. RIGOR DOCUMENTAL INTERATIVO: É MANDATÓRIO citar fontes periciais para fundamentar as Pérolas de Ouro no formato interativo de 3 partes: {{Autor ou Obra | Referência Visível | Comando Oculto para o Bibliotecário}}.
            - Exemplo: "...segundo {{Flávio Josefo | Antiguidades 3.8.1 | Traga o relato sobre a consagração do tabernáculo e a ordem do fogo sagrado}}, o sacerdócio..."
            - Exemplo: "...como elucida o {{Talmud | Tratado Yoma 21b | Traga a discussão sobre os milagres do fogo contínuo sobre o altar}}..."
-        3. MENÇÕES SEM CITAÇÃO: Quando apenas mencionar um autor ou obra histórica sem citação exata, use formato de Glossário: [[Flávio Josefo | Historiador judeu do século I d.C.]].
-        4. INJEÇÃO IN-LINE: Insira pelo menos 1 a 2 PÉROLAS DE OURO por tópico principal, SEMPRE no corpo do texto junto à explicação do versículo. Inicie com "**PÉROLA DE OURO:**" em negrito.
-        5. GLOSSÁRIO INTERATIVO ABUNDANTE (OBRIGATÓRIO): Para qualquer termo técnico, teológico, hebraico, grego ou palavra pouco usual em português, use obrigatoriamente: [[Palavra/Termo | Explicação simples e didática para leigo]]. Use abundantemente ao longo de todo o texto!
-        6. EMBASAMENTO BÍBLICO FLUÍDO: Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
-        7. SELAGEM FINAL OBRIGATÓRIA: Todo estudo encerra com:
+        6. MENÇÕES SEM CITAÇÃO: Quando apenas mencionar um autor ou obra histórica sem citação exata, use formato de Glossário: [[Flávio Josefo | Historiador judeu do século I d.C.]].
+        7. INJEÇÃO IN-LINE: Insira pelo menos 1 a 2 PÉROLAS DE OURO por tópico principal, SEMPRE no corpo do texto junto à explicação do versículo. Inicie com "**PÉROLA DE OURO:**" em negrito.
+        8. GLOSSÁRIO INTERATIVO ABUNDANTE (OBRIGATÓRIO): Para qualquer termo técnico, teológico, hebraico, grego ou palavra pouco usual em português, use obrigatoriamente: [[Palavra/Termo | Explicação simples e didática para leigo]]. Use abundantemente ao longo de todo o texto!
+        9. EMBASAMENTO BÍBLICO FLUÍDO: Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
+        10. SELAGEM FINAL OBRIGATÓRIA: Todo estudo encerra com:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
            ### CURIOSIDADES E ARQUEOLOGIA (Numerada 1., 2., 3...)
 
