@@ -567,6 +567,28 @@ export default async function handler(request, response) {
              [ Discernimento Ritual ]    [ Ensino dos Estatutos ]
              (Santo vs. Profano)         (Limpo vs. Impuro)
              \`\`\`
+           - Exemplo de Hierarquia/Tabela Comparativa (várias categorias com os MESMOS atributos —
+             ex: níveis de responsabilidade, tipos de oferta, categorias de pessoas): NUNCA junte
+             vários atributos numa única linha separados por barra "|". Em vez disso, cada categoria
+             é o SEU PRÓPRIO [ Nó ], seguido de uma linha "Rótulo: valor" por atributo, do maior
+             para o menor nível de responsabilidade/gravidade:
+             \`\`\`esquema
+             [ Sacerdote Ungido (v. 3-12) ]
+             Animal Requerido: Novilho sem defeito
+             Destino do Sangue: Aspergido perante o Véu
+
+             [ Toda a Congregação (v. 13-21) ]
+             Animal Requerido: Novilho sem defeito
+             Destino do Sangue: Aspergido perante o Véu
+
+             [ Líder / Príncipe (v. 22-26) ]
+             Animal Requerido: Bode (macho) sem defeito
+             Destino do Sangue: Chifres do Altar de Holocaustos
+
+             [ Cidadão Comum (v. 27-35) ]
+             Animal Requerido: Cabra ou Cordeiro (fêmea) sem defeito
+             Destino do Sangue: Chifres do Altar de Holocaustos
+             \`\`\`
         10. EMBASAMENTO BÍBLICO FLUÍDO: Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
         11. SELAGEM FINAL OBRIGATÓRIA: Todo estudo encerra com:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO

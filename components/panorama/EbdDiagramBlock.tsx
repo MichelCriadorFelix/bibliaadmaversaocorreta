@@ -16,6 +16,7 @@ export interface DiagramNode {
   title: string;
   subtext?: string;
   resultText?: string;
+  facts?: { label: string; value: string }[];
 }
 
 export interface DiagramLevel {
@@ -54,14 +55,13 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
   let title = "";
   let startIndex = 0;
 
+  // NOTA: uma linha "[ Texto ]" sozinha no início NÃO é tratada como título do esquema —
+  // era assim antes, mas isso é ambíguo (o formato padrão dos exemplos do prompt sempre começa
+  // com o PRIMEIRO NÓ real nesse mesmo formato) e engolia silenciosamente o primeiro item de
+  // qualquer fluxo/lista que começasse direto com um nó, sem nenhum aviso. Título real só vem
+  // de sinais inequívocos: um cabeçalho "# ..." ou o prefixo "ESQUEMA:".
   const firstTrimmed = rawLines[0].trim();
-  if (/^\[(.*?)\]$/.test(firstTrimmed) && rawLines.length > 1) {
-    const match = firstTrimmed.match(/^\[(.*?)\]$/);
-    if (match) {
-      title = match[1].trim();
-      startIndex = 1;
-    }
-  } else if (/^#+\s+/.test(firstTrimmed)) {
+  if (/^#+\s+/.test(firstTrimmed)) {
     title = firstTrimmed.replace(/^#+\s+/, "").trim();
     startIndex = 1;
   } else if (firstTrimmed.toUpperCase().startsWith("ESQUEMA")) {
@@ -103,8 +103,29 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
         });
       }
 
+      // Single-node level: linhas seguintes no formato "Rótulo: valor" viram fatos estruturados
+      // do card (ex: tabelas de comparação/hierarquia), em vez de serem espremidas num só subtexto.
+      let consumedFacts = false;
+      if (levelNodes.length === 1) {
+        const facts: { label: string; value: string }[] = [];
+        let j = i + 1;
+        while (j < rawLines.length) {
+          const factLine = rawLines[j].trim();
+          if (!factLine || factLine.startsWith("[") || isBorderLine(factLine)) break;
+          const factMatch = factLine.match(/^([^:{}\[\]]{2,40}):\s*(.+)$/);
+          if (!factMatch) break;
+          facts.push({ label: factMatch[1].trim(), value: factMatch[2].trim() });
+          j++;
+        }
+        if (facts.length > 0) {
+          levelNodes[0].facts = facts;
+          i = j - 1; // pula as linhas de fato já consumidas
+          consumedFacts = true;
+        }
+      }
+
       // Check the NEXT line for parenthetical subtexts (e.g., (Santo vs. Profano) (Limpo vs. Impuro))
-      if (i + 1 < rawLines.length) {
+      if (!consumedFacts && i + 1 < rawLines.length) {
         const nextLine = rawLines[i + 1].trim();
         if (
           nextLine.startsWith("(") &&
@@ -179,7 +200,8 @@ export function parseAsciiDiagram(rawText: string): ParsedDiagram {
       (levels[0].nodes.length >= 2 ||
         !!levels[0].connectorText ||
         !!levels[0].nodes[0]?.resultText ||
-        !!levels[0].nodes[0]?.subtext));
+        !!levels[0].nodes[0]?.subtext ||
+        !!levels[0].nodes[0]?.facts?.length));
 
   return { isDiagram, title, levels, rawText };
 }
@@ -217,6 +239,26 @@ export const EbdDiagramBlock: React.FC<EbdDiagramBlockProps> = ({
         </div>
       );
     }
+
+    // Uma "lista de níveis" onde cada nível tem exatamente 1 nó (sem ramificação) é o formato
+    // típico de hierarquias/tabelas comparativas (ex: categorias de sacrifício por responsabilidade).
+    // Nesse caso, o badge de cada card usa um degradê vermelho -> dourado (as 2 cores da marca)
+    // para comunicar visualmente a ordem/gravidade decrescente, em vez da cor fixa padrão.
+    const isTierList =
+      parsed.levels.length >= 2 && parsed.levels.every((lv) => lv.nodes.length === 1);
+
+    const lerpColor = (from: string, to: string, t: number) => {
+      const a = parseInt(from.slice(1), 16);
+      const b = parseInt(to.slice(1), 16);
+      const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+      const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+      const r = Math.round(ar + (br - ar) * t);
+      const g = Math.round(ag + (bg - ag) * t);
+      const bl = Math.round(ab + (bb - ab) * t);
+      return `rgb(${r}, ${g}, ${bl})`;
+    };
+    const tierColor = (idx: number) =>
+      lerpColor("#8B0000", "#C5A059", parsed.levels.length > 1 ? idx / (parsed.levels.length - 1) : 0);
 
     return (
       <div className="flex flex-col items-center gap-4 w-full my-3 select-text">
@@ -278,7 +320,12 @@ export const EbdDiagramBlock: React.FC<EbdDiagramBlockProps> = ({
                   >
                     {/* Top Row: Badge + Node Title */}
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-[#C5A059] to-[#8B0000] text-white font-cinzel font-black text-xs md:text-sm flex items-center justify-center shadow-md border border-amber-200/40">
+                      <div
+                        className={`flex-shrink-0 w-8 h-8 rounded-xl text-white font-cinzel font-black text-xs md:text-sm flex items-center justify-center shadow-md border border-amber-200/40 ${
+                          isTierList && !isBranching ? "" : "bg-gradient-to-br from-[#C5A059] to-[#8B0000]"
+                        }`}
+                        style={isTierList && !isBranching ? { background: tierColor(lIdx) } : undefined}
+                      >
                         {isBranching
                           ? `${String(level.levelIndex).padStart(
                               2,
@@ -296,6 +343,23 @@ export const EbdDiagramBlock: React.FC<EbdDiagramBlockProps> = ({
                         {node.subtext && (
                           <div className="mt-2 text-xs md:text-sm text-gray-800 dark:text-gray-200 font-serif italic bg-[#C5A059]/10 dark:bg-[#C5A059]/15 p-2.5 rounded-xl border-l-4 border-[#C5A059] leading-relaxed">
                             {parseInline(node.subtext)}
+                          </div>
+                        )}
+
+                        {/* Fatos estruturados (ex: tabela de comparação) — rótulo + valor, um por linha */}
+                        {node.facts && node.facts.length > 0 && (
+                          <div className="mt-2.5 flex flex-col gap-1.5">
+                            {node.facts.map((fact, fIdx) => (
+                              <div key={fIdx} className="flex items-baseline gap-2">
+                                <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[#C5A059] mt-1.5" />
+                                <span className="text-[10px] md:text-[11px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                  {parseInline(fact.label)}:
+                                </span>
+                                <span className="text-xs md:text-sm text-gray-800 dark:text-gray-200 leading-snug">
+                                  {parseInline(fact.value)}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
