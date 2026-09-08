@@ -10,6 +10,35 @@ export const config = {
   maxDuration: 300, 
 };
 
+/**
+ * Extrai a hierarquia de tópicos (#, ##, ###) de uma aula existente para preservar a ementa
+ */
+function extractLessonHeadings(text) {
+  if (!text || typeof text !== 'string') return [];
+  const headings = [];
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^#{1,4}\s+/.test(trimmed)) {
+      headings.push(trimmed);
+    }
+  }
+  // Fallback para tags HTML caso o manuscrito use <h2> / <h3>
+  if (headings.length === 0) {
+    const regex = /<h([1-4])[^>]*>(.*?)<\/h\1>/gi;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const level = Number(match[1]);
+      const prefix = '#'.repeat(level);
+      const content = match[2].replace(/<[^>]*>/g, '').trim();
+      if (content) {
+        headings.push(`${prefix} ${content}`);
+      }
+    }
+  }
+  return headings;
+}
+
 export default async function handler(request, response) {
   // --- CONFIGURAÇÃO DE CORS ---
   response.setHeader('Access-Control-Allow-Credentials', true);
@@ -102,6 +131,7 @@ export default async function handler(request, response) {
         book, 
         chapter, 
         themeTitle,
+        moduleTitle,
         customInstructions,
         existingContent,
         depthLevel, 
@@ -220,46 +250,87 @@ export default async function handler(request, response) {
 
 Seja direto e específico deste capítulo — nada genérico que serviria para qualquer capítulo. Sem introduções, sem saudações, sem numerar as categorias acima no texto final (elas são só um guia interno seu), vá direto para a lista de itens.`;
             }
-            // --- SUGESTÃO DE PONTOS DE ATENÇÃO PARA AULAS TEMÁTICAS ---
+            // --- SUGESTÃO DE PONTOS DE ATENÇÃO PARA AULAS TEMÁTICAS E TEOLOGIA SISTEMÁTICA ---
             else if (taskType === 'thematic_focus_suggestion') {
                 const lessonTheme = themeTitle || book || prompt;
                 const hasExisting = Boolean(existingContent && existingContent.trim().length > 100);
+                const existingHeadings = hasExisting ? extractLessonHeadings(existingContent) : [];
+                const hasHeadings = existingHeadings.length > 0;
 
-                systemInstruction = `Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito, operando sob a mesma lente doutrinária do motor principal (Arminiano, Pré-tribulacionista/Pré-milenista, Ortodoxo/Trinitariano, Pentecostal Continuísta, Apologeta Anti-heresias, Hermenêutica de Alta Precisão).
+                systemInstruction = `Você é o Professor Michel Felix, PhD em Teologia Sistemática e História Eclesiástica, operando sob a cosmovisão bíblica ortodoxa e as 7 Balizas Doutrinárias (Arminiana Clássica, Pré-milenista/Pré-tribulacionista, Ortodoxia Trinitariana, Pentecostal Continuísta, Hermenêutica Gramático-Histórica de Alta Precisão, Apologética Anti-heresias e Didática Acessível com efeito "Ah! Entendi!").
 
-Sua tarefa é SUGERIR, em tópicos curtos e objetivos (4 a 6 itens), pontos de atenção e diretrizes pedagógicas para OUTRO PROFESSOR preparar ou aprimorar uma AULA TEMÁTICA de Escola Bíblica Dominical (EBD) sobre o tema: "${lessonTheme}".
-Você NÃO está escrevendo a aula completa em si, nem uma introdução genérica, mas sim um mapa estratégico de pontos de excelência para focar nesta aula temática específica.
+Sua tarefa é fornecer um MAPA ESTRATÉGICO DE PONTOS DE ATENÇÃO para a preparação ou aprimoramento da AULA TEMÁTICA / CURSO DE TEOLOGIA SISTEMÁTICA: "${lessonTheme}"${moduleTitle ? ` (Matéria: "${moduleTitle}")` : ''}.
+Você NÃO está gerando a apostila completa agora, mas sim as diretrizes e a ementa de tópicos que orientarão o professor e a IA na redação/atualização da aula.
 
-ATENÇÃO — LINGUAGEM: Escreva cada item em linguagem simples, didática e direta de EBD (evite jargões acadêmicos sem explicação imediata).`;
+DIRETRIZ DE LINGUAGEM: Escreva os itens de forma clara, didática e direta de EBD/Teologia (traduza termos difíceis no próprio texto, sem jargões soltos sem explicação).`;
 
-                if (hasExisting) {
-                    enhancedPrompt = `O professor já possui uma aula temática pronta sobre o tema: "${lessonTheme}".
-Veja abaixo o conteúdo atual da aula (trecho inicial para compreensão do conteúdo):
+                if (hasExisting && hasHeadings) {
+                    const headingsList = existingHeadings.join('\n');
+                    enhancedPrompt = `A AULA SOBRE O TEMA "${lessonTheme}"${moduleTitle ? ` (Matéria: "${moduleTitle}")` : ''} JÁ POSSUI TEXTO REDIGIDO E EMENTA DEFINIDA.
+Veja abaixo a lista completa e exata de tópicos e subtópicos que já fazem parte do manuscrito da aula:
 """
-${existingContent.substring(0, 3500)}
+${headingsList}
 """
 
-Com base no tema "${lessonTheme}" e no conteúdo já existente da aula acima:
-Forneça de 4 a 6 itens curtos (uma linha cada, sem numeração, começando com "- ") apontando sugestões de pontos de atenção estratégicos para enriquecer, atualizar ou criar uma nova versão com base no tema da aula:
-1. TEMA DOUTRINÁRIO E ÂNGULOS COMPLEMENTARES: tópicos ou ênfases teológicas adicionais pertinentes ao tema que merecem ser aprofundados ou clareados.
-2. CONEXÕES BÍBLICAS E CRISTOCÊNTRICAS: referências cruzadas vitais, profecias ou tipologias que reforçam a tese central da aula.
-3. RELATO OU EXEMPLO BÍBLICO PRÁTICO (RIGOR CONTEXTUAL): onde esse princípio ou doutrina foi vivido, desafiado ou manifesto nas Escrituras em seu contexto real (sem conexões forçadas).
-4. FONTES PRIMÁRIAS E HISTÓRICAS: menção a historiadores antigos (Josefo, autores do primeiro século) ou documentos históricos que ilustram o tema.
-5. INTERPRETAÇÃO ERRADA OU HERESIAS: equívocos comuns sobre este tema que o professor deve esclarecer de forma simples.
-6. APLICAÇÕES PRÁTICAS: aplicações diretas e transformadoras para o dia a dia do aluno de EBD.
+--- MANDATO DE PRESERVAÇÃO CURRICULAR (MUITO IMPORTANTE) ---
+Em Teologia Sistemática, quando uma aula já possui texto com seus tópicos e subtópicos, a estrutura é a base curricular da matéria e NÃO PODE ser alterada, reduzida ou substituída por outros tópicos arbitrários.
 
-Seja direto, específico deste tema "${lessonTheme}". Sem saudações, vá direto para a lista de itens.`;
+Forneça sua resposta ESTRITAMENTE estruturada nas duas seções abaixo:
+
+📌 ESTRUTURA DE TÓPICOS DA AULA (PRESERVAÇÃO OBRIGATÓRIA DA EMENTA):
+Traga a lista completa de todos os tópicos (##) e subtópicos (###) que já fazem parte desta aula (conforme listados acima), mantendo a numeração e títulos originais, para que o professor veja claramente que toda a ementa está preservada e será respeitada.
+
+🎯 PONTOS DE ATENÇÃO E DIRETRIZES DE APRIMORAMENTO (4 a 6 itens começando com "- "):
+Aponte de 4 a 6 diretrizes estratégicas e cirúrgicas para enriquecer, atualizar e aprofundar essa aula DENTRO dessa grade existente de tópicos:
+- ÊNFASE EXEGÉTICA E CONTEXTUAL: passagens e fundamentos bíblicos chave dentro dos tópicos da aula que merecem ênfase especial.
+- FONTES PRIMÁRIAS E HISTÓRICAS RECOMENDADAS: historiadores antigos (Josefo, Pais da Igreja) ou documentos históricos pertinentes a esses tópicos.
+- TERMOS ORIGINAIS E GLOSSÁRIO INTERATIVO: palavras em grego ou hebraico centrais nesta matéria para explicar no formato [[Palavra|Explicação didática]].
+- PREVENÇÃO DE ERROS OU HERESIAS HISTÓRICAS: equívocos teológicos clássicos a refutar com clareza bíblica.
+- APLICAÇÃO PRÁTICA PASTORAL: aplicação direta e transformadora dos ensinos desses tópicos para o dia a dia do aluno.
+
+Seja direto, específico deste tema "${lessonTheme}". Sem saudações ou preâmbulos vazios.`;
+                } else if (hasExisting && !hasHeadings) {
+                    enhancedPrompt = `A AULA SOBRE O TEMA "${lessonTheme}"${moduleTitle ? ` (Matéria: "${moduleTitle}")` : ''} JÁ POSSUI TEXTO DE BASE.
+Trecho inicial do texto existente da aula:
+"""
+${existingContent.substring(0, 4000)}
+"""
+
+--- MANDATO DE CONTINUIDADE ---
+A aula já possui conteúdo iniciado. Não desvie do assunto nem descarte o texto inicial.
+
+Forneça sua resposta estruturada nas duas seções abaixo:
+
+📌 TÓPICOS CENTRAIS IDENTIFICADOS NO TEXTO (MANTER):
+(Identifique e liste os pontos principais já abordados no texto para garantir a continuidade curricular).
+
+🎯 PONTOS DE ATENÇÃO E DIRETRIZES DE APRIMORAMENTO (4 a 6 itens começando com "- "):
+(Sugestões de complementação com fontes primárias, rigor bíblico contextual, termos originais com glossário e aplicação prática para enriquecer o texto existente).
+
+Seja direto e específico do tema "${lessonTheme}". Sem saudações.`;
                 } else {
-                    enhancedPrompt = `Para a preparação de uma aula temática de EBD sobre o tema: "${lessonTheme}":
-Liste de 4 a 6 itens curtos (uma linha cada, sem numeração, começando com "- ") apontando o que merece atenção especial na estruturação desta aula temática:
-1. EIXO DOUTRINÁRIO CENTRAL: o cerne teológico e passagens bíblicas centrais para este tema.
-2. INTERPRETAÇÃO ERRADA COMUM: erros teológicos ou heresias ligadas ao tema que precisam ser prevenidos ou refutados com mansidão e clareza bíblica.
-3. RELATO OU EXEMPLO BÍBLICO PRÁTICO (RIGOR CONTEXTUAL): uma narrativa bíblica autêntica que ilustre a doutrina em ação no contexto correto das Escrituras (sem forçar correspondências).
-4. CONEXÃO HISTÓRICA OU FONTE PRIMÁRIA: contexto cultural, arqueologia ou fonte da antiguidade que agregue valor ao tema.
-5. TERMO ORIGINAL OU GLOSSÁRIO: termos bíblicos ou conceitos teológicos essenciais que merecem explicação clara.
-6. APLICAÇÃO PRÁTICA: como a verdade deste tema afeta a caminhada cristã do aluno.
+                    // AULA NOVA (SEM TEXTO PRONTO)
+                    enhancedPrompt = `ESTA É UMA NOVA AULA QUE AINDA NÃO POSSUI TEXTO: "${lessonTheme}"${moduleTitle ? ` (Matéria: "${moduleTitle}")` : ''}.
+Como não há texto pré-existente, o professor precisa da PROPOSTA DE EMENTA COMPLETA estruturada sistematicamente para redigir ou gerar esta aula de Teologia Sistemática/EBD Temática.
 
-Seja direto, específico deste tema "${lessonTheme}". Sem saudações, vá direto para a lista de itens.`;
+Forneça sua resposta ESTRITAMENTE estruturada nas duas seções abaixo:
+
+📌 PROPOSTA DE EMENTA CURRICULAR (TÓPICOS ## E SUBTÓPICOS ### RECOMENDADOS):
+Proponha a divisão curricular completa e sistemática recomendada para esta aula, contendo:
+- TÍTULO DA AULA (Use # TÍTULO)
+- De 4 a 7 tópicos principais com '##' numerados e seus respectivos subtópicos com '###' cobrindo o tema doutrinário com profundidade teológica
+- Tópico de Ilustração Didática
+- Tópico de Aplicações Práticas para a Vida Cristã
+- Conclusão
+
+🎯 DIRETRIZES DOUTRINÁRIAS E PONTOS DE ATENÇÃO (4 a 6 itens começando com "- "):
+- EIXO DOUTRINÁRIO CENTRAL: o fundamento teológico primordial e as passagens bíblicas chave desta aula.
+- FONTES PRIMÁRIAS E HISTÓRICAS RECOMENDADAS: quais fontes da antiguidade (Josefo, concílios, Pais da Igreja) enriquecem este tema.
+- TERMOS ORIGINAIS E CONCEITOS CHAVE: termos em hebraico/grego ou doutrinas que devem ser explicados de forma simples com glossário didático.
+- INTERPRETAÇÕES ERRADAS OU HERESIAS: desvios teológicos ou históricos a serem prevenidos e refutados com rigor bíblico.
+- APLICAÇÃO PRÁTICA: como a verdade desta doutrina transforma a conduta e a fé do aluno no dia a dia.
+
+Seja direto, profundo e específico para o tema "${lessonTheme}". Sem saudações ou preâmbulos vazios.`;
                 }
             }
             // --- GERADOR DE VERSÍCULOS BÍBLICOS DETALHADO ---
@@ -524,9 +595,14 @@ Seja direto, específico deste tema "${lessonTheme}". Sem saudações, vá diret
                         ? `\n--- DIRETRIZES ESPECÍFICAS / SUGESTÕES DO PROFESSOR (APLICAR COM MÁXIMA PRIORIDADE) ---\n"""\n${customInstructions.trim()}\n"""\n`
                         : '';
                     const baseContent = existingContent || prompt;
+                    const existingHeadings = extractLessonHeadings(baseContent);
+                    const headingsPreservationBlock = existingHeadings.length > 0
+                        ? `\n--- MANDATO CRÍTICO: PRESERVAÇÃO TOTAL DA EMENTA E DOS TÓPICOS EXISTENTES ---\nA aula já possui uma ementa curricular estabelecida com os seguintes tópicos e subtópicos doutrinários:\n"""\n${existingHeadings.join('\n')}\n"""\nÉ TERMINANTEMENTE PROIBIDO excluir, aglutinar, reordenar ou substituir qualquer um desses tópicos (##) e subtópicos (###). Todos eles DEVEM OBRIGATORIAMENTE constar no texto final atualizado, enriquecidos com maior profundidade bíblica, fontes primárias e glossário didático.\n`
+                        : '';
 
                     enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RESTRITO: EXATAMENTE ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
-TEMA DA AULA: "${lessonTheme}"
+TEMA DA AULA: "${lessonTheme}"${moduleTitle ? ` (Matéria/Módulo: "${moduleTitle}")` : ''}
+${headingsPreservationBlock}
 ${customInstrBlock}
 Analise e reescreva a apostila temática existente abaixo sobre o tema "${lessonTheme}", utilizando-a como BASE FUNDAMENTAL.
 Eleve a densidade exegética e teológica, aprimore a didática com o efeito "Ah! Entendi!", incorpore as diretrizes fornecidas e ajuste o conteúdo rigorosamente para a metragem de páginas e palavras solicitada (${pages} páginas = ${wordCountTarget} palavras).
@@ -538,7 +614,7 @@ ${baseContent}
 
 INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
 - Comece com o TÍTULO DA AULA em letras maiúsculas (Use # ${lessonTheme.toUpperCase()}).
-- Mantenha como base estrutural o conteúdo que já existe nesta aula, atualizando e aprofundando os pontos vitais, sintetizando trechos prolixos e garantindo a extensão exata de ${pages} páginas (~${baseWordCount} palavras).
+- Mantenha como base estrutural o conteúdo que já existe nesta aula, preservando integralmente todos os tópicos (##) e subtópicos (###) existentes, aprofundando cada um com maior erudição e didática, sintetizando trechos prolixos e garantindo a extensão exata de ${pages} páginas (~${baseWordCount} palavras).
 ${customInstructions ? '- Incorpore rigorosamente as diretrizes e sugestões do professor fornecidas acima.' : ''}
 - Sempre que houver alguma doutrina, mandamento ou princípio, traga pelo menos um ou dois relatos práticos das Escrituras que exemplifiquem o ensino teórico, com RIGOR CONTEXTUAL E HISTÓRICO REAL (sem forçar correspondências ou anacronismos).
 - Aplique o Glossário Didático no formato [[Palavra|Explicação simples e didática]] para termos técnicos e teológicos.
@@ -549,16 +625,16 @@ ${customInstructions ? '- Incorpore rigorosamente as diretrizes e sugestões do 
                 } else {
                     const lessonTheme = themeTitle || book || prompt;
                     const customInstrBlock = customInstructions && customInstructions.trim().length > 0
-                        ? `\n--- DIRETRIZES ESPECÍFICAS / SUGESTÕES DO PROFESSOR ---\n"""\n${customInstructions.trim()}\n"""\n`
+                        ? `\n--- DIRETRIZES ESPECÍFICAS / EMENTA DE TÓPICOS SUGERIDA PELO PROFESSOR (SEGUIR RIGOROSAMENTE) ---\n"""\n${customInstructions.trim()}\n"""\n`
                         : (prompt !== lessonTheme ? `\n--- DIRETRIZES ESPECÍFICAS / SUGESTÕES DO PROFESSOR ---\n"""\n${prompt}\n"""\n` : '');
 
                     enhancedPrompt = `[GERAR APOSTILA DIDÁTICA TEMÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
-TEMA DA AULA: "${lessonTheme}"
+TEMA DA AULA: "${lessonTheme}"${moduleTitle ? ` (Matéria/Módulo: "${moduleTitle}")` : ''}
 ${customInstrBlock}
 
 INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
 - Comece com o TÍTULO DA AULA em letras maiúsculas (Use # ${lessonTheme.toUpperCase()}).
-- Siga rigorosamente o tema da aula e as orientações acima, gerando uma aula completa de nível PhD com didática acessível de EBD, OBRIGATORIAMENTE RESTRITA AO INTERVALO DE ${wordCountTarget} PALAVRAS (${pages} páginas).
+- Se houver uma ementa de tópicos (##) e subtópicos (###) definida nas instruções acima, siga-a RIGOROSAMENTE do início ao fim, desenvolvendo cada ponto com profundidade teológica de nível PhD e didática acessível de EBD, OBRIGATORIAMENTE RESTRITA AO INTERVALO DE ${wordCountTarget} PALAVRAS (${pages} páginas).
 - Sempre que houver alguma doutrina, mandamento ou princípio, traga pelo menos um ou dois relatos práticos das Escrituras que exemplifiquem o ensino teórico, com RIGOR CONTEXTUAL E HISTÓRICO REAL (sem forçar correspondências).
 - Aplique o Glossário Didático no formato [[Palavra|Explicação didática]] para termos difíceis.
 - Insira referências bíblicas no corpo do texto.

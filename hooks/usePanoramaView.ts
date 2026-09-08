@@ -332,6 +332,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 'thematic_focus_suggestion',
                 { 
                     themeTitle: lesson.title,
+                    moduleTitle: activeTheme?.title || '',
                     book: lesson.title,
                     existingContent: lesson.content || undefined
                 }
@@ -355,7 +356,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 setIsLoadingFocusSuggestion(false);
             }
         }
-    }, []);
+    }, [activeTheme]);
 
     // Gera outra sugestão pra este mesmo capítulo ou aula temática, ignorando (e depois substituindo) o cache
     const regenerateFocusSuggestion = useCallback(() => {
@@ -557,6 +558,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 'thematic_ebd', 
                 { 
                     themeTitle: activeLesson.title,
+                    moduleTitle: activeTheme?.title || '',
                     book: activeLesson.title,
                     customInstructions: customInstructions?.trim() || undefined,
                     depthLevel, 
@@ -678,6 +680,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 'upgrade_thematic_ebd', 
                 { 
                     themeTitle: activeLesson.title,
+                    moduleTitle: activeTheme?.title || '',
                     book: activeLesson.title,
                     existingContent: activeLesson.content,
                     customInstructions: customInstructions?.trim() || undefined,

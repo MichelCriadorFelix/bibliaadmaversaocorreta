@@ -23,6 +23,7 @@ export interface GenerationContext {
   targetPages?: string;
   thinkingLevel?: string;
   themeTitle?: string;
+  moduleTitle?: string;
   customInstructions?: string;
   existingContent?: string;
 }
@@ -111,6 +112,7 @@ export const generateContent = async (
                     book: context?.book,
                     chapter: context?.chapter,
                     themeTitle: context?.themeTitle,
+                    moduleTitle: context?.moduleTitle,
                     customInstructions: context?.customInstructions,
                     existingContent: context?.existingContent,
                     depthLevel: context?.depthLevel,
