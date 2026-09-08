@@ -14,6 +14,8 @@ interface EbdContentRendererProps {
   parseInline: (t: string) => React.ReactNode;
   isAdmin: boolean;
   studyKey: string;
+  currentUserEmail?: string;
+  onShowToast?: (msg: string, type?: "success" | "error" | "info") => void;
 }
 
 export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
@@ -26,6 +28,8 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
   parseInline,
   isAdmin,
   studyKey,
+  currentUserEmail,
+  onShowToast,
 }) => {
   const [annotations, setAnnotations] = useState<any[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -41,6 +45,28 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     end_offset: number;
     text: string;
   } | null>(null);
+  const selectedHighlightInfoRef = React.useRef(selectedHighlightInfo);
+  selectedHighlightInfoRef.current = selectedHighlightInfo;
+
+  // Clear highlight button when page changes
+  useEffect(() => {
+    setShowHighlightButton(false);
+    setSelectedHighlightInfo(null);
+    selectedHighlightInfoRef.current = null;
+  }, [currentPage]);
+
+  // Hide button on scroll or resize so it doesn't float detached
+  useEffect(() => {
+    const handleScrollOrResize = () => {
+      setShowHighlightButton(false);
+    };
+    window.addEventListener("scroll", handleScrollOrResize, { passive: true });
+    window.addEventListener("resize", handleScrollOrResize, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScrollOrResize);
+      window.removeEventListener("resize", handleScrollOrResize);
+    };
+  }, []);
 
   useEffect(() => {
     const loadAnnotations = async () => {
@@ -70,56 +96,71 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
   }, [studyKey, isAdmin]);
 
   const handleCreateHighlight = async () => {
-    if (!selectedHighlightInfo || !isAdmin) return;
-    const highlightId = `highlight_${studyKey}_${Date.now()}`;
-    const userEmail = "michel.felix@adma.local";
+    const info = selectedHighlightInfoRef.current || selectedHighlightInfo;
+    if (!info || !isAdmin) return;
+    const highlightId = `highlight_${studyKey}_p${currentPage}_${Date.now()}`;
+    const userEmail = currentUserEmail || "michel.felix@adma.local";
+
+    const newH = {
+      id: highlightId,
+      study_key: studyKey,
+      page_index: currentPage,
+      paragraph_index: info.paragraph_index,
+      start_offset: info.start_offset,
+      end_offset: info.end_offset,
+      text: info.text,
+      user_email: userEmail,
+      created_at: new Date().toISOString(),
+    };
+
+    // Optimistically update local highlights immediately
+    setHighlights((prev) => [...prev, newH]);
+
+    // Clear selection UI
+    setShowHighlightButton(false);
+    setSelectedHighlightInfo(null);
+    selectedHighlightInfoRef.current = null;
+    window.getSelection()?.removeAllRanges();
 
     try {
-      await db.entities.Highlights.save({
-        id: highlightId,
-        study_key: studyKey,
-        paragraph_index: selectedHighlightInfo.paragraph_index,
-        start_offset: selectedHighlightInfo.start_offset,
-        end_offset: selectedHighlightInfo.end_offset,
-        text: selectedHighlightInfo.text,
-        user_email: userEmail,
-        created_at: new Date().toISOString(),
-      });
+      await db.entities.Highlights.save(newH);
+      onShowToast?.("Texto destacado com sucesso!", "success");
 
-      // Refresh local state immediately
+      // Refresh to ensure sync
       const filtered = await db.entities.Highlights.filter({
         study_key: studyKey,
       });
-      setHighlights(filtered || []);
-
-      // Clear selection browser-side
-      window.getSelection()?.removeAllRanges();
-      setShowHighlightButton(false);
-      setSelectedHighlightInfo(null);
+      if (filtered && Array.isArray(filtered)) {
+        setHighlights(filtered);
+      }
     } catch (error) {
       console.error("Error saving highlight:", error);
+      onShowToast?.("Erro ao salvar destaque.", "error");
     }
   };
 
   const handleRemoveHighlight = async (id: string) => {
     if (!isAdmin) return;
-    if (window.confirm("Deseja remover este destaque em amarelo?")) {
-      try {
-        await db.entities.Highlights.delete(id);
-        // Refresh local state immediately
-        const filtered = await db.entities.Highlights.filter({
-          study_key: studyKey,
-        });
-        setHighlights(filtered || []);
-      } catch (error) {
-        console.error("Error deleting highlight:", error);
+    try {
+      setHighlights((prev) => prev.filter((h) => h.id !== id));
+      await db.entities.Highlights.delete(id);
+      onShowToast?.("Destaque removido.", "info");
+
+      // Refresh to ensure sync
+      const filtered = await db.entities.Highlights.filter({
+        study_key: studyKey,
+      });
+      if (filtered && Array.isArray(filtered)) {
+        setHighlights(filtered);
       }
+    } catch (error) {
+      console.error("Error deleting highlight:", error);
     }
   };
 
   const handleSaveAnnotation = async (content: string) => {
     if (activeParagraph === null) return;
-    const userEmail = "michel.felix@adma.local";
+    const userEmail = currentUserEmail || "michel.felix@adma.local";
     const annotationId = `annotation_${studyKey}_${activeParagraph}`;
 
     try {
@@ -161,37 +202,61 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
   const getSelectionOffsets = (parent: HTMLElement, range: Range) => {
     let startOffset = 0;
     let endOffset = 0;
+    let foundStart = false;
+    let foundEnd = false;
 
     const nodeIterator = document.createNodeIterator(
       parent,
       NodeFilter.SHOW_TEXT,
-      null,
+      {
+        acceptNode: (node) => {
+          // Ignore text inside buttons (e.g. annotation buttons)
+          if (node.parentElement?.closest("button")) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        },
+      },
     );
 
     let currentNode = nodeIterator.nextNode();
     let currentLength = 0;
 
     while (currentNode) {
+      const nodeLen = currentNode.textContent?.length || 0;
       if (currentNode === range.startContainer) {
         startOffset = currentLength + range.startOffset;
+        foundStart = true;
       }
       if (currentNode === range.endContainer) {
         endOffset = currentLength + range.endOffset;
+        foundEnd = true;
         break;
       }
-      currentLength += currentNode.textContent?.length || 0;
+      currentLength += nodeLen;
       currentNode = nodeIterator.nextNode();
     }
 
-    return { startOffset, endOffset };
+    if (foundStart && foundEnd) {
+      if (startOffset > endOffset) {
+        const tmp = startOffset;
+        startOffset = endOffset;
+        endOffset = tmp;
+      }
+      return { startOffset, endOffset };
+    }
+
+    return { startOffset, endOffset: Math.max(startOffset, endOffset) };
   };
 
   const handleMouseUpOrTouchEnd = () => {
     if (!isAdmin) return;
     setTimeout(() => {
       const selection = window.getSelection();
-      if (!selection || selection.rangeCount === 0) {
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
         setShowHighlightButton(false);
+        setSelectedHighlightInfo(null);
+        selectedHighlightInfoRef.current = null;
         return;
       }
       const text = selection.toString().trim();
@@ -213,32 +278,44 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
                 parent,
                 range,
               );
-              const rect = range.getBoundingClientRect();
-              setButtonPosition({
-                top: rect.top + window.scrollY - 45,
-                left: rect.left + window.scrollX + rect.width / 2 - 40,
-              });
 
-              setSelectedHighlightInfo({
-                paragraph_index: startParagraphIdx,
-                start_offset: startOffset,
-                end_offset: endOffset,
-                text,
-              });
-              setShowHighlightButton(true);
-            } else {
-              setShowHighlightButton(false);
+              if (endOffset > startOffset) {
+                const rect = range.getBoundingClientRect();
+                const buttonWidth = 140;
+                // Position fixed coordinates relative to viewport
+                const left = Math.max(
+                  12,
+                  Math.min(
+                    window.innerWidth - buttonWidth - 12,
+                    rect.left + rect.width / 2 - buttonWidth / 2,
+                  ),
+                );
+                const top =
+                  rect.top - 52 > 10 ? rect.top - 52 : rect.bottom + 10;
+
+                setButtonPosition({ top, left });
+
+                const info = {
+                  paragraph_index: startParagraphIdx,
+                  start_offset: startOffset,
+                  end_offset: endOffset,
+                  text,
+                };
+                setSelectedHighlightInfo(info);
+                selectedHighlightInfoRef.current = info;
+                setShowHighlightButton(true);
+                return;
+              }
             }
-          } else {
-            setShowHighlightButton(false);
           }
         } catch (e) {
-          setShowHighlightButton(false);
+          console.error("Error capturing selection:", e);
         }
-      } else {
-        setShowHighlightButton(false);
       }
-    }, 100);
+      setShowHighlightButton(false);
+      setSelectedHighlightInfo(null);
+      selectedHighlightInfoRef.current = null;
+    }, 150);
   };
 
   const applyHighlightsToReactNode = (
@@ -255,12 +332,12 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
       const endOfNode = startOfNode + text.length;
       offsetRef.current = endOfNode;
 
-      const activeInNode: { h: any; relStart: number; relEnd: number }[] = [];
+      const rawActiveInNode: { h: any; relStart: number; relEnd: number }[] = [];
       for (const h of activeHighlights) {
         const overlapStart = Math.max(startOfNode, h.start_offset);
         const overlapEnd = Math.min(endOfNode, h.end_offset);
         if (overlapStart < overlapEnd) {
-          activeInNode.push({
+          rawActiveInNode.push({
             h,
             relStart: overlapStart - startOfNode,
             relEnd: overlapEnd - startOfNode,
@@ -268,34 +345,67 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
         }
       }
 
-      if (activeInNode.length === 0) {
+      if (rawActiveInNode.length === 0) {
         return text;
       }
 
-      activeInNode.sort((a, b) => a.relStart - b.relStart);
+      // Sort by start position
+      rawActiveInNode.sort(
+        (a, b) => a.relStart - b.relStart || b.relEnd - a.relEnd,
+      );
+
+      // Merge overlapping/adjacent ranges to prevent duplicating text
+      const mergedRanges: {
+        relStart: number;
+        relEnd: number;
+        highlightIds: string[];
+      }[] = [];
+      for (const item of rawActiveInNode) {
+        if (mergedRanges.length === 0) {
+          mergedRanges.push({
+            relStart: item.relStart,
+            relEnd: item.relEnd,
+            highlightIds: [item.h.id],
+          });
+        } else {
+          const last = mergedRanges[mergedRanges.length - 1];
+          if (item.relStart <= last.relEnd) {
+            last.relEnd = Math.max(last.relEnd, item.relEnd);
+            if (!last.highlightIds.includes(item.h.id)) {
+              last.highlightIds.push(item.h.id);
+            }
+          } else {
+            mergedRanges.push({
+              relStart: item.relStart,
+              relEnd: item.relEnd,
+              highlightIds: [item.h.id],
+            });
+          }
+        }
+      }
 
       const segments: React.ReactNode[] = [];
       let lastIndex = 0;
 
-      for (const { h, relStart, relEnd } of activeInNode) {
-        if (relStart > lastIndex) {
-          segments.push(text.substring(lastIndex, relStart));
+      for (const range of mergedRanges) {
+        if (range.relStart > lastIndex) {
+          segments.push(text.substring(lastIndex, range.relStart));
         }
-        const highlightedText = text.substring(relStart, relEnd);
+        const highlightedText = text.substring(range.relStart, range.relEnd);
         segments.push(
           <mark
-            key={`hl-${h.id}-${startOfNode + relStart}`}
+            key={`hl-${range.highlightIds.join("-")}-${startOfNode + range.relStart}`}
             className="bg-yellow-300 dark:bg-yellow-600/70 text-[#1a1a1a] dark:text-white px-0.5 rounded cursor-pointer font-semibold transition-all hover:bg-yellow-400 active:scale-95 select-all"
             onClick={(e) => {
               e.stopPropagation();
-              onRemoveHighlight(h.id);
+              range.highlightIds.forEach((id) => onRemoveHighlight(id));
             }}
-            title="Remover Destaque (Admin)"
+            title="Clique para remover destaque (Admin)"
           >
             {highlightedText}
           </mark>,
         );
-        lastIndex = relEnd;
+        lastIndex = range.relEnd;
       }
 
       if (lastIndex < text.length) {
@@ -355,7 +465,10 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     idx: number,
     parsedNode: React.ReactNode,
   ) => {
-    const lineHighlights = highlights.filter((h) => h.paragraph_index === idx);
+    const lineHighlights = highlights.filter((h) => {
+      const hPage = h.page_index !== undefined ? Number(h.page_index) : 0;
+      return hPage === currentPage && Number(h.paragraph_index) === idx;
+    });
     if (lineHighlights.length === 0) return parsedNode;
 
     const offsetRef = { current: 0 };
@@ -540,24 +653,40 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
         key={`modal-${activeParagraph}-${annotations.length}`}
       />
 
-      {/* Floating Highlighter Buttons for Admin */}
+      {/* Floating Highlighter Button for Admin */}
       {showHighlightButton && (
-        <button
+        <div
           style={{
-            position: "absolute",
+            position: "fixed",
             top: `${buttonPosition.top}px`,
             left: `${buttonPosition.left}px`,
-            zIndex: 1000,
+            zIndex: 99999,
           }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleCreateHighlight();
-          }}
-          className="flex items-center gap-2 bg-[#C5A059] hover:bg-[#8B0000] text-white px-4 py-2 rounded-full shadow-2xl text-xs font-bold font-cinzel tracking-wider animate-in fade-in zoom-in-95 duration-200 border border-white/20 hover:scale-105 active:scale-95 transition-all"
+          className="pointer-events-auto"
         >
-          <PenLine className="w-4 h-4 text-white" />
-          Destacar Texto
-        </button>
+          <button
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleCreateHighlight();
+            }}
+            className="flex items-center gap-2 bg-[#C5A059] hover:bg-[#8B0000] text-white px-4 py-2 rounded-full shadow-2xl text-xs font-bold font-cinzel tracking-wider animate-in fade-in zoom-in-95 duration-200 border border-white/20 hover:scale-105 active:scale-95 transition-all cursor-pointer select-none"
+          >
+            <PenLine className="w-4 h-4 text-white" />
+            Destacar Texto
+          </button>
+        </div>
       )}
 
       {groupedBlocks.map((block, groupIdx) => {

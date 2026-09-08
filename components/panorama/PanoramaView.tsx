@@ -849,6 +849,8 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                                     parseInline={parseInline}
                                     isAdmin={isAdmin}
                                     studyKey={studyKey}
+                                    currentUserEmail={userProgress?.user_email}
+                                    onShowToast={onShowToast}
                                 />
                             ) : (
                                 <div className="text-center py-40">
