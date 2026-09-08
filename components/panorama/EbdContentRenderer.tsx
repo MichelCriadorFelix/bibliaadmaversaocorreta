@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Sparkles, Plus, Edit, PenLine } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { Sparkles, Plus, Edit, PenLine, X } from "lucide-react";
 import { db } from "../../services/database";
 import { AnnotationModal } from "./AnnotationModal";
 import { EbdDiagramBlock } from "./EbdDiagramBlock";
@@ -48,25 +48,37 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
   const selectedHighlightInfoRef = React.useRef(selectedHighlightInfo);
   selectedHighlightInfoRef.current = selectedHighlightInfo;
 
+  // Detect mobile / touch screen to dock action bar at bottom and avoid OS "Copiar | Compartilhar" overlay
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== "undefined") {
+      return (
+        window.innerWidth < 768 ||
+        "ontouchstart" in window ||
+        navigator.maxTouchPoints > 0
+      );
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(
+        window.innerWidth < 768 ||
+        "ontouchstart" in window ||
+        navigator.maxTouchPoints > 0
+      );
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   // Clear highlight button when page changes
   useEffect(() => {
     setShowHighlightButton(false);
     setSelectedHighlightInfo(null);
     selectedHighlightInfoRef.current = null;
   }, [currentPage]);
-
-  // Hide button on scroll or resize so it doesn't float detached
-  useEffect(() => {
-    const handleScrollOrResize = () => {
-      setShowHighlightButton(false);
-    };
-    window.addEventListener("scroll", handleScrollOrResize, { passive: true });
-    window.addEventListener("resize", handleScrollOrResize, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScrollOrResize);
-      window.removeEventListener("resize", handleScrollOrResize);
-    };
-  }, []);
 
   useEffect(() => {
     const loadAnnotations = async () => {
@@ -249,74 +261,95 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
     return { startOffset, endOffset: Math.max(startOffset, endOffset) };
   };
 
-  const handleMouseUpOrTouchEnd = () => {
+  const processCurrentSelection = useCallback(() => {
     if (!isAdmin) return;
-    setTimeout(() => {
-      const selection = window.getSelection();
-      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-        setShowHighlightButton(false);
-        setSelectedHighlightInfo(null);
-        selectedHighlightInfoRef.current = null;
-        return;
-      }
-      const text = selection.toString().trim();
-      if (text.length > 0) {
-        try {
-          const range = selection.getRangeAt(0);
-          const startParagraphIdx = getParagraphIndex(range.startContainer);
-          const endParagraphIdx = getParagraphIndex(range.endContainer);
-
-          if (
-            startParagraphIdx !== null &&
-            startParagraphIdx === endParagraphIdx
-          ) {
-            const parent = document.getElementById(
-              `read-block-${startParagraphIdx}`,
-            );
-            if (parent) {
-              const { startOffset, endOffset } = getSelectionOffsets(
-                parent,
-                range,
-              );
-
-              if (endOffset > startOffset) {
-                const rect = range.getBoundingClientRect();
-                const buttonWidth = 140;
-                // Position fixed coordinates relative to viewport
-                const left = Math.max(
-                  12,
-                  Math.min(
-                    window.innerWidth - buttonWidth - 12,
-                    rect.left + rect.width / 2 - buttonWidth / 2,
-                  ),
-                );
-                const top =
-                  rect.top - 52 > 10 ? rect.top - 52 : rect.bottom + 10;
-
-                setButtonPosition({ top, left });
-
-                const info = {
-                  paragraph_index: startParagraphIdx,
-                  start_offset: startOffset,
-                  end_offset: endOffset,
-                  text,
-                };
-                setSelectedHighlightInfo(info);
-                selectedHighlightInfoRef.current = info;
-                setShowHighlightButton(true);
-                return;
-              }
-            }
-          }
-        } catch (e) {
-          console.error("Error capturing selection:", e);
-        }
-      }
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
       setShowHighlightButton(false);
       setSelectedHighlightInfo(null);
       selectedHighlightInfoRef.current = null;
-    }, 150);
+      return;
+    }
+    const text = selection.toString().trim();
+    if (text.length > 0) {
+      try {
+        const range = selection.getRangeAt(0);
+        const startParagraphIdx = getParagraphIndex(range.startContainer);
+        const endParagraphIdx = getParagraphIndex(range.endContainer);
+
+        if (
+          startParagraphIdx !== null &&
+          startParagraphIdx === endParagraphIdx
+        ) {
+          const parent = document.getElementById(
+            `read-block-${startParagraphIdx}`,
+          );
+          if (parent) {
+            const { startOffset, endOffset } = getSelectionOffsets(
+              parent,
+              range,
+            );
+
+            if (endOffset > startOffset) {
+              const rect = range.getBoundingClientRect();
+              const buttonWidth = 150;
+              // Position fixed coordinates relative to viewport for desktop bubble
+              const left = Math.max(
+                12,
+                Math.min(
+                  window.innerWidth - buttonWidth - 12,
+                  rect.left + rect.width / 2 - buttonWidth / 2,
+                ),
+              );
+              const top =
+                rect.top - 52 > 10 ? rect.top - 52 : rect.bottom + 12;
+
+              setButtonPosition({ top, left });
+
+              const info = {
+                paragraph_index: startParagraphIdx,
+                start_offset: startOffset,
+                end_offset: endOffset,
+                text,
+              };
+              setSelectedHighlightInfo(info);
+              selectedHighlightInfoRef.current = info;
+              setShowHighlightButton(true);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error capturing selection:", e);
+      }
+    }
+    setShowHighlightButton(false);
+    setSelectedHighlightInfo(null);
+    selectedHighlightInfoRef.current = null;
+  }, [isAdmin]);
+
+  const handleMouseUpOrTouchEnd = () => {
+    if (!isAdmin) return;
+    setTimeout(() => {
+      processCurrentSelection();
+    }, 120);
   };
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    let timer: any = null;
+    const onSelectionChange = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        processCurrentSelection();
+      }, 150);
+    };
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("selectionchange", onSelectionChange);
+    };
+  }, [isAdmin, processCurrentSelection]);
 
   const applyHighlightsToReactNode = (
     node: React.ReactNode,
@@ -655,38 +688,125 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
 
       {/* Floating Highlighter Button for Admin */}
       {showHighlightButton && (
-        <div
-          style={{
-            position: "fixed",
-            top: `${buttonPosition.top}px`,
-            left: `${buttonPosition.left}px`,
-            zIndex: 99999,
-          }}
-          className="pointer-events-auto"
-        >
-          <button
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleCreateHighlight();
-            }}
-            className="flex items-center gap-2 bg-[#C5A059] hover:bg-[#8B0000] text-white px-4 py-2 rounded-full shadow-2xl text-xs font-bold font-cinzel tracking-wider animate-in fade-in zoom-in-95 duration-200 border border-white/20 hover:scale-105 active:scale-95 transition-all cursor-pointer select-none"
-          >
-            <PenLine className="w-4 h-4 text-white" />
-            Destacar Texto
-          </button>
-        </div>
+        <>
+          {isMobile ? (
+            /* Mobile / Touch: Bottom Floating Capsule — Completely avoids Android Chrome's "Copiar/Compartilhar" native menu */
+            <div
+              id="mobile-highlight-action-bar"
+              className="fixed bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-[99999] pointer-events-auto flex items-center gap-2 bg-[#1C1917]/95 dark:bg-black/95 text-white px-3.5 py-2.5 rounded-full shadow-[0_12px_36px_rgba(0,0,0,0.75)] border-2 border-[#C5A059] backdrop-blur-md animate-in slide-in-from-bottom-5 duration-200 select-none max-w-[94vw]"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCreateHighlight();
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCreateHighlight();
+                }}
+                className="flex items-center gap-2 bg-[#C5A059] hover:bg-[#8B0000] active:scale-95 text-white px-4 py-2 rounded-full shadow-md text-xs font-bold font-cinzel tracking-wider transition-all cursor-pointer whitespace-nowrap"
+              >
+                <PenLine className="w-4 h-4 text-white shrink-0" />
+                <span>Destacar Texto</span>
+              </button>
+
+              {selectedHighlightInfo?.text && (
+                <span className="text-[11px] text-[#C5A059] font-cormorant font-bold italic max-w-[90px] xs:max-w-[140px] sm:max-w-[200px] truncate px-1">
+                  "{selectedHighlightInfo.text}"
+                </span>
+              )}
+
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowHighlightButton(false);
+                  setSelectedHighlightInfo(null);
+                  selectedHighlightInfoRef.current = null;
+                  window.getSelection()?.removeAllRanges();
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowHighlightButton(false);
+                  setSelectedHighlightInfo(null);
+                  selectedHighlightInfoRef.current = null;
+                  window.getSelection()?.removeAllRanges();
+                }}
+                className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 active:scale-90 transition-colors shrink-0"
+                title="Cancelar seleção"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            /* Desktop: Contextual Floating Bubble near selection */
+            <div
+              style={{
+                position: "fixed",
+                top: `${buttonPosition.top}px`,
+                left: `${buttonPosition.left}px`,
+                zIndex: 99999,
+              }}
+              className="pointer-events-auto select-none"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCreateHighlight();
+                }}
+                className="flex items-center gap-2 bg-[#C5A059] hover:bg-[#8B0000] text-white px-4 py-2 rounded-full shadow-2xl text-xs font-bold font-cinzel tracking-wider animate-in fade-in zoom-in-95 duration-200 border border-white/20 hover:scale-105 active:scale-95 transition-all cursor-pointer select-none"
+              >
+                <PenLine className="w-4 h-4 text-white" />
+                Destacar Texto
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {groupedBlocks.map((block, groupIdx) => {

@@ -38,6 +38,7 @@ interface PanoramaAdminPanelProps {
     isLoadingFocusSuggestion: boolean;
     regenerateFocusSuggestion: () => void;
     activeTab: string;
+    thematicLessonTitle?: string;
     bookDownloadStatus: {
         status: 'idle' | 'checking' | 'missing' | 'success';
         missing: number[];
@@ -85,6 +86,7 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
     isLoadingFocusSuggestion,
     regenerateFocusSuggestion,
     activeTab,
+    thematicLessonTitle,
     bookDownloadStatus,
     isCheckingDownload,
     handleDownloadBook,
@@ -242,16 +244,18 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                     {(isLoadingFocusSuggestion || chapterFocusSuggestion) && (
                                         <div className="mb-4 p-4 rounded-2xl border-2 border-dashed border-[#C5A059]/40 bg-[#C5A059]/5 dark:bg-[#C5A059]/10">
                                             <div className="flex items-center justify-between gap-2 mb-2">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 overflow-hidden">
                                                     <Lightbulb className="w-3.5 h-3.5 text-[#C5A059] flex-shrink-0" />
-                                                    <span className="text-[10px] font-black text-[#C5A059] uppercase tracking-widest">
-                                                        Sugestão para {book} {chapter}
+                                                    <span className="text-[10px] font-black text-[#C5A059] uppercase tracking-widest truncate max-w-xs sm:max-w-md">
+                                                        {activeTab === 'thematic'
+                                                            ? `Sugestão para: ${thematicLessonTitle || 'Aula Temática'}`
+                                                            : `Sugestão para ${book} ${chapter}`}
                                                     </span>
                                                 </div>
                                                 <button
                                                     onClick={regenerateFocusSuggestion}
                                                     disabled={isLoadingFocusSuggestion}
-                                                    title="Gerar outra sugestão para este capítulo"
+                                                    title={activeTab === 'thematic' ? 'Gerar outra sugestão para esta aula temática' : 'Gerar outra sugestão para este capítulo'}
                                                     className="text-[10px] font-bold text-[#C5A059] hover:underline flex items-center gap-1 disabled:opacity-50 flex-shrink-0"
                                                 >
                                                     <RefreshCw className={`w-3 h-3 ${isLoadingFocusSuggestion ? 'animate-spin' : ''}`} /> Gerar outra
@@ -259,7 +263,7 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                             </div>
                                             {isLoadingFocusSuggestion ? (
                                                 <p className="text-xs text-gray-500 flex items-center gap-2">
-                                                    <Loader2 className="w-3 h-3 animate-spin" /> Gerando sugestão para este capítulo...
+                                                    <Loader2 className="w-3 h-3 animate-spin" /> {activeTab === 'thematic' ? 'Gerando sugestão com base no tema e conteúdo...' : 'Gerando sugestão para este capítulo...'}
                                                 </p>
                                             ) : (
                                                 <>
@@ -294,7 +298,13 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                     <textarea 
                                         value={customInstructions}
                                         onChange={(e) => setCustomInstructions(e.target.value)}
-                                        placeholder={activeTab === 'teacher' ? "💡 O texto da aula do aluno já é carregado automaticamente pelo sistema! Cole aqui apenas instruções extras opcionais (ex: focar em dinâmicas de 10 min, ênfase prática, etc.)." : "Ex: Foque na arqueologia do local... Use tom mais acadêmico... Explique o contexto de Josefo..."}
+                                        placeholder={
+                                            activeTab === 'teacher' 
+                                                ? "💡 O texto da aula do aluno já é carregado automaticamente pelo sistema! Cole aqui apenas instruções extras opcionais (ex: focar em dinâmicas de 10 min, ênfase prática, etc.)." 
+                                                : activeTab === 'thematic'
+                                                    ? "💡 Para esta aula temática, use o botão 'Usar esta sugestão' acima ou digite instruções personalizadas (ex: focar em tipologia, fontes primárias, exemplos bíblicos práticos com contexto estrito, etc.)."
+                                                    : "Ex: Foque na arqueologia do local... Use tom mais acadêmico... Explique o contexto de Josefo..."
+                                        }
                                         className="w-full bg-white dark:bg-black/40 border-2 border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-sm focus:border-[#C5A059] outline-none transition-all min-h-[100px]"
                                     />
                                 </div>

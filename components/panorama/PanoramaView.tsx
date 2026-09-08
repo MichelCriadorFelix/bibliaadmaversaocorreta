@@ -649,6 +649,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                         isLoadingFocusSuggestion={isLoadingFocusSuggestion}
                         regenerateFocusSuggestion={regenerateFocusSuggestion}
                         activeTab={activeTab}
+                        thematicLessonTitle={activeLesson?.title}
                         bookDownloadStatus={bookDownloadStatus}
                         isCheckingDownload={isCheckingDownload}
                         handleDownloadBook={handleDownloadBook}

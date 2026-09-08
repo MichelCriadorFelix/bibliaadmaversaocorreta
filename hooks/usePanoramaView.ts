@@ -297,17 +297,90 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         }
     }, []);
 
-    // Gera outra sugestão pra este mesmo capítulo, ignorando (e depois substituindo) o cache —
-    // usado pelo botão "Gerar outra sugestão" quando a atual não agrada.
+    // Carrega ou gera pontos de atenção estratégicos para uma aula temática específica,
+    // considerando tanto o tema quanto o conteúdo existente da aula (se houver).
+    const loadOrGenerateThematicFocusSuggestion = useCallback(async (lesson: ThematicLesson, skipCache: boolean = false) => {
+        const key = `thematic_${lesson.id || lesson.title}`;
+        latestRequestKeyRef.current = key;
+        setChapterFocusSuggestion(null);
+
+        if (!skipCache) {
+            try {
+                const cached = await db.entities.ChapterFocusSuggestion.get(key);
+                if (latestRequestKeyRef.current !== key) return;
+                if (cached && cached.suggestion) {
+                    setChapterFocusSuggestion(cached.suggestion);
+                    return;
+                }
+            } catch (e) {
+                // sem cache disponível, segue para gerar
+            }
+        }
+
+        if (latestRequestKeyRef.current !== key) return;
+        setIsLoadingFocusSuggestion(true);
+        try {
+            const hasContent = Boolean(lesson.content && lesson.content.trim().length > 100);
+            const promptText = hasContent
+                ? `Sugestões de pontos de atenção e atualização para a aula temática: "${lesson.title}"`
+                : `Pontos de atenção para a aula temática: "${lesson.title}"`;
+
+            const text = await generateContent(
+                promptText,
+                null,
+                false,
+                'thematic_focus_suggestion',
+                { 
+                    themeTitle: lesson.title,
+                    book: lesson.title,
+                    existingContent: lesson.content || undefined
+                }
+            );
+            const clean = typeof text === 'string' ? text.trim() : '';
+            if (clean) {
+                db.entities.ChapterFocusSuggestion.save({ 
+                    chapter_key: key, 
+                    book: lesson.title, 
+                    chapter: 0, 
+                    suggestion: clean 
+                }).catch(() => {});
+                if (latestRequestKeyRef.current === key) {
+                    setChapterFocusSuggestion(clean);
+                }
+            }
+        } catch (e) {
+            // Silencioso de propósito para sugestão opcional
+        } finally {
+            if (latestRequestKeyRef.current === key) {
+                setIsLoadingFocusSuggestion(false);
+            }
+        }
+    }, []);
+
+    // Gera outra sugestão pra este mesmo capítulo ou aula temática, ignorando (e depois substituindo) o cache
     const regenerateFocusSuggestion = useCallback(() => {
-        loadOrGenerateFocusSuggestion(book, chapter, true);
-    }, [book, chapter, loadOrGenerateFocusSuggestion]);
+        if (activeTab === 'thematic') {
+            if (activeLesson) {
+                loadOrGenerateThematicFocusSuggestion(activeLesson, true);
+            }
+        } else {
+            loadOrGenerateFocusSuggestion(book, chapter, true);
+        }
+    }, [activeTab, activeLesson, book, chapter, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
 
     useEffect(() => {
-        if (isAdmin && (activeTab === 'student' || activeTab === 'teacher')) {
-            loadOrGenerateFocusSuggestion(book, chapter);
+        if (isAdmin) {
+            if (activeTab === 'student' || activeTab === 'teacher') {
+                loadOrGenerateFocusSuggestion(book, chapter);
+            } else if (activeTab === 'thematic') {
+                if (thematicViewMode === 'lesson_content' && activeLesson) {
+                    loadOrGenerateThematicFocusSuggestion(activeLesson);
+                } else {
+                    setChapterFocusSuggestion(null);
+                }
+            }
         }
-    }, [book, chapter, isAdmin, activeTab, loadOrGenerateFocusSuggestion]);
+    }, [book, chapter, isAdmin, activeTab, thematicViewMode, activeLesson, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
 
     const calculateStats = useCallback((text: string) => {
         if (!text) return;
@@ -473,16 +546,23 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         setTheologicalDensity(5);
         setCurrentStatusMessage('Iniciando geração da apostila temática...');
         setValidationPhase('structural');
-        setValidationLog(["🚀 Iniciando motor Temático Série Ouro v114...", `📐 Target: ${targetPages * 500} words (Mandato de Volume)`]);
+        setValidationLog(["🚀 Iniciando motor Temático Série Ouro v116...", `📐 Target: ${targetPages * 600} words (${targetPages} páginas)`]);
 
         try {
-            const userPrompt = customInstructions ? customInstructions : activeLesson.title;
+            const userPrompt = customInstructions?.trim() ? customInstructions.trim() : activeLesson.title;
             const res = await generateContent(
                 userPrompt, 
                 null, 
                 true, 
                 'thematic_ebd', 
-                { depthLevel, targetPages: targetPages.toString(), thinkingLevel },
+                { 
+                    themeTitle: activeLesson.title,
+                    book: activeLesson.title,
+                    customInstructions: customInstructions?.trim() || undefined,
+                    depthLevel, 
+                    targetPages: targetPages.toString(), 
+                    thinkingLevel 
+                },
                 (prog) => {
                     setTheologicalDensity(prog.percent);
                     setCurrentStatusMessage(prog.message);
@@ -508,6 +588,8 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             onShowToast('Apostila Série Ouro Gerada!', 'success');
             setCustomInstructions('');
             setShowInstructions(false);
+            // Atualiza sugestões focadas para a nova aula
+            loadOrGenerateThematicFocusSuggestion(updatedLesson, true);
         } catch (e: any) {
             setTheologicalDensity(0);
             setCurrentStatusMessage('');
@@ -586,7 +668,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         setTheologicalDensity(5);
         setCurrentStatusMessage('Iniciando upgrade da apostila temática...');
         setValidationPhase('structural');
-        setValidationLog(["🚀 Iniciando upgrade de apostila Temática Série Ouro via Gemini 3.5 Flash...", `📐 Target de páginas: ${targetPages} páginas`]);
+        setValidationLog(["🚀 Iniciando upgrade de apostila Temática Série Ouro...", `📐 Target de páginas: ${targetPages} páginas (~${targetPages * 600} palavras)`]);
 
         try {
             const res = await generateContent(
@@ -594,7 +676,15 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 null, 
                 true, 
                 'upgrade_thematic_ebd', 
-                { depthLevel, targetPages: targetPages.toString(), thinkingLevel },
+                { 
+                    themeTitle: activeLesson.title,
+                    book: activeLesson.title,
+                    existingContent: activeLesson.content,
+                    customInstructions: customInstructions?.trim() || undefined,
+                    depthLevel, 
+                    targetPages: targetPages.toString(), 
+                    thinkingLevel 
+                },
                 (prog) => {
                     setTheologicalDensity(prog.percent);
                     setCurrentStatusMessage(prog.message);
@@ -619,6 +709,10 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             setTheologicalDensity(100);
             setCurrentStatusMessage('Apostila Atualizada com Sucesso!');
             onShowToast('Apostila Atualizada com Sucesso!', 'success');
+            setCustomInstructions('');
+            setShowInstructions(false);
+            // Atualiza sugestões com base no novo conteúdo gerado
+            loadOrGenerateThematicFocusSuggestion(updatedLesson, true);
         } catch (e: any) {
             setTheologicalDensity(0);
             setCurrentStatusMessage('');
@@ -634,7 +728,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         } else {
             upgradeEbd(book, chapter, depthLevel, targetPages, thinkingLevel);
         }
-    }, [activeTab, book, chapter, depthLevel, targetPages, thinkingLevel, content, activeLesson]);
+    }, [activeTab, book, chapter, depthLevel, targetPages, thinkingLevel, content, activeLesson, customInstructions]);
 
     const [bookDownloadStatus, setBookDownloadStatus] = useState<{
         status: 'idle' | 'checking' | 'missing' | 'success';

@@ -101,6 +101,9 @@ export default async function handler(request, response) {
         taskType, 
         book, 
         chapter, 
+        themeTitle,
+        customInstructions,
+        existingContent,
         depthLevel, 
         targetPages, 
         thinkingLevel,
@@ -216,6 +219,48 @@ export default async function handler(request, response) {
 7. EXEMPLO OU RELATO BÍBLICO PRÁTICO (RIGOR HERMENÊUTICO E CONTEXTUAL — SEM FORÇAR): Se o capítulo traz um mandamento, doutrina, lei ou princípio (ex: pecados por ignorância de líderes/congregação, votos, sacerdócio, julgamentos), aponte onde esse princípio foi vivido, quebrado ou cumprido na prática em uma história das Escrituras (ex: o erro de Davi ao transportar a Arca em 1 Cr 13/15, o juramento precipitado de Saul em 1 Sm 14, a purificação de Josias em 2 Rs 22). ATENÇÃO CRÍTICA: A correspondência bíblica deve ser REAL, LEGÍTIMA e no CONTEXTO EXATO da passagem. É TERMINANTEMENTE PROIBIDO inventar, alucinar, espiritualizar forçadamente ou encaixar uma história fora de contexto só para ter um exemplo. Se não houver uma narrativa bíblica que ilustre com exatidão aquele ponto específico, NÃO invente nem force uma conexão artificial — a fidelidade ao texto bíblico prevalece sempre sobre o desejo de exemplificar.
 
 Seja direto e específico deste capítulo — nada genérico que serviria para qualquer capítulo. Sem introduções, sem saudações, sem numerar as categorias acima no texto final (elas são só um guia interno seu), vá direto para a lista de itens.`;
+            }
+            // --- SUGESTÃO DE PONTOS DE ATENÇÃO PARA AULAS TEMÁTICAS ---
+            else if (taskType === 'thematic_focus_suggestion') {
+                const lessonTheme = themeTitle || book || prompt;
+                const hasExisting = Boolean(existingContent && existingContent.trim().length > 100);
+
+                systemInstruction = `Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito, operando sob a mesma lente doutrinária do motor principal (Arminiano, Pré-tribulacionista/Pré-milenista, Ortodoxo/Trinitariano, Pentecostal Continuísta, Apologeta Anti-heresias, Hermenêutica de Alta Precisão).
+
+Sua tarefa é SUGERIR, em tópicos curtos e objetivos (4 a 6 itens), pontos de atenção e diretrizes pedagógicas para OUTRO PROFESSOR preparar ou aprimorar uma AULA TEMÁTICA de Escola Bíblica Dominical (EBD) sobre o tema: "${lessonTheme}".
+Você NÃO está escrevendo a aula completa em si, nem uma introdução genérica, mas sim um mapa estratégico de pontos de excelência para focar nesta aula temática específica.
+
+ATENÇÃO — LINGUAGEM: Escreva cada item em linguagem simples, didática e direta de EBD (evite jargões acadêmicos sem explicação imediata).`;
+
+                if (hasExisting) {
+                    enhancedPrompt = `O professor já possui uma aula temática pronta sobre o tema: "${lessonTheme}".
+Veja abaixo o conteúdo atual da aula (trecho inicial para compreensão do conteúdo):
+"""
+${existingContent.substring(0, 3500)}
+"""
+
+Com base no tema "${lessonTheme}" e no conteúdo já existente da aula acima:
+Forneça de 4 a 6 itens curtos (uma linha cada, sem numeração, começando com "- ") apontando sugestões de pontos de atenção estratégicos para enriquecer, atualizar ou criar uma nova versão com base no tema da aula:
+1. TEMA DOUTRINÁRIO E ÂNGULOS COMPLEMENTARES: tópicos ou ênfases teológicas adicionais pertinentes ao tema que merecem ser aprofundados ou clareados.
+2. CONEXÕES BÍBLICAS E CRISTOCÊNTRICAS: referências cruzadas vitais, profecias ou tipologias que reforçam a tese central da aula.
+3. RELATO OU EXEMPLO BÍBLICO PRÁTICO (RIGOR CONTEXTUAL): onde esse princípio ou doutrina foi vivido, desafiado ou manifesto nas Escrituras em seu contexto real (sem conexões forçadas).
+4. FONTES PRIMÁRIAS E HISTÓRICAS: menção a historiadores antigos (Josefo, autores do primeiro século) ou documentos históricos que ilustram o tema.
+5. INTERPRETAÇÃO ERRADA OU HERESIAS: equívocos comuns sobre este tema que o professor deve esclarecer de forma simples.
+6. APLICAÇÕES PRÁTICAS: aplicações diretas e transformadoras para o dia a dia do aluno de EBD.
+
+Seja direto, específico deste tema "${lessonTheme}". Sem saudações, vá direto para a lista de itens.`;
+                } else {
+                    enhancedPrompt = `Para a preparação de uma aula temática de EBD sobre o tema: "${lessonTheme}":
+Liste de 4 a 6 itens curtos (uma linha cada, sem numeração, começando com "- ") apontando o que merece atenção especial na estruturação desta aula temática:
+1. EIXO DOUTRINÁRIO CENTRAL: o cerne teológico e passagens bíblicas centrais para este tema.
+2. INTERPRETAÇÃO ERRADA COMUM: erros teológicos ou heresias ligadas ao tema que precisam ser prevenidos ou refutados com mansidão e clareza bíblica.
+3. RELATO OU EXEMPLO BÍBLICO PRÁTICO (RIGOR CONTEXTUAL): uma narrativa bíblica autêntica que ilustre a doutrina em ação no contexto correto das Escrituras (sem forçar correspondências).
+4. CONEXÃO HISTÓRICA OU FONTE PRIMÁRIA: contexto cultural, arqueologia ou fonte da antiguidade que agregue valor ao tema.
+5. TERMO ORIGINAL OU GLOSSÁRIO: termos bíblicos ou conceitos teológicos essenciais que merecem explicação clara.
+6. APLICAÇÃO PRÁTICA: como a verdade deste tema afeta a caminhada cristã do aluno.
+
+Seja direto, específico deste tema "${lessonTheme}". Sem saudações, vá direto para a lista de itens.`;
+                }
             }
             // --- GERADOR DE VERSÍCULOS BÍBLICOS DETALHADO ---
             else if (taskType === 'get_bible_verses') {
@@ -474,33 +519,52 @@ Seja direto e específico deste capítulo — nada genérico que serviria para q
                 `;
                 
                 if (taskType === 'upgrade_thematic_ebd') {
+                    const lessonTheme = themeTitle || book || 'Tema da Aula';
+                    const customInstrBlock = customInstructions && customInstructions.trim().length > 0
+                        ? `\n--- DIRETRIZES ESPECÍFICAS / SUGESTÕES DO PROFESSOR (APLICAR COM MÁXIMA PRIORIDADE) ---\n"""\n${customInstructions.trim()}\n"""\n`
+                        : '';
+                    const baseContent = existingContent || prompt;
+
                     enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RESTRITO: EXATAMENTE ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
-                    Analise e reescreva a seguinte apostila existente, elevando sua densidade acadêmica e enriquecendo a explicação.
-                    CRÍTICO: Você DEVE aplicar rigorosamente as regras de Glossário, Tradição e Fontes Primárias, MANTENDO O TEXTO RIGOROSAMENTE DENTRO DA META DE ${wordCountTarget} PALAVRAS. Compacte o que já existe se for necessário, enxugue prolixidades.
-                    
-                    APOSTILA ATUAL:
-                    """
-                    ${prompt}
-                    """
-                    
-                    INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
-                    - Comece com o TÍTULO em letras maiúsculas (Use #).
-                    - Atualize o conteúdo existente. COMPACTE as partes redundantes ou prolixas OBRIGATORIAMENTE para garantir que o tamanho final fique entre ${minWords} e ${maxWords} palavras.
-                    - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
-                    - CITE A BÍBLIA CONSTANTEMENTE.
-                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras. NUNCA exceda ${maxWords} palavras!`;
+TEMA DA AULA: "${lessonTheme}"
+${customInstrBlock}
+Analise e reescreva a apostila temática existente abaixo sobre o tema "${lessonTheme}", utilizando-a como BASE FUNDAMENTAL.
+Eleve a densidade exegética e teológica, aprimore a didática com o efeito "Ah! Entendi!", incorpore as diretrizes fornecidas e ajuste o conteúdo rigorosamente para a metragem de páginas e palavras solicitada (${pages} páginas = ${wordCountTarget} palavras).
+
+APOSTILA EXISTENTE DE BASE:
+"""
+${baseContent}
+"""
+
+INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
+- Comece com o TÍTULO DA AULA em letras maiúsculas (Use # ${lessonTheme.toUpperCase()}).
+- Mantenha como base estrutural o conteúdo que já existe nesta aula, atualizando e aprofundando os pontos vitais, sintetizando trechos prolixos e garantindo a extensão exata de ${pages} páginas (~${baseWordCount} palavras).
+${customInstructions ? '- Incorpore rigorosamente as diretrizes e sugestões do professor fornecidas acima.' : ''}
+- Sempre que houver alguma doutrina, mandamento ou princípio, traga pelo menos um ou dois relatos práticos das Escrituras que exemplifiquem o ensino teórico, com RIGOR CONTEXTUAL E HISTÓRICO REAL (sem forçar correspondências ou anacronismos).
+- Aplique o Glossário Didático no formato [[Palavra|Explicação simples e didática]] para termos técnicos e teológicos.
+- Insira referências bíblicas no corpo do texto (sem listas soltas).
+- Inclua Fontes Primárias {{Autor | Obra | Comando}} e conexões históricas pertinentes ao tema.
+- NÃO USE SAUDAÇÕES OU INTRODUÇÕES META. VÁ DIRETO AO CONTEÚDO DA AULA.
+- SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras (${pages} páginas). NUNCA exceda ${maxWords} palavras e não produza menos de ${minWords} palavras!`;
                 } else {
-                    enhancedPrompt = `[GERAR APOSTILA DIDÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
-                    
-                    EMENTA/TÓPICOS OBRIGATÓRIOS DEFINIDOS PELO RESPONSÁVEL:
-                    "${prompt}"
-                    
-                    INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
-                    - Comece com o TÍTULO em letras maiúsculas (Use #).
-                    - Siga rigorosamente a ementa acima, gerando uma aula completa de nível PhD, MAS OBRIGATORIAMENTE RESTRITA AO INTERVALO DE ${wordCountTarget} PALAVRAS.
-                    - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
-                    - CITE A BÍBLIA CONSTANTEMENTE.
-                    - SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras. NUNCA exceda ${maxWords} palavras.`;
+                    const lessonTheme = themeTitle || book || prompt;
+                    const customInstrBlock = customInstructions && customInstructions.trim().length > 0
+                        ? `\n--- DIRETRIZES ESPECÍFICAS / SUGESTÕES DO PROFESSOR ---\n"""\n${customInstructions.trim()}\n"""\n`
+                        : (prompt !== lessonTheme ? `\n--- DIRETRIZES ESPECÍFICAS / SUGESTÕES DO PROFESSOR ---\n"""\n${prompt}\n"""\n` : '');
+
+                    enhancedPrompt = `[GERAR APOSTILA DIDÁTICA TEMÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
+TEMA DA AULA: "${lessonTheme}"
+${customInstrBlock}
+
+INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
+- Comece com o TÍTULO DA AULA em letras maiúsculas (Use # ${lessonTheme.toUpperCase()}).
+- Siga rigorosamente o tema da aula e as orientações acima, gerando uma aula completa de nível PhD com didática acessível de EBD, OBRIGATORIAMENTE RESTRITA AO INTERVALO DE ${wordCountTarget} PALAVRAS (${pages} páginas).
+- Sempre que houver alguma doutrina, mandamento ou princípio, traga pelo menos um ou dois relatos práticos das Escrituras que exemplifiquem o ensino teórico, com RIGOR CONTEXTUAL E HISTÓRICO REAL (sem forçar correspondências).
+- Aplique o Glossário Didático no formato [[Palavra|Explicação didática]] para termos difíceis.
+- Insira referências bíblicas no corpo do texto.
+- Inclua Fontes Primárias {{Autor | Obra | Comando}} e contexto histórico/teológico.
+- NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
+- SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras (${pages} páginas). NUNCA exceda ${maxWords} palavras.`;
                 }
             }
             // --- LÓGICA PARA CONTEÚDO DO ALUNO (PADRÃO - EBD PANORAMA) ---
@@ -701,7 +765,7 @@ Seja direto e específico deste capítulo — nada genérico que serviria para q
                 config.maxOutputTokens = 32768; // > 20.000 tokens para análises léxicas e Strongs aprofundadas
             } else if (taskType === 'commentary') {
                 config.maxOutputTokens = 16384;
-            } else if (taskType === 'chapter_focus_suggestion') {
+            } else if (taskType === 'chapter_focus_suggestion' || taskType === 'thematic_focus_suggestion') {
                 // Resposta curta (lista de 4-6 itens), mas com folga real: mesmo sem thinkingConfig
                 // explícito, o modelo pode gastar uma boa fatia do teto só "pensando" antes de
                 // responder — um teto pequeno demais (512) cortava a resposta no meio da frase.

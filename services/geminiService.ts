@@ -5,7 +5,7 @@
  */
 
 // Tipos de tarefas para seleção inteligente de modelo no servidor
-export type TaskType = 'commentary' | 'dictionary' | 'devotional' | 'ebd' | 'metadata' | 'general' | 'teacher_ebd' | 'quiz_gen' | 'thematic_ebd' | 'assistente_chat' | 'upgrade_ebd' | 'upgrade_teacher_ebd' | 'upgrade_thematic_ebd' | 'get_bible_verses' | 'chapter_focus_suggestion';
+export type TaskType = 'commentary' | 'dictionary' | 'devotional' | 'ebd' | 'metadata' | 'general' | 'teacher_ebd' | 'quiz_gen' | 'thematic_ebd' | 'assistente_chat' | 'upgrade_ebd' | 'upgrade_teacher_ebd' | 'upgrade_thematic_ebd' | 'get_bible_verses' | 'chapter_focus_suggestion' | 'thematic_focus_suggestion';
 
 export interface GenerationProgress {
   percent: number;
@@ -16,12 +16,23 @@ export interface GenerationProgress {
   stage?: 'connecting' | 'querying' | 'processing' | 'saving' | 'completed' | 'error';
 }
 
+export interface GenerationContext {
+  book?: string;
+  chapter?: number;
+  depthLevel?: string;
+  targetPages?: string;
+  thinkingLevel?: string;
+  themeTitle?: string;
+  customInstructions?: string;
+  existingContent?: string;
+}
+
 export const generateContent = async (
   prompt: string, 
   jsonSchema?: any,
   isLongOutput: boolean = false,
   taskType: TaskType = 'general',
-  context?: { book?: string; chapter?: number; depthLevel?: string; targetPages?: string; thinkingLevel?: string },
+  context?: GenerationContext,
   onProgress?: (progress: GenerationProgress) => void
 ) => {
     const attemptedHashes = new Set<string>();
@@ -42,14 +53,18 @@ export const generateContent = async (
             const attemptedCount = allRotationLogs.length;
             const startPct = Math.min(8 + Math.floor((attemptedCount / 43) * 72), 30);
             
+            const subjectLabel = context?.themeTitle 
+                ? `tema "${context.themeTitle}"` 
+                : (context?.book ? `${context.book} ${context.chapter || ''}`.trim() : 'Passagem');
+
             const stageMessages = [
                 `Conectando ao pool e acervo teológico (Chave #${cycle})...`,
-                `Analisando textos originais (Hebraico / Grego) de ${context?.book || 'Passagem'} ${context?.chapter || ''}...`,
-                `Executando exegese profunda e aplicando instruções do professor...`,
-                `Destrinchando versículos e formulando o efeito "Ah! Entendi!"...`,
-                `Injetando Pérolas de Ouro e Fontes Primárias (Josefo, Talmud, etc.)...`,
+                `Analisando textos e fundamentação teológica de ${subjectLabel}...`,
+                `Executando exegese profunda e aplicando diretrizes do professor...`,
+                `Destrinchando os tópicos e formulando o efeito "Ah! Entendi!"...`,
+                `Injetando Pérolas de Ouro e Fontes Primárias (Josefo, Talmud, Pais da Igreja)...`,
                 `Inserindo Glossários Interativos e Tipologia Cristocêntrica...`,
-                `Validando Curiosidades, Arqueologia e Metrado de Páginas...`
+                `Validando Curiosidades, Teologia e Metrado de Páginas...`
             ];
 
             let msgIdx = 0;
@@ -58,7 +73,7 @@ export const generateContent = async (
             onProgress?.({
                 percent: currentPct,
                 message: cycle > 1 
-                    ? `Alternando Chave (${cycle}/43)... Analisando ${context?.book || 'Livro'} ${context?.chapter || ''}` 
+                    ? `Alternando Chave (${cycle}/43)... Analisando ${subjectLabel}` 
                     : stageMessages[0],
                 stage: 'querying',
                 cycle,
@@ -95,6 +110,9 @@ export const generateContent = async (
                     taskType,
                     book: context?.book,
                     chapter: context?.chapter,
+                    themeTitle: context?.themeTitle,
+                    customInstructions: context?.customInstructions,
+                    existingContent: context?.existingContent,
                     depthLevel: context?.depthLevel,
                     targetPages: context?.targetPages,
                     thinkingLevel: context?.thinkingLevel,
