@@ -381,9 +381,9 @@ Seja direto, profundo e específico para o tema "${lessonTheme}". Sem saudaçõe
 
                 let volumeInstruction = "";
                 if (isUpgrade) {
-                    volumeInstruction = `MANDATO DE VOLUME CIRÚRGICO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL): O usuário solicitou rigorosamente ${pages} páginas (~${baseWordCount} palavras). NÃO ultrapasse ${maxWords} palavras. Se o texto existente for longo, COMPACTE e resuma para se adequar a esta meta.`;
+                    volumeInstruction = `MANDATO DE VOLUME CIRÚRGICO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL | TETO INVIOLÁVEL: ${maxWords} PALAVRAS): O usuário solicitou rigorosamente ${pages} páginas (~${baseWordCount} palavras). NÃO ultrapasse ${maxWords} palavras sob nenhuma hipótese. Se o texto existente for longo, COMPACTE e resuma para se adequar a esta meta.`;
                 } else {
-                    volumeInstruction = `MANDATO DE VOLUME RIGOROSO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL): Enquadre o resumo e roadmap rigorosamente na meta de ${pages} páginas (~${baseWordCount} palavras), entre ${minWords} e ${maxWords} palavras totais.`;
+                    volumeInstruction = `MANDATO DE VOLUME RIGOROSO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL | TETO INVIOLÁVEL: ${maxWords} PALAVRAS): Enquadre o resumo e roadmap rigorosamente na meta de ${pages} páginas (~${baseWordCount} palavras), entre ${minWords} e ${maxWords} palavras totais. NUNCA exceda ${maxWords} palavras!`;
                 }
 
                 // Detecta se há uma aula extensa colada no prompt (como texto da lição do aluno)
@@ -565,11 +565,22 @@ Seja direto, profundo e específico para o tema "${lessonTheme}". Sem saudaçõe
                     6. RIGOR HISTÓRICO E HONESTIDADE INTELECTUAL (CRÍTICO): Use as fontes primárias APENAS para elucidar o contexto histórico, cultural ou linguístico. É ESTRITAMENTE PROIBIDO forçar a fonte a endossar a sua teologia ou usar anacronismos (ex: dizer que Josefo refutava o gnosticismo). Deixe a fonte falar por si mesma, mesmo que a visão dela seja diferente da nossa. A Pérola de Ouro serve para trazer robustez histórica, não para validar forçadamente o seu argumento.
                     7. MENÇÕES SEM CITAÇÃO: Se você for APENAS MENCIONAR um autor ou obra, sem fazer uma citação específica de um texto, NÃO use o formato {{ }}. Em vez disso, use o formato de Glossário: [[Flávio Josefo | Historiador judeu do século I...]].
 
-                    --- MANDATO DE VOLUME (CRÍTICO - ALVO EXATO: ${pages} PÁGINAS = ${wordCountTarget} PALAVRAS) ---
-                    1. META OBRIGATÓRIA: O texto FINAL deve ter RIGOROSAMENTE ENTRE ${wordCountTarget} PALAVRAS para preencher EXATAMENTE as ${pages} páginas solicitadas.
-                    2. NÃO EXCEDA ${maxWords} PALAVRAS e NÃO produza menos que ${minWords} palavras.
-                    3. Se o assunto for curto, aprofunde-se na etimologia e contexto; se for extenso, sintetize e seja direto para caber no alvo de palavras.
-                    4. OBEDIÊNCIA: O usuário pediu ${pages} páginas (~${baseWordCount} palavras). Entregue essa metragem com precisão.
+                    --- MANDATO CRÍTICO DE VOLUME E RITMO DE ESCRITA (${pages} PÁGINAS = ${wordCountTarget} PALAVRAS) ---
+                    1. META OBRIGATÓRIA E TETO INVIOLÁVEL: O texto FINAL deve ter RIGOROSAMENTE ENTRE ${wordCountTarget} PALAVRAS para preencher EXATAMENTE as ${pages} páginas solicitadas.
+                    2. TETO MÁXIMO ABSOLUTO: NUNCA EXCEDA ${maxWords} PALAVRAS e NÃO produza menos que ${minWords} palavras. Em uma solicitação de ${pages} páginas (~${baseWordCount} palavras), ultrapassar ${maxWords} palavras (ex: passar de 5.000 palavras) é expressamente PROIBIDO e constitui falha grave de metragem.
+                    3. FÓRMULA DE DISTRIBUIÇÃO E RITMO POR TÓPICO (PACING OBRIGATÓRIO):
+                       - Não escreva parágrafos intermináveis de 800 palavras em cada ponto.
+                       - Introdução: ~200 a 250 palavras.
+                       - Desenvolvimento dos tópicos (##): se houver 4 a 6 tópicos principais, cada tópico deve ter entre 350 e 450 palavras no máximo (2 a 3 parágrafos concisos e densos).
+                       - Se a aula tiver muitos tópicos e subtópicos (ementa extensa com 8 a 25 itens, como em aulas temáticas detalhadas): você DEVE OBRIGATORIAMENTE sintetizar cada subtópico (###) em 1 único parágrafo denso e cirúrgico de 100 a 160 palavras. Não expanda em múltiplos parágrafos para cada item quando a lista de tópicos for longa!
+                       - Aplicação Prática e Conclusão: ~250 a 350 palavras no total.
+                    4. CONTROLE DE TAMANHO EM ILUSTRAÇÕES E FONTES:
+                       - Relatos bíblicos práticos e conexões históricas devem ser concisos (2 a 4 linhas no máximo). Não reconte a narrativa bíblica inteira. Extraia a lição teológica imediata e avance.
+                       - As Pérolas de Ouro e Glossários devem ser integrados fluidamente ao texto, sem criar seções extras desnecessárias.
+                       - Profundidade teológica NÃO significa prolixidade. Significa densidade exegética explicada com simplicidade e precisão.
+                    5. NO MODO UPGRADE (ATUALIZAÇÃO DE AULA EXISTENTE):
+                       - Preserve integralmente todos os tópicos (##) e subtópicos (###) existentes na ementa.
+                       - COMPACTE e RESUMA trechos prolixos do texto original. Se o texto de base for extenso, NÃO adicione conteúdo novo sobre o antigo sem sintetizar o que já existia. A soma total da aula atualizada com todas as melhorias DEVE ficar estritamente entre ${minWords} e ${maxWords} palavras.
 
                     --- DIRETRIZES DE LINGUAGEM E TOM (CRÍTICO - CLAREZA TOTAL) ---
                     1. PROIBIÇÃO DE ARCAÍSMOS E PALAVRAS DIFÍCEIS: É ESTRITAMENTE PROIBIDO usar palavras antigas, pouco usuais, jargões acadêmicos desnecessários ou frases cerimoniais.
@@ -600,7 +611,7 @@ Seja direto, profundo e específico para o tema "${lessonTheme}". Sem saudaçõe
                         ? `\n--- MANDATO CRÍTICO: PRESERVAÇÃO TOTAL DA EMENTA E DOS TÓPICOS EXISTENTES ---\nA aula já possui uma ementa curricular estabelecida com os seguintes tópicos e subtópicos doutrinários:\n"""\n${existingHeadings.join('\n')}\n"""\nÉ TERMINANTEMENTE PROIBIDO excluir, aglutinar, reordenar ou substituir qualquer um desses tópicos (##) e subtópicos (###). Todos eles DEVEM OBRIGATORIAMENTE constar no texto final atualizado, enriquecidos com maior profundidade bíblica, fontes primárias e glossário didático.\n`
                         : '';
 
-                    enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RESTRITO: EXATAMENTE ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
+                    enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]:
 TEMA DA AULA: "${lessonTheme}"${moduleTitle ? ` (Matéria/Módulo: "${moduleTitle}")` : ''}
 ${headingsPreservationBlock}
 ${customInstrBlock}
@@ -614,33 +625,35 @@ ${baseContent}
 
 INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
 - Comece com o TÍTULO DA AULA em letras maiúsculas (Use # ${lessonTheme.toUpperCase()}).
-- Mantenha como base estrutural o conteúdo que já existe nesta aula, preservando integralmente todos os tópicos (##) e subtópicos (###) existentes, aprofundando cada um com maior erudição e didática, sintetizando trechos prolixos e garantindo a extensão exata de ${pages} páginas (~${baseWordCount} palavras).
+- Mantenha como base estrutural o conteúdo que já existe nesta aula, preservando integralmente todos os tópicos (##) e subtópicos (###) existentes.
+- SINTETIZE COM PRECISÃO: Para que todos os tópicos caibam na meta de ${pages} páginas (~${baseWordCount} palavras), limite cada subtópico a 1 único parágrafo denso e direto (100 a 160 palavras). NUNCA exceda ${maxWords} palavras no total!
 ${customInstructions ? '- Incorpore rigorosamente as diretrizes e sugestões do professor fornecidas acima.' : ''}
-- Sempre que houver alguma doutrina, mandamento ou princípio, traga pelo menos um ou dois relatos práticos das Escrituras que exemplifiquem o ensino teórico, com RIGOR CONTEXTUAL E HISTÓRICO REAL (sem forçar correspondências ou anacronismos).
+- Sempre que houver alguma doutrina, mandamento ou princípio, traga 1 relato prático das Escrituras resumido em 2 a 4 linhas (sem recontar histórias inteiras), com RIGOR CONTEXTUAL E HISTÓRICO REAL.
 - Aplique o Glossário Didático no formato [[Palavra|Explicação simples e didática]] para termos técnicos e teológicos.
 - Insira referências bíblicas no corpo do texto (sem listas soltas).
 - Inclua Fontes Primárias {{Autor | Obra | Comando}} e conexões históricas pertinentes ao tema.
 - NÃO USE SAUDAÇÕES OU INTRODUÇÕES META. VÁ DIRETO AO CONTEÚDO DA AULA.
-- SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras (${pages} páginas). NUNCA exceda ${maxWords} palavras e não produza menos de ${minWords} palavras!`;
+- ⚠️ TRAVA DE SEGURANÇA E PACING FINAL: O texto FINAL DEVE ter rigorosamente entre ${minWords} e ${maxWords} palavras (${pages} páginas). Jamais passe de ${maxWords} palavras (não estoure para 5.000 palavras)! Conclua o texto antes de ultrapassar ${maxWords} palavras.`;
                 } else {
                     const lessonTheme = themeTitle || book || prompt;
                     const customInstrBlock = customInstructions && customInstructions.trim().length > 0
                         ? `\n--- DIRETRIZES ESPECÍFICAS / EMENTA DE TÓPICOS SUGERIDA PELO PROFESSOR (SEGUIR RIGOROSAMENTE) ---\n"""\n${customInstructions.trim()}\n"""\n`
                         : (prompt !== lessonTheme ? `\n--- DIRETRIZES ESPECÍFICAS / SUGESTÕES DO PROFESSOR ---\n"""\n${prompt}\n"""\n` : '');
 
-                    enhancedPrompt = `[GERAR APOSTILA DIDÁTICA TEMÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
+                    enhancedPrompt = `[GERAR APOSTILA DIDÁTICA TEMÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]:
 TEMA DA AULA: "${lessonTheme}"${moduleTitle ? ` (Matéria/Módulo: "${moduleTitle}")` : ''}
 ${customInstrBlock}
 
 INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
 - Comece com o TÍTULO DA AULA em letras maiúsculas (Use # ${lessonTheme.toUpperCase()}).
 - Se houver uma ementa de tópicos (##) e subtópicos (###) definida nas instruções acima, siga-a RIGOROSAMENTE do início ao fim, desenvolvendo cada ponto com profundidade teológica de nível PhD e didática acessível de EBD, OBRIGATORIAMENTE RESTRITA AO INTERVALO DE ${wordCountTarget} PALAVRAS (${pages} páginas).
-- Sempre que houver alguma doutrina, mandamento ou princípio, traga pelo menos um ou dois relatos práticos das Escrituras que exemplifiquem o ensino teórico, com RIGOR CONTEXTUAL E HISTÓRICO REAL (sem forçar correspondências).
+- PACING E DISTRIBUIÇÃO: Regule o tamanho de cada tópico (350 a 450 palavras por tópico se houver 4 a 6 tópicos; ou 100 a 160 palavras por subtópico se a ementa tiver mais de 8 subtópicos).
+- Sempre que houver alguma doutrina, mandamento ou princípio, traga 1 relato prático das Escrituras resumido em 2 a 4 linhas com rigor contextual.
 - Aplique o Glossário Didático no formato [[Palavra|Explicação didática]] para termos difíceis.
 - Insira referências bíblicas no corpo do texto.
 - Inclua Fontes Primárias {{Autor | Obra | Comando}} e contexto histórico/teológico.
 - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
-- SEJA RIGOROSO NO METRADO: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras (${pages} páginas). NUNCA exceda ${maxWords} palavras.`;
+- ⚠️ TRAVA DE SEGURANÇA FINAL: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras (${pages} páginas). NUNCA exceda ${maxWords} palavras sob nenhuma hipótese!`;
                 }
             }
             // --- LÓGICA PARA CONTEÚDO DO ALUNO (PADRÃO - EBD PANORAMA) ---
@@ -755,10 +768,16 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
            ### CURIOSIDADES E ARQUEOLOGIA (Numerada 1., 2., 3...)
         12. PESO MENOR PARA AS SEÇÕES FINAIS: TIPOLOGIA e CURIOSIDADES são um bônus complementar — a "cereja do bolo" — NÃO o prato principal da aula. Os parágrafos do corpo principal da aula (os tópicos numerados) podem e devem ser mais longos e densos, com profundidade total. Já os parágrafos de TIPOLOGIA e CURIOSIDADES devem ser bem mais curtos e diretos (2 a 4 linhas cada, no máximo), um insight rápido e específico por parágrafo — sem repetir com o mesmo nível de detalhe o que já foi dito na aula principal.
 
-        --- MANDATO DE VOLUME EXATO E RESTRITO (${pages} PÁGINAS = ${wordCountTarget} PALAVRAS) ---
+        --- MANDATO CRÍTICO DE VOLUME E RITMO DE ESCRITA (${pages} PÁGINAS = ${wordCountTarget} PALAVRAS) ---
         ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): O usuário definiu rigorosamente ${pages} páginas (~${baseWordCount} palavras). Não expanda desenfreadamente.
-        2. ATUALIZAÇÃO CIRÚRGICA: Mantenha a essência do texto e enriqueça com os elementos que faltam. Se a aula já for longa, COMPACTE parágrafos redundantes para manter o tamanho estritamente dentro da faixa de ${wordCountTarget} palavras.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): Planeje o tamanho do texto estruturalmente para respeitar este limite com precisão cirúrgica.`}
-        3. INTEGRALIDADE ACADÊMICA: Cubra os versículos do capítulo de forma proporcional ao espaço disponível.
+        2. ATUALIZAÇÃO CIRÚRGICA E COMPACTAÇÃO: Mantenha a essência do texto e enriqueça com os elementos que faltam. Se a aula já for longa, COMPACTE parágrafos redundantes para manter o tamanho estritamente dentro da faixa de ${wordCountTarget} palavras.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): Planeje o tamanho do texto estruturalmente para respeitar este limite com precisão cirúrgica.`}
+        2. TETO MÁXIMO INVIOLÁVEL: NUNCA ultrapasse ${maxWords} palavras! Em uma aula solicitada para ${pages} páginas (~${baseWordCount} palavras), ultrapassar ${maxWords} palavras (ex: gerar 5.000 palavras) é expressamente PROIBIDO e constitui erro grave de extrapolação.
+        3. FÓRMULA DE RITMO E DISTRIBUIÇÃO POR SEÇÃO (PACING OBRIGATÓRIO):
+           - Introdução do capítulo: 200 a 250 palavras.
+           - Tópicos do estudo (##): divida os versículos do capítulo em 3 a 5 tópicos principais. Cada tópico deve conter entre 350 e 450 palavras no máximo (2 a 3 parágrafos explicativos densos).
+           - Relatos bíblicos práticos cruzados: mencione o caso prático em 2 a 4 linhas no máximo, sem narrar o capítulo inteiro da história cruzada.
+           - Seções finais (Tipologia e Curiosidades): devem ser curtas e objetivas (150 a 250 palavras cada), servindo como complemento conciso, sem inflar o texto.
+        4. CONTROLE DE ERUDIÇÃO: Profundidade teológica significa rigor exegético e clareza didática, NÃO prolixidade. Mantenha o texto fluido e denso sem divagações secundárias.
 
         --- ESTRUTURA VISUAL OBRIGATÓRIA ---
         1. TÍTULO PRINCIPAL: # PANORAMA BÍBLICO - ${book ? book.toUpperCase() : 'BÍBLIA'} ${chapter || ''} (PROF. MICHEL FELIX)
@@ -772,18 +791,19 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         `;
                 systemInstruction = WRITING_STYLE;
                 if (isUpgrade) {
-                    enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO - ALVO EXATO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]: 
+                    enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]: 
                     Aplique todas as diretrizes do Professor Michel Felix (explicação detalhada dos porquês, clareza máxima, enumerações onde aplicável, glossários interativos [[Termo|Explicação]], fontes {{Autor|Ref|Comando}}, pérolas de ouro e tipologia). Nunca inclua termos de metalinguagem no texto.
-                    INSTRUÇÃO OBRIGATÓRIA (CRUZAMENTO BÍBLICO): Toda afirmação e regra deve estar acompanhada da referência bíblica exata no texto. Você DEVE fazer cruzamentos temáticos com outros textos e livros da Bíblia (ex: conectar Levítico a Hebreus, Êxodo, Novo Testamento) para embasar a interpretação e trazer maior clareza.
+                    INSTRUÇÃO OBRIGATÓRIA (CRUZAMENTO BÍBLICO): Toda afirmação e regra deve estar acompanhada da referência bíblica exata no texto. Você DEVE fazer cruzamentos temáticos com outros textos e livros da Bíblia de forma concisa (2 a 4 linhas por relato).
                     
                     SOLICITAÇÃO / TEXTO DA AULA PARA ATUALIZAR:
                     """
                     ${prompt}
                     """
                     
-                    Reescreva e aprimore o conteúdo acima garantindo o rigor (com farto cruzamento bíblico), a didática e o tamanho exato de ${wordCountTarget} palavras (${pages} páginas).`;
+                    Reescreva e aprimore o conteúdo acima garantindo o rigor, a didática e o tamanho exato de ${wordCountTarget} palavras (${pages} páginas).
+                    ⚠️ TRAVA DE SEGURANÇA FINAL: O texto DEVE ter entre ${minWords} e ${maxWords} palavras totais (${pages} páginas). NÃO ultrapasse ${maxWords} palavras sob hipótese alguma! Compacte trechos prolixos do texto original para caber rigorosamente na meta exata.`;
                 } else {
-                    enhancedPrompt = `[GERAÇÃO DE PANORAMA BÍBLICO MAGNUM OPUS - ALVO EXATO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
+                    enhancedPrompt = `[GERAÇÃO DE PANORAMA BÍBLICO MAGNUM OPUS - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]:
                     
                     SOLICITAÇÃO DE ESTUDO E DIRETRIZES DO PROFESSOR:
                     """
@@ -793,11 +813,11 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     DIRETRIZES FINAIS DE EXECUÇÃO:
                     1. Execute a exegese completa do capítulo solicitado (${book || ''} ${chapter || ''}) obedecendo estritamente a quaisquer instruções e ênfases fornecidas acima.
                     2. Clareza Didática Absoluta: destrinche os versículos de forma profunda e cristalina, explicando a razão de cada detalhe com listas enumeradas explicativas onde for didático. Nunca use rótulos de metalinguagem (como 'Ah! Entendi' ou 'Efeito Ah Entendi').
-                    3. TEXTO CRUZADO E ILUSTRAÇÃO BÍBLICA PRÁTICA (OBRIGATÓRIO): Não se limite ao texto base! Para embasar a interpretação e trazer máxima clareza, você DEVE obrigatoriamente fazer conexões cruzadas com outros textos da Bíblia e ilustrar doutrinas/mandamentos com relatos bíblicos práticos (ex: conectar Levítico com Êxodo, Hebreus, ou trazer casos reais como o erro de Davi ou as reformas de Josias). Para ABSOLUTAMENTE TODA afirmação, insira a referência bíblica exata no meio do texto (ex: Lv 6:27-28; Hb 9:22). Jamais deixe um argumento solto sem o versículo que o ordena e seu paralelo cruzado.
+                    3. TEXTO CRUZADO E ILUSTRAÇÃO BÍBLICA PRÁTICA (CONCISO): Não se limite ao texto base! Conecte com outros textos bíblicos e ilustre com relatos práticos resumidos em 2 a 4 linhas por caso (sem recontar capítulos inteiros). Para toda afirmação, insira a referência bíblica exata no meio do texto.
                     4. Aplique o Glossário Interativo [[Termo|Explicação]] em abundância ao longo do texto.
                     5. Insira as Pérolas de Ouro no formato {{Autor ou Obra | Ref | Comando Oculto}}.
                     6. Encerre obrigatoriamente com "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA".
-                    7. Mantenha o tamanho rigorosamente entre ${minWords} e ${maxWords} palavras (${pages} páginas).`;
+                    7. ⚠️ RITMO E TRAVA DE VOLUME: Mantenha o tamanho RIGOROSAMENTE entre ${minWords} e ${maxWords} palavras (${pages} páginas). NÃO ultrapasse ${maxWords} palavras sob nenhuma hipótese! Regule o tamanho dos tópicos para terminar dentro desta meta.`;
                 }
             }
 
@@ -829,11 +849,23 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 ]
             };
 
-            // Configuração precisa de thinkingConfig e maxOutputTokens (Ampliado conforme solicitado)
+            // Configuração precisa de thinkingConfig e maxOutputTokens (Calibrado proporcionalmente a targetPages)
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
-                config.maxOutputTokens = 65536; // > 50.000 tokens (Teto máximo absoluto do Gemini Flash para manuscritos e apostilas completas)
+                const pages = targetPages ? parseInt(targetPages) : 4;
+                const baseWordCount = pages * 600;
+                const maxWords = Math.round(baseWordCount * 1.15);
                 const tc = getThinkingConfig(thinkingLevel);
                 if (tc) config.thinkingConfig = tc;
+                
+                // Em vez de um teto cego de 65.536 que encoraja o modelo a se estender para além de 5.000 palavras quando pages >= 5,
+                // calculamos uma cota proporcional e segura:
+                // Em português: 1 palavra ≈ 1.35 a 1.5 tokens.
+                // maxWords * 2.5 fornece folga ampla para markdown, glossários e fontes.
+                // Somamos a cota de thinkingBudget (1024 a 4096) + 4096 tokens de margem de segurança.
+                // Isso garante que o modelo NUNCA sofra corte prematuro na conclusão, mas estabelece um horizonte disciplinado.
+                const thinkingBuffer = (tc && tc.thinkingBudget) ? tc.thinkingBudget : 2048;
+                const calculatedTokens = Math.round(maxWords * 2.5) + thinkingBuffer + 4096;
+                config.maxOutputTokens = Math.min(65536, Math.max(16384, calculatedTokens));
             } else if (taskType === 'quiz_gen') {
                 config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingBudget: 1024 };

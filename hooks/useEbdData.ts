@@ -46,7 +46,7 @@ export function useEbdData(onShowToast: (msg: string, type: 'success' | 'error' 
         setTheologicalDensity(5);
         setCurrentStatusMessage('Iniciando comunicação com pool de IA...');
         setValidationPhase('structural');
-        setValidationLog(["🚀 Iniciando motor Magnum Opus v116...", `📐 Target: ${targetPages * 500} words (${activeTab === 'student' ? 'Manuscrito Aluno' : 'Guia do Mestre'})`]);
+        setValidationLog(["🚀 Iniciando motor Magnum Opus v116...", `📐 Target: ${targetPages * 600} words (${targetPages} páginas - ${activeTab === 'student' ? 'Manuscrito Aluno' : 'Guia do Mestre'})`]);
         commitLockRef.current = false;
 
         try {
