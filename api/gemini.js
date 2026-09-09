@@ -842,10 +842,14 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
             } else if (taskType === 'commentary') {
                 config.maxOutputTokens = 16384;
             } else if (taskType === 'chapter_focus_suggestion' || taskType === 'thematic_focus_suggestion') {
-                // Resposta curta (lista de 4-6 itens), mas com folga real: mesmo sem thinkingConfig
-                // explícito, o modelo pode gastar uma boa fatia do teto só "pensando" antes de
-                // responder — um teto pequeno demais (512) cortava a resposta no meio da frase.
-                config.maxOutputTokens = 3072;
+                // Em aulas que já possuem texto pronto, o sugestor reproduz a ementa inteira
+                // de tópicos (##) e subtópicos (###) e gera 4 a 6 diretrizes ricas e detalhadas
+                // (fontes primárias, termos em hebraico/grego com glossário, etc.).
+                // No Gemini 3.7 Flash, o raciocínio interno ("thinking") compartilha a mesma cota.
+                // Um teto antigo de 3072 tokens cortava a resposta no final.
+                // Expandimos para 8192 tokens com thinking budget calibrado (1024), garantindo folga total.
+                config.maxOutputTokens = 8192;
+                config.thinkingConfig = { thinkingBudget: 1024 };
             } else {
                 config.maxOutputTokens = 16384;
             }

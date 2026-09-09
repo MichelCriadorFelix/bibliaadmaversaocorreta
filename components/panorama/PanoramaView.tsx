@@ -149,7 +149,7 @@ const bookNamesPattern = BIBLE_BOOKS.flatMap(getBookVariations)
     .map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('|');
 
-const bibleRegex = new RegExp(`(^|[\\s\\(\\["',;]+)(${bookNamesPattern}\\.?)\\s+(\\d+)(?::(\\d+(?:-\\d+(?::\\d+)?)?(?:,\\s*(?!(?:${bookNamesPattern})\\b)(?:\\d+:)?\\d+(?:-\\d+(?::\\d+)?)?)*))?`, 'gi');
+const bibleRegex = new RegExp(`(^|[\\s\\(\\["',;]+)(${bookNamesPattern}\\.?)\\s+(\\d+)(?::\\s*(\\d+(?:\\s*-\\s*\\d+(?::\\d+)?)?(?:(?:[,;]|\\s+e)\\s*(?!(?:${bookNamesPattern})\\b)(?:\\d+:\\s*)?\\d+(?:\\s*-\\s*\\d+(?::\\d+)?)?)*))?`, 'gi');
 
 const loadingStatusMessages = [
     "Iniciando Protocolo Magnum Opus One-Shot v116.0...",
@@ -338,7 +338,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
 
                 result.push(prefix);
                 const hadExplicitVerses = !!parts[i + 4];
-                const items = verses.split(/([,;])\s*/).map(x => x.trim()).filter(Boolean);
+                const items = verses.split(/([,;]|\s+e\s+)\s*/).map(x => x.trim()).filter(Boolean);
                 let activeChapter = currentChapter;
 
                 for (let idx = 0; idx < items.length; idx++) {
@@ -347,21 +347,27 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                         result.push(`${item} `);
                         continue;
                     }
+                    if (item === 'e') {
+                        result.push(' e ');
+                        continue;
+                    }
 
                     let c = activeChapter;
                     let ve = item;
                     // Somente trata como mudança de capítulo se a string tiver um ':' e não tiver um '-' ANTES do ':' (ex: "7:1" vs "8-7:38")
                     if (item.includes(':') && (!item.includes('-') || item.indexOf(':') < item.indexOf('-'))) {
                         const [chap, versePart] = item.split(':');
-                        c = parseInt(chap);
-                        ve = versePart;
+                        c = parseInt(chap.trim(), 10) || activeChapter;
+                        ve = (versePart || '').trim();
                         activeChapter = c;
+                    } else {
+                        ve = item.trim();
                     }
 
                     let label = item;
                     if (idx === 0) {
                         if (hadExplicitVerses) {
-                            label = `${bookRaw} ${currentChapter}:${item}`;
+                            label = item.includes(':') ? `${bookRaw} ${item}` : `${bookRaw} ${currentChapter}:${item}`;
                         } else {
                             label = `${bookRaw} ${item}`;
                         }
