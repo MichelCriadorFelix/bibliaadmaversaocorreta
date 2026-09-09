@@ -244,12 +244,12 @@ export const fetchPrimarySourceText = async (
 
     const attemptedHashes = new Set<string>();
     let lastError = "Falha ao consultar fonte primária no momento.";
-    const maxCycles = 2; // Rápido e direto: máximo 2 ciclos para nunca deixar o usuário esperando
+    const maxCycles = 3; // Até 3 ciclos com rotação automática de chaves
 
     for (let cycle = 1; cycle <= maxCycles; cycle++) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 18000); // 18s
+            const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s para absorver latência de rede com folga
 
             const response = await fetch('/api/gemini', {
                 method: 'POST',

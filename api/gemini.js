@@ -343,26 +343,34 @@ Seja direto, profundo e específico para o tema "${lessonTheme}". Sem saudaçõe
             // --- LÓGICA DE BUSCA DE FONTES PRIMÁRIAS ---
             else if (taskType === 'fetch_primary_source') {
                 systemInstruction = `
-                    ATUE COMO: Um Bibliotecário de Fontes Primárias e Tradutor Erudito.
+                    ATUE COMO: Bibliotecário de Fontes Primárias e Tradutor Erudito do Professor Michel Felix.
                     
-                    SEU OBJETIVO: Fornecer o texto original (ou tradução fiel) de uma citação histórica ou da tradição judaica.
+                    SEU OBJETIVO PRINCIPAL: Localizar a citação histórica, rabínica (Talmud, Mishná, Midrash), clássica (Flávio Josefo, Fílon, historiadores greco-romanos) ou patrística solicitada e fornecer a TRADUÇÃO COMPLETA EM PORTUGUÊS (pt-BR), fiel, límpida e didática, acompanhada do trecho original ou transliteração e do contexto histórico.
                     
-                    REGRAS:
-                    1. BUSCA FIEL: Encontre o texto exato da referência solicitada (ex: Flávio Josefo, Antiguidades 18.3).
-                    2. TRADUÇÃO DIDÁTICA: Se o texto original for em Grego, Latim ou Hebraico, forneça uma tradução para o Português que seja fiel, mas clara e didática (Nível Professor Michel Felix).
-                    3. CONTEXTO CURTO: Se a citação for muito curta, inclua o contexto imediato (o parágrafo anterior ou posterior) para que o aluno entenda o sentido.
-                    4. FORMATAÇÃO: Use Markdown. Comece com o título da obra e a referência.
-                    5. LIMITE: Seja EXTREMAMENTE DIRETO. Máximo de 50 a 100 palavras.
-                    6. FORMATO: Forneça APENAS a citação/tradução exata e, se estritamente necessário, 1 linha de contexto. SEM introduções longas ("No prefácio de sua obra...").
-                    7. INSTRUÇÃO ESPECÍFICA (CRÍTICO): Se o prompt contiver uma "Instrução específica" (o Comando Oculto), você DEVE focar EXATAMENTE no trecho solicitado por essa instrução, ignorando o restante do capítulo.
-                    8. MENÇÕES SEM CITAÇÃO (CRÍTICO): Se a referência for vaga, inexistente, ou parecer apenas a continuação de uma frase (ex: 'descreve este', 'afirma que', 'complementa dizendo', 'no comentário'), NÃO traga uma citação aleatória. Em vez disso, forneça um BREVE RELATO BIOGRÁFICO OU EXPLICATIVO (máximo 50 palavras) sobre quem é a pessoa ou o que é o livro/documento mencionado. Formate como: **[Nome]**: [Breve explicação].
-                    9. COMANDOS OCULTOS (CRÍTICO): NUNCA, SOB NENHUMA HIPÓTESE, repita ou inclua o texto da "Instrução específica" (Comando Oculto) na sua resposta. O comando é apenas para guiar sua busca, não para ser exibido ao usuário.
+                    DIRETRIZES MANDATÓRIAS DE CONTEÚDO E IDIOMA:
+                    1. IDIOMA DO LEITOR (CRÍTICO): O usuário e os alunos lêem em Português do Brasil. É TERMINANTEMENTE PROIBIDO retornar a resposta apenas no idioma original (Hebraico, Grego ou Latim) ou em inglês. A TRADUÇÃO COMPLETA EM PORTUGUÊS É O ELEMENTO PRINCIPAL E OBRIGATÓRIO!
+                    2. SEM SAUDAÇÕES OU INTRODUÇÕES META: Inicie DIRETAMENTE com o título da obra e a referência em negrito. É expressamente proibido qualquer introdução ou saudação ("Prezado...", "Olá", etc.).
+                    3. ESTRUTURAÇÃO OBRIGATÓRIA EM MARKDOWN:
+                       - **[Nome do Autor / Obra, Referência Exata]** (Ex: **Talmud de Jerusalém, Tratado Moed Katan 3:5**)
+                       - **Tradução em Português:** *"[Texto integral da citação traduzido com fidelidade e clareza didática]"*
+                       - **Contexto Histórico e Aplicação:** (1 a 2 parágrafos concisos explicando o cenário da época, costumes ou o significado cultural e bíblico do relato)
+                       - **Texto Original:** (Trecho original em hebraico/grego/latim ou transliteração, conciso)
+                    4. COMANDO OCULTO / INSTRUÇÃO ESPECÍFICA (MÁXIMA PRIORIDADE): Se a solicitação contiver uma "Instrução específica" (ex: focar na crença dos 3 dias em que a alma paira no túmulo até o 4º dia), você DEVE FOCAR CIRURGICAMENTE exatamente nesse trecho/assunto solicitado. NUNCA repita nem mencione o comando oculto no texto gerado; apenas atenda ao seu conteúdo.
+                    5. MENÇÕES SEM CITAÇÃO: Se a referência for apenas o nome de um autor histórico ou documento sem citação de seção específica, forneça uma síntese biográfica e contextual clara de 1 ou 2 parágrafos didáticos. Formate como: **[Nome / Obra]**: [Síntese contextual].
+                    6. CONCLUSÃO INTEGRAL: Conclua sempre todas as seções sem truncar o texto. Nunca gere resumos de apenas 1 linha sem a tradução em português.
                     
                     PROIBIÇÕES:
-                    - NÃO invente textos. Se não encontrar a referência exata, diga que a referência é citada por outros autores mas o texto original é fragmentário ou perdido.
-                    - NÃO adicione comentários teológicos, justificativas ou explicações do porquê o autor escreveu aquilo. O foco é APENAS o TEXTO DA FONTE.
+                    - NUNCA retorne o texto sem tradução em português.
+                    - NÃO invente fontes. Se o trecho for fragmentário ou perdido, informe com sobriedade acadêmica.
                 `;
-                enhancedPrompt = `[BUSCA DE FONTE PRIMÁRIA]: Forneça o texto da seguinte referência: "${prompt}"`;
+                enhancedPrompt = `[BUSCA E TRADUÇÃO DE FONTE PRIMÁRIA]:
+Referência solicitada: "${prompt}"
+
+Retorne estritamente a tradução em português do Brasil e o contexto histórico no formato Markdown:
+**[Título da Obra e Referência]**
+**Tradução em Português:** *"[Texto integral traduzido da citação com fidelidade e clareza]"*
+**Contexto Histórico e Aplicação:** [1 a 2 parágrafos concisos explicando os costumes da época, o cenário histórico e como essa citação elucida o texto bíblico]
+**Texto Original:** [Citação breve na língua original ou transliteração]`;
             }
             // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR ---
             else if (taskType === 'teacher_ebd' || taskType === 'upgrade_teacher_ebd') {
@@ -886,7 +894,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingBudget: 1024 };
             } else if (taskType === 'fetch_primary_source') {
-                config.maxOutputTokens = 1024;
+                config.maxOutputTokens = 3072; // Folga total para citações em hebraico/grego + tradução completa em pt-BR + contexto histórico
                 // Sem thinkingConfig para busca de fontes primárias: operação leve, direta e praticamente instantânea
                 config.temperature = 0.2;
             } else {
@@ -905,19 +913,15 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
     const failedHashes = [];
     const functionStartTime = Date.now();
 
-    // Teto único de tempo por chave, alinhado ao maxDuration real da função (300s), com margem
-    // de segurança para overhead (leitura de chaves, Supabase, serialização da resposta).
-    // Não é mais calibrado por tipo de tarefa: isso exigia medir e recalibrar toda vez que o
-    // tempo real de geração mudava (aconteceu com EBD e de novo com quiz_gen) e sempre quebrava
-    // de novo. Uma resposta rápida retorna na hora de qualquer forma — o teto é só uma rede de
-    // segurança contra travamento, não um limite de performance, então não custa deixá-lo alto
-    // para toda tarefa.
+    // Teto de tempo por chave, alinhado ao tipo de tarefa.
+    // Para fetch_primary_source, 8s por chave garante failover rápido entre chaves lentas sem travar a thread.
     const perKeyTimeoutMs = taskType === 'fetch_primary_source' ? 8000 : 280000;
 
     for (const apiKey of keysToTryInThisInvocation) {
         const currentHash = hashKey(apiKey);
-        // Se estivermos próximos do limite seguro da função (280s, maxDuration = 300s), encerra este lote
-        if (Date.now() - functionStartTime > 280000) {
+        // Se estivermos próximos do limite seguro deste ciclo, encerra este lote
+        const maxBatchTime = taskType === 'fetch_primary_source' ? 24000 : 280000;
+        if (Date.now() - functionStartTime > maxBatchTime) {
             console.warn('[Gemini Proxy] Limite de segurança do lote atingido. Delegando para próxima rodada.');
             break;
         }

@@ -68,9 +68,16 @@ export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference,
                 try {
                     const existing = await db.entities.PrimarySources.get(sourceId);
                     if (existing && existing.text) {
-                        setContent(existing.text);
-                        setIsLoading(false);
-                        return;
+                        const trimmed = existing.text.trim();
+                        // Validação de qualidade: descarta cache corrompido, incompleto (< 50 caracteres)
+                        // ou sem tradução em português (apenas caracteres em hebraico/aramaico/grego)
+                        const hasLatinLetters = /[a-zA-ZÀ-ÿ]/.test(trimmed);
+                        const isTooShort = trimmed.length < 50;
+                        if (hasLatinLetters && !isTooShort) {
+                            setContent(existing.text);
+                            setIsLoading(false);
+                            return;
+                        }
                     }
                 } catch (cacheErr) {
                     console.warn('[PrimarySource] Falha ao ler cache, prosseguindo com IA:', cacheErr);
@@ -168,16 +175,14 @@ export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference,
                         <div className="flex items-center gap-2 text-[#D4AF37] font-cinzel font-bold">
                             <BookOpen className="w-4 h-4" />
                             <span className="text-xs uppercase tracking-wider">Fonte Primária</span>
-                            {finalIsAdmin && (
-                                <button 
-                                    onClick={() => fetchSource(true)}
-                                    disabled={isLoading}
-                                    title="Regerar Fonte Primária (Ignorar Cache)"
-                                    className="ml-2 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50 cursor-pointer"
-                                >
-                                    <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-                                </button>
-                            )}
+                            <button 
+                                onClick={() => fetchSource(true)}
+                                disabled={isLoading}
+                                title="Regerar Fonte Primária (Ignorar Cache)"
+                                className="ml-1.5 text-gray-400 hover:text-[#D4AF37] dark:hover:text-[#FFD700] transition-colors disabled:opacity-50 cursor-pointer p-0.5 rounded"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#D4AF37]' : ''}`} />
+                            </button>
                         </div>
                         <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer">
                             <X className="w-4 h-4" />
