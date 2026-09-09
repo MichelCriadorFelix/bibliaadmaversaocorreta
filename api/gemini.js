@@ -886,8 +886,8 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingBudget: 1024 };
             } else if (taskType === 'fetch_primary_source') {
-                config.maxOutputTokens = 2048;
-                config.thinkingConfig = { thinkingBudget: 512 };
+                config.maxOutputTokens = 1024;
+                // Sem thinkingConfig para busca de fontes primárias: operação leve, direta e praticamente instantânea
                 config.temperature = 0.2;
             } else {
                 config.maxOutputTokens = 16384;
@@ -912,7 +912,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
     // de novo. Uma resposta rápida retorna na hora de qualquer forma — o teto é só uma rede de
     // segurança contra travamento, não um limite de performance, então não custa deixá-lo alto
     // para toda tarefa.
-    const perKeyTimeoutMs = taskType === 'fetch_primary_source' ? 18000 : 280000;
+    const perKeyTimeoutMs = taskType === 'fetch_primary_source' ? 8000 : 280000;
 
     for (const apiKey of keysToTryInThisInvocation) {
         const currentHash = hashKey(apiKey);
@@ -934,8 +934,9 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 }
             });
             
-            // Modelo Exclusivo: Gemini 3.7 Flash (Sem rebaixamento ou fallback para outros modelos)
-            const TARGET_MODEL = 'gemini-3.7-flash';
+            // Para tarefas leves e diretas como fontes primárias, gemini-2.5-flash gera o texto em menos de 1 a 2 segundos
+            // Para as tarefas teológicas aprofundadas, gemini-3.7-flash é mantido
+            const TARGET_MODEL = taskType === 'fetch_primary_source' ? 'gemini-2.5-flash' : 'gemini-3.7-flash';
 
             const generatePromise = ai.models.generateContent({
                 model: TARGET_MODEL,

@@ -244,12 +244,12 @@ export const fetchPrimarySourceText = async (
 
     const attemptedHashes = new Set<string>();
     let lastError = "Falha ao consultar fonte primária no momento.";
-    const maxCycles = 5;
+    const maxCycles = 2; // Rápido e direto: máximo 2 ciclos para nunca deixar o usuário esperando
 
     for (let cycle = 1; cycle <= maxCycles; cycle++) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 22000);
+            const timeoutId = setTimeout(() => controller.abort(), 18000); // 18s
 
             const response = await fetch('/api/gemini', {
                 method: 'POST',
@@ -261,7 +261,7 @@ export const fetchPrimarySourceText = async (
                     taskType: 'fetch_primary_source',
                     prompt: promptText,
                     excludedKeyHashes: Array.from(attemptedHashes),
-                    batchSize: 3
+                    batchSize: 2
                 })
             });
             clearTimeout(timeoutId);
@@ -286,11 +286,11 @@ export const fetchPrimarySourceText = async (
             }
 
             // Pausa breve antes do próximo ciclo
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise(r => setTimeout(r, 200));
         } catch (e: any) {
             console.warn(`[PrimarySource] Falha na tentativa #${cycle}:`, e?.message);
             lastError = e?.message || 'Falha de conexão';
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise(r => setTimeout(r, 200));
         }
     }
 
