@@ -138,8 +138,10 @@ export default async function handler(request, response) {
         targetPages, 
         thinkingLevel,
         excludedKeyHashes = [],
-        batchSize = 3 
+        batchSize: requestedBatchSize 
     } = body || {};
+
+    const batchSize = requestedBatchSize !== undefined ? requestedBatchSize : (taskType === 'fetch_primary_source' ? 6 : 3);
 
     if (!prompt) return response.status(400).json({ error: 'O Prompt é obrigatório.' });
 
@@ -221,8 +223,9 @@ export default async function handler(request, response) {
         [shuffledKeys[i], shuffledKeys[j]] = [shuffledKeys[j], shuffledKeys[i]];
     }
 
-    // Limita a 1 chave por invocação (chamada estritamente individual 1 a 1 x/43)
-    const keysToTryInThisInvocation = shuffledKeys.slice(0, Math.max(1, Math.min(Number(batchSize) || 1, 1)));
+    // Para tarefas de busca rápida (fontes primárias), tenta até 3 chaves no mesmo ciclo para garantir resposta instantânea
+    const maxKeysInBatch = taskType === 'fetch_primary_source' ? 3 : 1;
+    const keysToTryInThisInvocation = shuffledKeys.slice(0, Math.max(1, Math.min(Number(batchSize) || maxKeysInBatch, maxKeysInBatch)));
 
             let systemInstruction = "Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito.";
             let enhancedPrompt = prompt;
@@ -882,6 +885,10 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 // Expandimos para 8192 tokens com thinking budget calibrado (1024), garantindo folga total.
                 config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingBudget: 1024 };
+            } else if (taskType === 'fetch_primary_source') {
+                config.maxOutputTokens = 2048;
+                config.thinkingConfig = { thinkingBudget: 512 };
+                config.temperature = 0.2;
             } else {
                 config.maxOutputTokens = 16384;
             }
@@ -905,7 +912,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
     // de novo. Uma resposta rápida retorna na hora de qualquer forma — o teto é só uma rede de
     // segurança contra travamento, não um limite de performance, então não custa deixá-lo alto
     // para toda tarefa.
-    const perKeyTimeoutMs = 280000;
+    const perKeyTimeoutMs = taskType === 'fetch_primary_source' ? 18000 : 280000;
 
     for (const apiKey of keysToTryInThisInvocation) {
         const currentHash = hashKey(apiKey);
@@ -977,10 +984,10 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
 
             triedKeysLog[triedKeysLog.length - 1].status = 'FALHA: ' + msg.substring(0, 120);
             
-            // 2. Cota excedida (429 / Quota / RESOURCE_EXHAUSTED)
-            if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted') || msg.includes('RESOURCE_EXHAUSTED')) {
+            // 2. Cota excedida (429 / Quota / RESOURCE_EXHAUSTED) ou indisponibilidade temporária (503 / high demand)
+            if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('503') || msg.includes('high demand') || msg.includes('UNAVAILABLE')) {
                 const isDaily = msg.toLowerCase().includes('per day') || msg.toLowerCase().includes('daily') || msg.toLowerCase().includes('budget');
-                let cooldownMs = 60000;
+                let cooldownMs = (msg.includes('503') || msg.includes('high demand') || msg.includes('UNAVAILABLE')) ? 15000 : 60000;
                 
                 if (isDaily) {
                     cooldownMs = 4 * 60 * 60 * 1000;

@@ -5,7 +5,7 @@
  */
 
 // Tipos de tarefas para seleção inteligente de modelo no servidor
-export type TaskType = 'commentary' | 'dictionary' | 'devotional' | 'ebd' | 'metadata' | 'general' | 'teacher_ebd' | 'quiz_gen' | 'thematic_ebd' | 'assistente_chat' | 'upgrade_ebd' | 'upgrade_teacher_ebd' | 'upgrade_thematic_ebd' | 'get_bible_verses' | 'chapter_focus_suggestion' | 'thematic_focus_suggestion';
+export type TaskType = 'commentary' | 'dictionary' | 'devotional' | 'ebd' | 'metadata' | 'general' | 'teacher_ebd' | 'quiz_gen' | 'thematic_ebd' | 'assistente_chat' | 'upgrade_ebd' | 'upgrade_teacher_ebd' | 'upgrade_thematic_ebd' | 'get_bible_verses' | 'chapter_focus_suggestion' | 'thematic_focus_suggestion' | 'fetch_primary_source';
 
 export interface GenerationProgress {
   percent: number;
@@ -229,3 +229,71 @@ export const generateContent = async (
 export const getStoredApiKey = (): string | null => "internal_proxy";
 export const setStoredApiKey = (key: string) => {}; 
 export const clearStoredApiKey = () => {};
+
+/**
+ * Busca de Fontes Primárias com tolerância a falhas, rotação de chaves e retry dinâmico.
+ */
+export const fetchPrimarySourceText = async (
+    source: string,
+    reference: string,
+    hiddenCommand?: string
+): Promise<string> => {
+    const promptText = hiddenCommand 
+        ? `Referência: ${source}, ${reference}. Instrução específica: ${hiddenCommand}` 
+        : `${source}, ${reference}`;
+
+    const attemptedHashes = new Set<string>();
+    let lastError = "Falha ao consultar fonte primária no momento.";
+    const maxCycles = 5;
+
+    for (let cycle = 1; cycle <= maxCycles; cycle++) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 22000);
+
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                signal: controller.signal,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    taskType: 'fetch_primary_source',
+                    prompt: promptText,
+                    excludedKeyHashes: Array.from(attemptedHashes),
+                    batchSize: 3
+                })
+            });
+            clearTimeout(timeoutId);
+
+            const contentType = response.headers.get("content-type");
+            let data: any = null;
+            if (contentType && contentType.includes("application/json")) {
+                data = await response.json();
+            }
+
+            if (data?.failedKeyHashes && Array.isArray(data.failedKeyHashes)) {
+                data.failedKeyHashes.forEach((h: string) => attemptedHashes.add(h));
+            }
+
+            if (response.ok && data?.text) {
+                return data.text;
+            }
+
+            lastError = data?.error || `Erro HTTP ${response.status}`;
+            if (data?.canClientRetry === false) {
+                break;
+            }
+
+            // Pausa breve antes do próximo ciclo
+            await new Promise(r => setTimeout(r, 400));
+        } catch (e: any) {
+            console.warn(`[PrimarySource] Falha na tentativa #${cycle}:`, e?.message);
+            lastError = e?.message || 'Falha de conexão';
+            await new Promise(r => setTimeout(r, 400));
+        }
+    }
+
+    throw new Error(lastError);
+};
+
