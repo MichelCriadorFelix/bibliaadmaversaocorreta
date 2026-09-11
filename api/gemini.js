@@ -844,8 +844,8 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 return { thinkingBudget: 2048 };
             };
 
-            // Seleção de Modelo Primário: Gemini 3.7 Flash (Padrão Bíblia ADMA)
-            const modelToUse = 'gemini-3.7-flash';
+            // Seleção de Modelo Primário: Gemini 3.8 Flash (Padrão Bíblia ADMA)
+            const modelToUse = 'gemini-3.8-flash';
 
             const config = {
                 temperature: 0.3,
@@ -938,9 +938,9 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 }
             });
             
-            // Para tarefas leves e diretas como fontes primárias, gemini-2.5-flash gera o texto em menos de 1 a 2 segundos
-            // Para as tarefas teológicas aprofundadas, gemini-3.7-flash é mantido
-            const TARGET_MODEL = taskType === 'fetch_primary_source' ? 'gemini-2.5-flash' : 'gemini-3.7-flash';
+            // Para tarefas leves e diretas como fontes primárias, gemini-3.1-flash-lite oferece alta estabilidade duradoura e resposta rápida
+            // Para as tarefas teológicas aprofundadas, gemini-3.8-flash substitui o gemini-3.7-flash
+            const TARGET_MODEL = taskType === 'fetch_primary_source' ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash';
 
             const generatePromise = ai.models.generateContent({
                 model: TARGET_MODEL,
