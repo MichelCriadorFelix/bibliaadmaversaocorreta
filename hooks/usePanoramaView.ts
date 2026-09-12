@@ -320,7 +320,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         setChapterRelevanceWeightState(weight);
         const teacherContent = activeTab === 'teacher' ? (content?.student_content || undefined) : undefined;
         loadOrGenerateFocusSuggestion(book, chapter, true, weight, teacherContent);
-    }, [book, chapter, activeTab, content, loadOrGenerateFocusSuggestion]);
+    }, [book, chapter, activeTab, content?.student_content, loadOrGenerateFocusSuggestion]);
 
     // Carrega ou gera pontos de atenção estratégicos para uma aula temática específica,
     // considerando tanto o tema quanto o conteúdo existente da aula (se houver).
@@ -393,8 +393,14 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             const teacherContent = activeTab === 'teacher' ? (content?.student_content || undefined) : undefined;
             loadOrGenerateFocusSuggestion(book, chapter, true, undefined, teacherContent);
         }
-    }, [activeTab, activeLesson, book, chapter, content, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
+    }, [activeTab, activeLesson, book, chapter, content?.student_content, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
 
+    // IMPORTANTE: a dependência é a STRING content?.student_content, nunca o objeto `content`
+    // inteiro — `content` troca de referência a cada atualização de estado (mesmo sem o texto
+    // mudar), o que disparava esse efeito repetidas vezes à toa e regenerava a sugestão sem
+    // necessidade (gastando chamada de IA e resetando o cache visualmente) toda vez que
+    // qualquer outra coisa no app causava um novo objeto `content`.
+    const studentContentText = content?.student_content;
     useEffect(() => {
         if (isAdmin) {
             if (activeTab === 'student') {
@@ -403,9 +409,8 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 // Guia do Mestre só gera sugestão (modo estratégia de ensino) quando a aula do
                 // aluno já estiver carregada — sem isso, não há base pra sugerir nada específico,
                 // e evitamos gerar/gravar por engano uma sugestão "modo aluno" na mesma chave.
-                const teacherContent = content?.student_content;
-                if (teacherContent && teacherContent.trim().length > 100) {
-                    loadOrGenerateFocusSuggestion(book, chapter, false, undefined, teacherContent);
+                if (studentContentText && studentContentText.trim().length > 100) {
+                    loadOrGenerateFocusSuggestion(book, chapter, false, undefined, studentContentText);
                 } else {
                     setChapterFocusSuggestion(null);
                 }
@@ -417,7 +422,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 }
             }
         }
-    }, [book, chapter, isAdmin, activeTab, content, thematicViewMode, activeLesson, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
+    }, [book, chapter, isAdmin, activeTab, studentContentText, thematicViewMode, activeLesson, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
 
     const calculateStats = useCallback((text: string) => {
         if (!text) return;
