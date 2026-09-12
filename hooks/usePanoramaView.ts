@@ -39,6 +39,10 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     // Instruções Customizadas sem o professor precisar escrever do zero.
     const [chapterFocusSuggestion, setChapterFocusSuggestion] = useState<string | null>(null);
     const [isLoadingFocusSuggestion, setIsLoadingFocusSuggestion] = useState(false);
+    // Peso/relevância do capítulo classificado manualmente pelo professor (baixo/medio/alto), usado
+    // pra calibrar quantos pontos de atenção o sugestor deve trazer. Sem classificação (null), a IA
+    // avalia a densidade do capítulo sozinha em vez de forçar sempre a mesma quantidade.
+    const [chapterRelevanceWeight, setChapterRelevanceWeightState] = useState<'baixo' | 'medio' | 'alto' | null>(null);
 
     const { 
         content, 
@@ -253,7 +257,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     // latestRequestKeyRef sempre guarda a chave do ÚLTIMO capítulo pedido; qualquer resposta que
     // chegue depois de a chave ter mudado é silenciosamente descartada.
     const latestRequestKeyRef = useRef<string>('');
-    const loadOrGenerateFocusSuggestion = useCallback(async (b: string, c: number, skipCache: boolean = false) => {
+    const loadOrGenerateFocusSuggestion = useCallback(async (b: string, c: number, skipCache: boolean = false, weightOverride?: 'baixo' | 'medio' | 'alto' | null) => {
         const key = generateChapterKey(b, c);
         latestRequestKeyRef.current = key;
         setChapterFocusSuggestion(null);
@@ -262,6 +266,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             try {
                 const cached = await db.entities.ChapterFocusSuggestion.get(key);
                 if (latestRequestKeyRef.current !== key) return; // capítulo já mudou, descarta
+                setChapterRelevanceWeightState(cached?.relevance_weight || null);
                 if (cached && cached.suggestion) {
                     setChapterFocusSuggestion(cached.suggestion);
                     return;
@@ -273,17 +278,18 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
 
         if (latestRequestKeyRef.current !== key) return; // capítulo já mudou, nem começa a gerar
         setIsLoadingFocusSuggestion(true);
+        const weight = weightOverride !== undefined ? weightOverride : chapterRelevanceWeight;
         try {
             const text = await generateContent(
                 `Pontos de atenção para ${b} ${c}`,
                 null,
                 false,
                 'chapter_focus_suggestion',
-                { book: b, chapter: c }
+                { book: b, chapter: c, relevanceWeight: weight || undefined }
             );
             const clean = typeof text === 'string' ? text.trim() : '';
             if (clean) {
-                db.entities.ChapterFocusSuggestion.save({ chapter_key: key, book: b, chapter: c, suggestion: clean }).catch(() => {});
+                db.entities.ChapterFocusSuggestion.save({ chapter_key: key, book: b, chapter: c, suggestion: clean, relevance_weight: weight || null }).catch(() => {});
                 if (latestRequestKeyRef.current === key) {
                     setChapterFocusSuggestion(clean);
                 }
@@ -295,7 +301,14 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 setIsLoadingFocusSuggestion(false);
             }
         }
-    }, []);
+    }, [chapterRelevanceWeight]);
+
+    // Professor classifica manualmente o peso/relevância deste capítulo (Baixo/Médio/Alto) e a
+    // sugestão é regerada na hora já levando essa classificação em conta.
+    const setChapterRelevanceWeight = useCallback((weight: 'baixo' | 'medio' | 'alto' | null) => {
+        setChapterRelevanceWeightState(weight);
+        loadOrGenerateFocusSuggestion(book, chapter, true, weight);
+    }, [book, chapter, loadOrGenerateFocusSuggestion]);
 
     // Carrega ou gera pontos de atenção estratégicos para uma aula temática específica,
     // considerando tanto o tema quanto o conteúdo existente da aula (se houver).
@@ -861,6 +874,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         currentStatusIndex, setCurrentStatusIndex,
         stats,
         chapterFocusSuggestion, isLoadingFocusSuggestion, regenerateFocusSuggestion,
+        chapterRelevanceWeight, setChapterRelevanceWeight,
         content, setContent,
         isGenerating, setIsGenerating,
         theologicalDensity, setTheologicalDensity,

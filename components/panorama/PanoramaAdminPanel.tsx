@@ -37,6 +37,8 @@ interface PanoramaAdminPanelProps {
     chapterFocusSuggestion: string | null;
     isLoadingFocusSuggestion: boolean;
     regenerateFocusSuggestion: () => void;
+    chapterRelevanceWeight: 'baixo' | 'medio' | 'alto' | null;
+    setChapterRelevanceWeight: (weight: 'baixo' | 'medio' | 'alto' | null) => void;
     activeTab: string;
     thematicLessonTitle?: string;
     bookDownloadStatus: {
@@ -85,6 +87,8 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
     chapterFocusSuggestion,
     isLoadingFocusSuggestion,
     regenerateFocusSuggestion,
+    chapterRelevanceWeight,
+    setChapterRelevanceWeight,
     activeTab,
     thematicLessonTitle,
     bookDownloadStatus,
@@ -261,6 +265,26 @@ export const PanoramaAdminPanel: React.FC<PanoramaAdminPanelProps> = ({
                                                     <RefreshCw className={`w-3 h-3 ${isLoadingFocusSuggestion ? 'animate-spin' : ''}`} /> Gerar outra
                                                 </button>
                                             </div>
+                                            {activeTab !== 'thematic' && (
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Peso do capítulo:</span>
+                                                    {(['baixo', 'medio', 'alto'] as const).map((w) => (
+                                                        <button
+                                                            key={w}
+                                                            onClick={() => setChapterRelevanceWeight(chapterRelevanceWeight === w ? null : w)}
+                                                            disabled={isLoadingFocusSuggestion}
+                                                            title={`Classificar este capítulo como relevância ${w} e regerar a sugestão`}
+                                                            className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 ${
+                                                                chapterRelevanceWeight === w
+                                                                    ? 'bg-[#C5A059] border-[#C5A059] text-black'
+                                                                    : 'border-[#C5A059]/40 text-[#C5A059] hover:bg-[#C5A059]/10'
+                                                            }`}
+                                                        >
+                                                            {w === 'baixo' ? 'Baixo' : w === 'medio' ? 'Médio' : 'Alto'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                             {isLoadingFocusSuggestion ? (
                                                 <p className="text-xs text-gray-500 flex items-center gap-2">
                                                     <Loader2 className="w-3 h-3 animate-spin" /> {activeTab === 'thematic' ? 'Gerando sugestão com base no tema e conteúdo...' : 'Gerando sugestão para este capítulo...'}

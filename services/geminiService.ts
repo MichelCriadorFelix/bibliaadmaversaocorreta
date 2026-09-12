@@ -27,6 +27,7 @@ export interface GenerationContext {
   moduleTitle?: string;
   customInstructions?: string;
   existingContent?: string;
+  relevanceWeight?: 'baixo' | 'medio' | 'alto';
 }
 
 export const generateContent = async (
@@ -120,6 +121,7 @@ export const generateContent = async (
                     depthLevel: context?.depthLevel,
                     targetPages: context?.targetPages,
                     thinkingLevel: context?.thinkingLevel,
+                    relevanceWeight: context?.relevanceWeight,
                     excludedKeyHashes: Array.from(attemptedHashes),
                     batchSize: 1
                 })

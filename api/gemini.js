@@ -336,9 +336,10 @@ export default async function handler(request, response) {
         moduleTitle,
         customInstructions,
         existingContent,
-        depthLevel, 
-        targetPages, 
+        depthLevel,
+        targetPages,
         thinkingLevel,
+        relevanceWeight,
         excludedKeyHashes = [],
         batchSize: requestedBatchSize 
     } = body || {};
@@ -439,12 +440,24 @@ export default async function handler(request, response) {
             }
             // --- SUGESTÃO DE PONTOS DE ATENÇÃO POR CAPÍTULO (pré-preenche "Instruções Customizadas") ---
             else if (taskType === 'chapter_focus_suggestion') {
+                // Quantidade de itens: se o professor já classificou o peso/relevância do capítulo
+                // (botão Baixo/Médio/Alto na tela), respeitamos essa faixa fixa. Sem classificação,
+                // deixamos a própria IA avaliar a densidade real do capítulo em vez de forçar sempre
+                // "4 a 6" — um capítulo como Gênesis 1 ou Romanos 8 comporta muito mais do que uma
+                // genealogia de transição.
+                const itemCountInstruction = relevanceWeight === 'baixo'
+                    ? 'liste de 2 a 3 itens curtos'
+                    : relevanceWeight === 'alto'
+                        ? 'liste de 6 a 10 itens curtos, aproveitando a riqueza real deste capítulo — não resuma demais, capítulos densos merecem mais pontos'
+                        : relevanceWeight === 'medio'
+                            ? 'liste de 4 a 6 itens curtos'
+                            : 'avalie a densidade doutrinária/histórica/narrativa REAL deste capítulo específico antes de decidir quantos itens listar: se for um capítulo denso e rico (ex: Gênesis 1, Romanos 8, Apocalipse 1), pode listar de 6 a 10 itens; se for um capítulo mais simples, genealógico ou de transição, 2 a 3 itens honestos bastam — NUNCA force uma quantidade fixa que não reflita o que o capítulo realmente oferece';
                 systemInstruction = `Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito, operando sob a mesma lente doutrinária do motor principal (Arminiano, Pré-tribulacionista/Pré-milenista, Ortodoxo/Trinitariano, Pentecostal Continuísta, Apologeta Anti-heresias, Hermenêutica de Alta Precisão).
 
                 Aqui sua única tarefa é SUGERIR, em tópicos curtos, pontos de atenção para OUTRO PROFESSOR que vai preparar a aula — você NÃO está escrevendo a aula em si, nem uma explicação teológica completa, só um mapa rápido do que vale a pena focar.
 
                 ATENÇÃO — LINGUAGEM: essas notas costumam ser coladas quase palavra por palavra dentro da aula final (que é para uma turma leiga de EBD, não um seminário). Por isso, escreva CADA item já em português simples e direto, do jeito que se explica pra alguém que nunca estudou teologia — NUNCA em jargão acadêmico cru. Se precisar mencionar um conceito técnico (ex: culpa objetiva, hamartologia, intenção subjetiva) ou um termo em hebraico/grego, traduza-o na mesma frase em palavras do dia a dia (ex: em vez de "a culpa objetiva não é anulada pela intenção subjetiva do indivíduo", escreva "o erro continua sendo pecado mesmo que a pessoa não tivesse a intenção de pecar"). Evite palavras como "fulcral", "per se", "intrínseco" quando existe uma palavra comum que diz o mesmo.`;
-                enhancedPrompt = `Para uma aula sobre ${book || ''} ${chapter || ''}, liste de 4 a 6 itens curtos (uma linha cada, sem numeração, começando com "- ") apontando o que merece atenção especial NESTE capítulo específico, já escritos em linguagem simples de EBD (veja a regra de linguagem acima). Escolha, entre os que realmente se aplicarem a este capítulo (não force todos, alguns capítulos não têm heresia associada, por exemplo):
+                enhancedPrompt = `Para uma aula sobre ${book || ''} ${chapter || ''}, ${itemCountInstruction} (uma linha cada, sem numeração, começando com "- ") apontando o que merece atenção especial NESTE capítulo específico, já escritos em linguagem simples de EBD (veja a regra de linguagem acima). Escolha, entre os que realmente se aplicarem a este capítulo (não force todos, alguns capítulos não têm heresia associada, por exemplo):
 
 1. TEMA DOUTRINÁRIO RELEVANTE: se o capítulo toca algum tema que está na lente doutrinária do sistema (ex: como a salvação funciona, o fim dos tempos, os dons espirituais, quem é Jesus), aponte que vale reforçar esse ponto na aula — sem escrever a explicação inteira, só sinalizar, em palavras simples.
 2. INTERPRETAÇÃO ERRADA COMUM: se alguma passagem deste capítulo costuma ser mal interpretada ou usada por algum grupo pra defender algo fora do que a Bíblia realmente ensina, diga EM POUCAS PALAVRAS SIMPLES qual é esse erro e qual é a interpretação correta — pra o professor já saber que precisa esclarecer isso, sem citar nomes de heresias ou correntes teológicas como rótulo.
@@ -593,7 +606,7 @@ Retorne a tradução e contexto no formato Markdown especificado.`;
                            - **[Nome do Autor / Obra, Referência Exata]** (Ex: **Talmud de Jerusalém, Tratado Moed Katan 3:5**)
                            - **Tradução em Português:** *"[Texto integral da citação traduzido com fidelidade e clareza didática]"*
                            - **Contexto Histórico e Aplicação:** (1 a 2 parágrafos concisos explicando o cenário da época, costumes ou o significado cultural e bíblico do relato)
-                           - **Texto Original:** (Trecho original em hebraico/grego/latim ou transliteração, conciso)
+                           - NÃO inclua o texto na língua original (hebraico/grego/latim/transliteração) — os alunos de EBD não leem essas línguas, e isso só consome tokens sem ganho pedagógico. A tradução em português já é o elemento completo e final.
                         4. COMANDO OCULTO / INSTRUÇÃO ESPECÍFICA (MÁXIMA PRIORIDADE): Se a solicitação contiver uma "Instrução específica" (ex: focar na crença dos 3 dias em que a alma paira no túmulo até o 4º dia), você DEVE FOCAR CIRURGICAMENTE exatamente nesse trecho/assunto solicitado. NUNCA repita nem mencione o comando oculto no texto gerado; apenas atenda ao seu conteúdo.
                         5. MENÇÕES SEM CITAÇÃO: Se a referência for apenas o nome de um autor histórico ou documento sem citação de seção específica, forneça uma síntese biográfica e contextual clara de 1 ou 2 parágrafos didáticos. Formate como: **[Nome / Obra]**: [Síntese contextual].
                         6. CONCLUSÃO INTEGRAL: Conclua sempre todas as seções sem truncar o texto. Nunca gere resumos de apenas 1 linha sem a tradução em português.
@@ -605,11 +618,10 @@ Retorne a tradução e contexto no formato Markdown especificado.`;
                     enhancedPrompt = `[BUSCA E TRADUÇÃO DE FONTE PRIMÁRIA]:
 Referência solicitada: "${prompt}"
 
-Retorne estritamente a tradução em português do Brasil e o contexto histórico no formato Markdown:
+Retorne estritamente a tradução em português do Brasil e o contexto histórico no formato Markdown, SEM incluir o texto na língua original (os alunos de EBD não leem hebraico/grego/latim):
 **[Título da Obra e Referência]**
 **Tradução em Português:** *"[Texto integral traduzido da citação com fidelidade e clareza]"*
-**Contexto Histórico e Aplicação:** [1 a 2 parágrafos concisos explicando os costumes da época, o cenário histórico e como essa citação elucida o texto bíblico]
-**Texto Original:** [Citação breve na língua original ou transliteração]`;
+**Contexto Histórico e Aplicação:** [1 a 2 parágrafos concisos explicando os costumes da época, o cenário histórico e como essa citação elucida o texto bíblico]`;
                 }
             }
             // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR ---
@@ -997,6 +1009,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         7. INJEÇÃO IN-LINE (PROIBIDO CITAÇÃO SECA): Insira pelo menos 1 a 2 PÉROLAS DE OURO por tópico principal. "**PÉROLA DE OURO:**" NUNCA pode vir sozinho seguido apenas da citação {{...}} — isso é ERRO GRAVE. A citação {{...}} tem que estar DENTRO de uma frase completa que já explica, em português simples, o que essa fonte revela ou confirma, ANTES ou DEPOIS da citação, na MESMA linha.
            - ERRADO (proibido): "**PÉROLA DE OURO:** {{Talmud | Tratado Shabbat 69a | ...}}"
            - CERTO: "**PÉROLA DE OURO:** O rabino também reconhecia que um erro cometido sem querer não isenta a pessoa de reparar o mal causado, como mostra {{Talmud | Tratado Shabbat 69a | Traga a discussão sobre responsabilidade por erro involuntário}}."
+        8. QUEBRA DE PARÁGRAFO OBRIGATÓRIA ANTES DA PÉROLA (ERRO GRAVE SE IGNORADO): "**PÉROLA DE OURO:**" DEVE OBRIGATORIAMENTE começar um parágrafo novo, numa linha própria, separada por quebra de linha do parágrafo anterior. É ESTRITAMENTE PROIBIDO continuar a última frase do parágrafo normal direto para "**PÉROLA DE OURO:**" na mesma linha/parágrafo — isso quebra a renderização visual do sistema (o parágrafo inteiro anterior fica com a formatação da Pérola). A Pérola de Ouro é sempre o INÍCIO de um bloco novo, nunca a continuação de um bloco existente.
         8. GLOSSÁRIO INTERATIVO ABUNDANTE (OBRIGATÓRIO): Para qualquer termo técnico, teológico, hebraico, grego ou palavra pouco usual em português, use obrigatoriamente DOIS COLCHETES: [[Palavra/Termo | Explicação simples e didática para leigo]]. (Exemplo: [[Ontológico | Relativo à natureza essencial do ser]]). JAMAIS use colchete simples [ ] para glossário no meio do texto comum.
         9. PROIBIÇÃO ABSOLUTA DE ESQUEMAS, FLUXOGRAMAS E TABELAS (EM QUALQUER FORMATO, INCLUSIVE
            DENTRO DE UM PARÁGRAFO NORMAL): NUNCA use blocos de código (\`\`\`esquema ou qualquer
