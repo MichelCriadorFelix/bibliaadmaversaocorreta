@@ -452,6 +452,37 @@ export default async function handler(request, response) {
                         : relevanceWeight === 'medio'
                             ? 'liste de 4 a 6 itens curtos'
                             : 'avalie a densidade doutrinária/histórica/narrativa REAL deste capítulo específico antes de decidir quantos itens listar: se for um capítulo denso e rico (ex: Gênesis 1, Romanos 8, Apocalipse 1), pode listar de 6 a 10 itens; se for um capítulo mais simples, genealógico ou de transição, 2 a 3 itens honestos bastam — NUNCA force uma quantidade fixa que não reflita o que o capítulo realmente oferece';
+
+                // MODO GUIA DO MESTRE: quando a aula do aluno já existe (existingContent), a
+                // sugestão não deve mais apontar CONTEÚDO doutrinário pra explicar — isso já está
+                // escrito na aula. Aqui o professor precisa de ESTRATÉGIA DE ENSINO: o que é mais
+                // difícil de explicar em sala, quebra-gelo, ritmo de tempo e pergunta de debate,
+                // sempre ancorados no que a aula do aluno REALMENTE contém (nunca invente conteúdo
+                // que não esteja nela).
+                const hasStudentLesson = Boolean(existingContent && existingContent.trim().length > 100);
+                if (hasStudentLesson) {
+                    systemInstruction = `Você é o Professor Michel Felix, Assistente Didático de Elite, especialista em transformar conteúdo teológico já pronto em ESTRATÉGIA DE SALA DE AULA para o professor de EBD.
+
+                    Aqui sua única tarefa é SUGERIR, em tópicos curtos, pontos de atenção PEDAGÓGICOS para o professor que vai LECIONAR a aula abaixo (que já está pronta) — você NÃO deve sugerir mais conteúdo doutrinário pra explicar (isso já foi escrito), só estratégia de como ensinar bem o que já está ali.
+
+                    ATENÇÃO — LINGUAGEM: escreva cada item em português simples e direto, pronto pra colar nas Instruções Customizadas do Guia do Mestre.`;
+                    enhancedPrompt = `Leia a AULA DO ALUNO JÁ PRONTA abaixo (${book || ''} ${chapter || ''}) e ${itemCountInstruction} (uma linha cada, sem numeração, começando com "- ") de ESTRATÉGIA DE ENSINO para o professor que vai lecionar essa aula especificamente. Escolha, entre os que realmente se aplicarem a ESTE conteúdo (não force todos):
+
+1. PONTO MAIS DIFÍCIL DE ENTENDER: qual trecho específico desta aula tende a confundir um aluno leigo, e uma analogia simples do dia a dia pra destravar esse ponto na explicação oral.
+2. QUEBRA-GELO SUGERIDO: uma pergunta ou dinâmica de abertura ligada ao tema ESPECÍFICO desta aula (nunca genérica).
+3. O QUE MERECE MAIS TEMPO EM SALA: qual tópico desta aula é o mais denso/importante e merece mais ênfase de tempo na fala do professor, versus o que pode passar mais rápido.
+4. PERGUNTA DE DEBATE MAIS PROVOCATIVA: uma pergunta específica baseada nesta aula que geraria a melhor discussão entre os alunos.
+5. RISCO DE CONFUSÃO NA EXPLICAÇÃO ORAL: se algum ponto desta aula é historicamente mal-entendido ou fácil de o professor explicar errado de improviso, avise o que reforçar.
+
+REGRA DE OURO: TUDO deve estar ancorado no conteúdo REAL da aula abaixo — é PROIBIDO sugerir um ponto, analogia ou pergunta sobre algo que não está escrito nela.
+
+Seja direto e específico desta aula — nada genérico. Sem introduções, sem saudações, sem numerar as categorias acima no texto final, vá direto para a lista de itens.
+
+--- AULA DO ALUNO JÁ PRONTA ---
+"""
+${existingContent.substring(0, 6000)}
+"""`;
+                } else {
                 systemInstruction = `Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito, operando sob a mesma lente doutrinária do motor principal (Arminiano, Pré-tribulacionista/Pré-milenista, Ortodoxo/Trinitariano, Pentecostal Continuísta, Apologeta Anti-heresias, Hermenêutica de Alta Precisão).
 
                 Aqui sua única tarefa é SUGERIR, em tópicos curtos, pontos de atenção para OUTRO PROFESSOR que vai preparar a aula — você NÃO está escrevendo a aula em si, nem uma explicação teológica completa, só um mapa rápido do que vale a pena focar.
@@ -468,6 +499,7 @@ export default async function handler(request, response) {
 7. EXEMPLO OU RELATO BÍBLICO PRÁTICO (RIGOR HERMENÊUTICO E CONTEXTUAL — SEM FORÇAR): Se o capítulo traz um mandamento, doutrina, lei ou princípio (ex: pecados por ignorância de líderes/congregação, votos, sacerdócio, julgamentos), aponte onde esse princípio foi vivido, quebrado ou cumprido na prática em uma história das Escrituras (ex: o erro de Davi ao transportar a Arca em 1 Cr 13/15, o juramento precipitado de Saul em 1 Sm 14, a purificação de Josias em 2 Rs 22). ATENÇÃO CRÍTICA: A correspondência bíblica deve ser REAL, LEGÍTIMA e no CONTEXTO EXATO da passagem. É TERMINANTEMENTE PROIBIDO inventar, alucinar, espiritualizar forçadamente ou encaixar uma história fora de contexto só para ter um exemplo. Se não houver uma narrativa bíblica que ilustre com exatidão aquele ponto específico, NÃO invente nem force uma conexão artificial — a fidelidade ao texto bíblico prevalece sempre sobre o desejo de exemplificar.
 
 Seja direto e específico deste capítulo — nada genérico que serviria para qualquer capítulo. Sem introduções, sem saudações, sem numerar as categorias acima no texto final (elas são só um guia interno seu), vá direto para a lista de itens.`;
+                }
             }
             // --- SUGESTÃO DE PONTOS DE ATENÇÃO PARA AULAS TEMÁTICAS E TEOLOGIA SISTEMÁTICA ---
             else if (taskType === 'thematic_focus_suggestion') {
@@ -731,6 +763,9 @@ Retorne estritamente a tradução em português do Brasil e o contexto históric
                     REGRAS DE GERAÇÃO:
                     1. LEITURA COMPLETA: Leia todo o texto da aula antes de gerar qualquer pergunta.
                     2. IDENTIFICAÇÃO DE PONTOS CHAVE: Identifique os pontos mais relevantes (ensinos, personagens, fatos) que o aluno DEVE aprender. Garanta que esses pontos sejam distintos entre si.
+                       - PROIBIDO GRAVE (ERRO CRÍTICO SE IGNORADO): NUNCA escolha como "ponto chave" uma palavra ou expressão em hebraico/grego/latim mencionada na aula (ex: nunca pergunte "o que significa a expressão grega X?"), nem etimologia, nem tradição de manuscritos. Mesmo que a aula cite e explique um termo original, esse termo NÃO pode virar pergunta de quiz — é informação de apoio pro professor, não matéria de prova pro aluno leigo, que não tem como adivinhar/decorar uma palavra em outro idioma. Escolha SEMPRE fatos, ensinos, personagens ou eventos narrados em português.
+                       - ERRADO (proibido, mesmo se a resposta estiver literalmente no texto): "Qual o significado da expressão grega 'tēreō ek' mencionada no texto?"
+                       - CERTO (mesmo trecho da aula, ponto certo a escolher): "Segundo a aula, o que a promessa de Apocalipse 3:10 garante à igreja fiel?"
                     3. FORMULAÇÃO DA PERGUNTA:
                        - Deve ser contextualizada, clara e bem formulada.
                        - Tamanho: Entre 10 e 16 palavras (OBRIGATÓRIO).
@@ -748,7 +783,7 @@ Retorne estritamente a tradução em português do Brasil e o contexto históric
                     6. PROVA TEXTUAL: O 'proofText' é OBRIGATÓRIO (cópia fiel de parte do texto) para provar que você não alucinou.
                     
                     PROIBIÇÕES:
-                    - PROIBIDO: Perguntas ou respostas sobre tradição, etimologia, palavras no original (grego/hebraico) ou termos linguísticos técnicos.
+                    - PROIBIDO (reforço final, ERRO GRAVE): Perguntas ou respostas sobre tradição, etimologia, palavras no original (grego/hebraico/latim) ou termos linguísticos técnicos — mesmo que a aula os mencione. Revise cada pergunta gerada antes de retornar: se alguma perguntar "o que significa a palavra X" ou citar um termo transliterado, DESCARTE e troque por um ponto sobre fatos/ensinos narrados em português.
                     
                     EXEMPLO DE APLICAÇÃO:
                     Texto: "Jesus caminhou sobre as águas durante uma forte tempestade no mar da Galileia para encontrar seus discípulos."
@@ -1186,6 +1221,16 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 config.maxOutputTokens = 3072; // Folga total para citações em hebraico/grego + tradução completa em pt-BR + contexto histórico
                 // Sem thinkingConfig para busca de fontes primárias: operação leve, direta e praticamente instantânea
                 config.temperature = 0.2;
+            } else if (taskType === 'assistente_chat' || taskType === 'devotional') {
+                // thinkingBudget não é respeitado pelo Gemini 3 (testado); thinkingLevel é o parâmetro
+                // real. Estavam sem nenhum thinkingConfig (HIGH implícito) — testado: LOW ficou 2x a
+                // 2.7x mais rápido nos dois (buscador: ~10s -> ~4.6s; devocional: ~18s -> ~6.5s) sem
+                // perda de qualidade (buscador: referências 100% corretas em todos os testes; devocional:
+                // sempre respeitou o capítulo pedido, fugiu de clichês, e manteve estrutura/tamanho).
+                // O buscador em especial é literalmente descrito como "ultrarrápido" no seu próprio
+                // system instruction — LOW é o nível certo pra ele.
+                config.maxOutputTokens = 16384;
+                config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             } else {
                 config.maxOutputTokens = 16384;
             }

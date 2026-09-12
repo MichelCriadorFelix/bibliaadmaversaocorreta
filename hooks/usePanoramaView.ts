@@ -257,8 +257,14 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     // latestRequestKeyRef sempre guarda a chave do ÚLTIMO capítulo pedido; qualquer resposta que
     // chegue depois de a chave ter mudado é silenciosamente descartada.
     const latestRequestKeyRef = useRef<string>('');
-    const loadOrGenerateFocusSuggestion = useCallback(async (b: string, c: number, skipCache: boolean = false, weightOverride?: 'baixo' | 'medio' | 'alto' | null) => {
-        const key = generateChapterKey(b, c);
+    const loadOrGenerateFocusSuggestion = useCallback(async (b: string, c: number, skipCache: boolean = false, weightOverride?: 'baixo' | 'medio' | 'alto' | null, teacherStudentContent?: string) => {
+        // Guia do Mestre precisa de uma sugestão DIFERENTE da do EBD Panorama (aluno): a aula já
+        // está pronta, então aqui a sugestão é de ESTRATÉGIA DE ENSINO (o que é mais difícil de
+        // explicar, quebra-gelo, o que merece mais tempo em sala, pergunta de debate) em vez de
+        // pontos de conteúdo doutrinário. Por isso usa uma chave de cache separada.
+        const isTeacherMode = Boolean(teacherStudentContent && teacherStudentContent.trim().length > 100);
+        const baseKey = generateChapterKey(b, c);
+        const key = isTeacherMode ? `${baseKey}_mestre` : baseKey;
         latestRequestKeyRef.current = key;
         setChapterFocusSuggestion(null);
 
@@ -285,7 +291,12 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 null,
                 false,
                 'chapter_focus_suggestion',
-                { book: b, chapter: c, relevanceWeight: weight || undefined }
+                {
+                    book: b,
+                    chapter: c,
+                    relevanceWeight: weight || undefined,
+                    existingContent: isTeacherMode ? teacherStudentContent : undefined,
+                }
             );
             const clean = typeof text === 'string' ? text.trim() : '';
             if (clean) {
@@ -307,8 +318,9 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     // sugestão é regerada na hora já levando essa classificação em conta.
     const setChapterRelevanceWeight = useCallback((weight: 'baixo' | 'medio' | 'alto' | null) => {
         setChapterRelevanceWeightState(weight);
-        loadOrGenerateFocusSuggestion(book, chapter, true, weight);
-    }, [book, chapter, loadOrGenerateFocusSuggestion]);
+        const teacherContent = activeTab === 'teacher' ? (content?.student_content || undefined) : undefined;
+        loadOrGenerateFocusSuggestion(book, chapter, true, weight, teacherContent);
+    }, [book, chapter, activeTab, content, loadOrGenerateFocusSuggestion]);
 
     // Carrega ou gera pontos de atenção estratégicos para uma aula temática específica,
     // considerando tanto o tema quanto o conteúdo existente da aula (se houver).
@@ -378,14 +390,25 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 loadOrGenerateThematicFocusSuggestion(activeLesson, true);
             }
         } else {
-            loadOrGenerateFocusSuggestion(book, chapter, true);
+            const teacherContent = activeTab === 'teacher' ? (content?.student_content || undefined) : undefined;
+            loadOrGenerateFocusSuggestion(book, chapter, true, undefined, teacherContent);
         }
-    }, [activeTab, activeLesson, book, chapter, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
+    }, [activeTab, activeLesson, book, chapter, content, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
 
     useEffect(() => {
         if (isAdmin) {
-            if (activeTab === 'student' || activeTab === 'teacher') {
+            if (activeTab === 'student') {
                 loadOrGenerateFocusSuggestion(book, chapter);
+            } else if (activeTab === 'teacher') {
+                // Guia do Mestre só gera sugestão (modo estratégia de ensino) quando a aula do
+                // aluno já estiver carregada — sem isso, não há base pra sugerir nada específico,
+                // e evitamos gerar/gravar por engano uma sugestão "modo aluno" na mesma chave.
+                const teacherContent = content?.student_content;
+                if (teacherContent && teacherContent.trim().length > 100) {
+                    loadOrGenerateFocusSuggestion(book, chapter, false, undefined, teacherContent);
+                } else {
+                    setChapterFocusSuggestion(null);
+                }
             } else if (activeTab === 'thematic') {
                 if (thematicViewMode === 'lesson_content' && activeLesson) {
                     loadOrGenerateThematicFocusSuggestion(activeLesson);
@@ -394,7 +417,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 }
             }
         }
-    }, [book, chapter, isAdmin, activeTab, thematicViewMode, activeLesson, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
+    }, [book, chapter, isAdmin, activeTab, content, thematicViewMode, activeLesson, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
 
     const calculateStats = useCallback((text: string) => {
         if (!text) return;
