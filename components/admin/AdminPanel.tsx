@@ -919,7 +919,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                                     },
                                     required: ["hebrewGreekText", "phoneticText", "words"]
                                 };
-                                const res = await generateContent(prompt, schema, false, 'dictionary');
+                                const res = await generateContent(prompt, schema, false, 'dictionary', { book: bookMeta.name, chapter: c, verse: verseNum });
                                 await db.entities.Dictionary.create({
                                     book: bookMeta.name, chapter: c, verse: verseNum, verse_key: verseKey,
                                     original_text: res.hebrewGreekText, transliteration: res.phoneticText, key_words: res.words

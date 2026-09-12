@@ -19,6 +19,7 @@ export interface GenerationProgress {
 export interface GenerationContext {
   book?: string;
   chapter?: number;
+  verse?: number;
   depthLevel?: string;
   targetPages?: string;
   thinkingLevel?: string;
@@ -111,6 +112,7 @@ export const generateContent = async (
                     taskType,
                     book: context?.book,
                     chapter: context?.chapter,
+                    verse: context?.verse,
                     themeTitle: context?.themeTitle,
                     moduleTitle: context?.moduleTitle,
                     customInstructions: context?.customInstructions,

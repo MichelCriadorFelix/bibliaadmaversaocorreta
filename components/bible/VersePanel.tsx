@@ -464,7 +464,7 @@ export default function VersePanel({ isOpen, onClose, verse, verseNumber, book, 
     };
 
     try {
-      const response = await generateContent(prompt, schema, false, 'dictionary');
+      const response = await generateContent(prompt, schema, false, 'dictionary', { book, chapter, verse: verseNumber });
       const data: DictionaryEntry = {
         book, chapter, verse: verseNumber, verse_key: verseKey,
         original_text: response.hebrewGreekText,

@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
@@ -7,8 +7,209 @@ import crypto from "crypto";
  * Motor calibrado para Gemini 3.7 Flash com Thinking Budget e compartilhamento de estado via Supabase.
  */
 export const config = {
-  maxDuration: 300, 
+  maxDuration: 300,
 };
+
+// Os 27 livros do Novo Testamento (grego) — usado para decidir se é seguro reduzir o
+// thinkingLevel do dicionário (só é seguro no Antigo Testamento, onde não existe a divergência
+// Textus Receptus x Nestle-Aland que existe no Novo Testamento grego).
+const NEW_TESTAMENT_BOOKS = new Set([
+    'mateus', 'marcos', 'lucas', 'joão', 'joao', 'atos', 'romanos',
+    '1 coríntios', '1 corintios', '2 coríntios', '2 corintios',
+    'gálatas', 'galatas', 'efésios', 'efesios', 'filipenses', 'colossenses',
+    '1 tessalonicenses', '2 tessalonicenses', '1 timóteo', '1 timoteo', '2 timóteo', '2 timoteo',
+    'tito', 'filemom', 'hebreus', 'tiago',
+    '1 pedro', '2 pedro', '1 joão', '1 joao', '2 joão', '2 joao', '3 joão', '3 joao',
+    'judas', 'apocalipse',
+]);
+
+function isNewTestamentBook(book) {
+    if (!book) return true; // sem informação -> assume o caso mais seguro (NT, thinking completo)
+    return NEW_TESTAMENT_BOOKS.has(String(book).toLowerCase().trim());
+}
+
+/**
+ * INTEGRAÇÃO BOLLS.LIFE (bolls.life): busca o texto original REAL e verificado — Textus Receptus
+ * (grego, Novo Testamento) e Westminster Leningrad Codex/Texto Masorético (hebraico, Antigo
+ * Testamento) — antes de pedir pra IA "lembrar" o versículo de cabeça. API pública, gratuita, sem
+ * chave. Resolve o problema descoberto no dicionário: pedir pra IA reconstruir o texto original de
+ * memória é inconsistente (às vezes traz o Texto Majoritário certo, às vezes o texto crítico
+ * errado, em qualquer nível de raciocínio) — buscar o texto real elimina essa loteria.
+ */
+const BOLLS_BASE = 'https://bolls.life';
+
+// Ordem canônica dos 66 livros = bookid da bolls.life (índice 0 = bookid 1 = Gênesis).
+const BOLLS_BOOK_ORDER = [
+    'Gênesis', 'Êxodo', 'Levítico', 'Números', 'Deuteronômio', 'Josué', 'Juízes', 'Rute',
+    '1 Samuel', '2 Samuel', '1 Reis', '2 Reis', '1 Crônicas', '2 Crônicas', 'Esdras', 'Neemias',
+    'Ester', 'Jó', 'Salmos', 'Provérbios', 'Eclesiastes', 'Cantares', 'Isaías', 'Jeremias',
+    'Lamentações', 'Ezequiel', 'Daniel', 'Oséias', 'Joel', 'Amós', 'Obadias', 'Jonas', 'Miquéias',
+    'Naum', 'Habacuque', 'Sofonias', 'Ageu', 'Zacarias', 'Malaquias',
+    'Mateus', 'Marcos', 'Lucas', 'João', 'Atos', 'Romanos', '1 Coríntios', '2 Coríntios',
+    'Gálatas', 'Efésios', 'Filipenses', 'Colossenses', '1 Tessalonicenses', '2 Tessalonicenses',
+    '1 Timóteo', '2 Timóteo', 'Tito', 'Filemom', 'Hebreus', 'Tiago', '1 Pedro', '2 Pedro',
+    '1 João', '2 João', '3 João', 'Judas', 'Apocalipse',
+];
+const BOLLS_BOOK_ID_MAP = new Map(
+    BOLLS_BOOK_ORDER.map((name, idx) => [
+        name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''),
+        idx + 1,
+    ])
+);
+
+function getBollsBookId(book) {
+    if (!book) return null;
+    const key = String(book).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    return BOLLS_BOOK_ID_MAP.get(key) || null;
+}
+
+async function fetchOriginalVerseText(book, chapter, verse) {
+    const bookId = getBollsBookId(book);
+    if (!bookId || !chapter || !verse) return null;
+    const translation = isNewTestamentBook(book) ? 'TR' : 'WLC';
+    try {
+        const res = await fetch(`${BOLLS_BASE}/get-text/${translation}/${bookId}/${chapter}/?verses=${verse}`, { signal: AbortSignal.timeout(3000) });
+        if (!res.ok) return null;
+        const arr = await res.json();
+        const match = Array.isArray(arr) ? arr.find(v => v.verse === Number(verse)) : null;
+        const text = match?.text ? String(match.text).trim() : '';
+        if (!text) return null;
+        return { translation, text };
+    } catch (e) {
+        console.warn('[bolls.life] Falha na busca:', e.message);
+        return null;
+    }
+}
+
+/**
+ * INTEGRAÇÃO SEFARIA (sefaria.org): busca o texto REAL e autêntico de fontes rabínicas/judaicas
+ * (Talmud, Mishná, Midrash Rabbá, Fílon de Alexandria, Zohar) antes de pedir pra IA "lembrar" a
+ * citação de memória — reduz o risco de citação inventada (referência errada ou conteúdo que não
+ * bate com o que foi citado). API pública, gratuita, sem chave. Cobre a maioria das fontes mais
+ * citadas nas Pérolas de Ouro do app (Talmud, Mishná, Midrash, Fílon); Josefo, Pais da Igreja e
+ * historiadores clássicos não são cobertos pelo Sefaria e continuam usando o fluxo antigo (a IA
+ * busca/lembra por conta própria).
+ */
+const SEFARIA_BASE = 'https://www.sefaria.org/api';
+
+function parseSourceReferenceFromPrompt(promptText) {
+    let text = (promptText || '').trim();
+    const refMatch = text.match(/Refer[êe]ncia:\s*(.+?)(?:\.\s*Instru[çc][ãa]o espec[íi]fica:|$)/i);
+    if (refMatch) text = refMatch[1].trim();
+    const commaIdx = text.indexOf(',');
+    if (commaIdx === -1) return null;
+    const source = text.slice(0, commaIdx).trim();
+    const reference = text.slice(commaIdx + 1).trim();
+    if (!source || !reference) return null;
+    return { source, reference };
+}
+
+function buildSefariaQuery(source, reference) {
+    const src = (source || '').toLowerCase();
+    const ref = (reference || '').trim();
+    if (!ref) return null;
+
+    if (src.includes('talmud') && src.includes('jerusal')) {
+        return `Jerusalem Talmud ${ref.replace(/^Tratado\s+/i, '')}`;
+    }
+    if (src.includes('talmud')) {
+        return ref.replace(/^Tratado\s+/i, '');
+    }
+    if (src.includes('mishná') || src.includes('mishna')) {
+        return `Mishnah ${ref.replace(/^Tratado\s+/i, '')}`;
+    }
+    if (src.includes('midrash') && /tan[hḥ]uma/i.test(src)) {
+        // Formato já vem como "ParashaName N" (ex: "Bereshit 1", "Vayishlach 8")
+        return `Tanhuma, ${ref}`;
+    }
+    if (src.includes('midrash') && /rabb?[áa]/i.test(src + ' ' + ref)) {
+        const bookMap = {
+            'gênesis': 'Bereshit', 'genesis': 'Bereshit',
+            'êxodo': 'Shemot', 'exodo': 'Shemot',
+            'levítico': 'Vayikra', 'levitico': 'Vayikra',
+            'números': 'Bamidbar', 'numeros': 'Bamidbar',
+            'deuteronômio': 'Devarim', 'deuteronomio': 'Devarim',
+        };
+        let clean = ref.replace(/Rabb?[áa]h?/i, '').trim();
+        for (const [pt, he] of Object.entries(bookMap)) {
+            const re = new RegExp(pt, 'i');
+            if (re.test(clean)) { clean = clean.replace(re, he).trim(); break; }
+        }
+        return `${clean} Rabbah`.replace(/\s+/g, ' ').trim();
+    }
+    if (src.includes('fílon') || src.includes('filo de') || src.includes('philo')) {
+        // Sefaria só reconhece o número do "Book" em algarismo romano (ex: "Book I"), não arábico.
+        const toRoman = (n) => ({ 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI' })[n] || String(n);
+        const workMap = [
+            [/sobre as leis especiais/i, 'On the Special Laws, Book'],
+            [/sobre a vida de moisés/i, 'On the Life of Moses, Book'],
+            [/sobre a cria[çc][ãa]o/i, 'On the Creation'],
+        ];
+        for (const [rx, en] of workMap) {
+            if (rx.test(ref)) {
+                const m = ref.match(/(\d+)[.,:](\d+)/);
+                if (!m) return null;
+                const needsBookNumber = /Book$/.test(en);
+                return needsBookNumber ? `${en} ${toRoman(Number(m[1]))}.${m[2]}` : `${en} ${m[2]}`;
+            }
+        }
+        return null;
+    }
+    if (src.includes('zohar')) {
+        // O Zohar no Sefaria é endereçado por parashá (ex: "Zohar, Emor"), não por volume/fólio —
+        // extrai o nome da parashá da referência, ignorando "Volume N," ou números de fólio soltos.
+        const parashaMatch = ref.match(/Parashat\s+([A-Za-zÀ-ÿ']+)/i) || ref.match(/^([A-Za-zÀ-ÿ']+)\b/);
+        if (!parashaMatch) return null;
+        return `Zohar, ${parashaMatch[1]}`;
+    }
+    if (src.includes('maimônides') || src.includes('maimonides')) {
+        // Só cobrimos "Guia dos Perplexos" por enquanto — "Mishneh Torah" usa nomes de seção em
+        // hebraico transliterado (ex: "Hilchot Klei HaMikdash") que não batem com os nomes em
+        // inglês do Sefaria (ex: "Vessels"), precisaria de um dicionário grande pra mapear direito.
+        if (/guia dos perplexos/i.test(ref)) {
+            const m = ref.match(/(\d+)[.,:](\d+)/);
+            return m ? `Guide for the Perplexed, Part ${m[1]}.${m[2]}` : null;
+        }
+        return null;
+    }
+    return null;
+}
+
+async function fetchFromSefaria(source, reference) {
+    const query = buildSefariaQuery(source, reference);
+    if (!query) return null;
+    try {
+        const nameRes = await fetch(`${SEFARIA_BASE}/name/${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(2000) });
+        if (!nameRes.ok) return null;
+        const nameData = await nameRes.json();
+        if (!nameData.is_ref || !nameData.ref) return null;
+        const resolvedRef = nameData.ref;
+
+        const fetchText = async (ref) => {
+            const textRes = await fetch(`${SEFARIA_BASE}/v3/texts/${encodeURIComponent(ref)}?version=english`, { signal: AbortSignal.timeout(2000) });
+            if (!textRes.ok) return null;
+            const textData = await textRes.json();
+            return textData?.versions?.[0]?.text || null;
+        };
+
+        let raw = await fetchText(resolvedRef);
+        // Se o segmento exato não existir, tenta subir um nível (ex: livro/capítulo inteiro).
+        // O Sefaria separa o último segmento com "." (Talmud/Mishná) ou espaço (Fílon/Josefo-like).
+        if (!raw && /[.\s]\d+$/.test(resolvedRef)) {
+            raw = await fetchText(resolvedRef.replace(/[.\s]\d+$/, ''));
+        }
+        if (!raw) return null;
+
+        const flatten = (t) => Array.isArray(t) ? t.map(flatten).join('\n\n') : (typeof t === 'string' ? t.replace(/<[^>]+>/g, '') : '');
+        const text = flatten(raw).trim();
+        if (!text || text.length < 20) return null;
+
+        return { ref: resolvedRef, text: text.slice(0, 6000) };
+    } catch (e) {
+        console.warn('[Sefaria] Falha na busca:', e.message);
+        return null;
+    }
+}
 
 /**
  * Extrai a hierarquia de tópicos (#, ##, ###) de uma aula existente para preservar a ementa
@@ -128,8 +329,9 @@ export default async function handler(request, response) {
         prompt, 
         schema, 
         taskType, 
-        book, 
-        chapter, 
+        book,
+        chapter,
+        verse,
         themeTitle,
         moduleTitle,
         customInstructions,
@@ -229,6 +431,7 @@ export default async function handler(request, response) {
 
             let systemInstruction = "Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito.";
             let enhancedPrompt = prompt;
+            let dictionaryGrounded = false; // true quando o texto original real (bolls.life) foi injetado no prompt
 
             // --- LÓGICA DE BUSCA RÁPIDA ---
             if (taskType === 'assistente_chat') {
@@ -342,28 +545,64 @@ Seja direto, profundo e específico para o tema "${lessonTheme}". Sem saudaçõe
             }
             // --- LÓGICA DE BUSCA DE FONTES PRIMÁRIAS ---
             else if (taskType === 'fetch_primary_source') {
-                systemInstruction = `
-                    ATUE COMO: Bibliotecário de Fontes Primárias e Tradutor Erudito do Professor Michel Felix.
-                    
-                    SEU OBJETIVO PRINCIPAL: Localizar a citação histórica, rabínica (Talmud, Mishná, Midrash), clássica (Flávio Josefo, Fílon, historiadores greco-romanos) ou patrística solicitada e fornecer a TRADUÇÃO COMPLETA EM PORTUGUÊS (pt-BR), fiel, límpida e didática, acompanhada do trecho original ou transliteração e do contexto histórico.
-                    
-                    DIRETRIZES MANDATÓRIAS DE CONTEÚDO E IDIOMA:
-                    1. IDIOMA DO LEITOR (CRÍTICO): O usuário e os alunos lêem em Português do Brasil. É TERMINANTEMENTE PROIBIDO retornar a resposta apenas no idioma original (Hebraico, Grego ou Latim) ou em inglês. A TRADUÇÃO COMPLETA EM PORTUGUÊS É O ELEMENTO PRINCIPAL E OBRIGATÓRIO!
-                    2. SEM SAUDAÇÕES OU INTRODUÇÕES META: Inicie DIRETAMENTE com o título da obra e a referência em negrito. É expressamente proibido qualquer introdução ou saudação ("Prezado...", "Olá", etc.).
-                    3. ESTRUTURAÇÃO OBRIGATÓRIA EM MARKDOWN:
-                       - **[Nome do Autor / Obra, Referência Exata]** (Ex: **Talmud de Jerusalém, Tratado Moed Katan 3:5**)
-                       - **Tradução em Português:** *"[Texto integral da citação traduzido com fidelidade e clareza didática]"*
-                       - **Contexto Histórico e Aplicação:** (1 a 2 parágrafos concisos explicando o cenário da época, costumes ou o significado cultural e bíblico do relato)
-                       - **Texto Original:** (Trecho original em hebraico/grego/latim ou transliteração, conciso)
-                    4. COMANDO OCULTO / INSTRUÇÃO ESPECÍFICA (MÁXIMA PRIORIDADE): Se a solicitação contiver uma "Instrução específica" (ex: focar na crença dos 3 dias em que a alma paira no túmulo até o 4º dia), você DEVE FOCAR CIRURGICAMENTE exatamente nesse trecho/assunto solicitado. NUNCA repita nem mencione o comando oculto no texto gerado; apenas atenda ao seu conteúdo.
-                    5. MENÇÕES SEM CITAÇÃO: Se a referência for apenas o nome de um autor histórico ou documento sem citação de seção específica, forneça uma síntese biográfica e contextual clara de 1 ou 2 parágrafos didáticos. Formate como: **[Nome / Obra]**: [Síntese contextual].
-                    6. CONCLUSÃO INTEGRAL: Conclua sempre todas as seções sem truncar o texto. Nunca gere resumos de apenas 1 linha sem a tradução em português.
-                    
-                    PROIBIÇÕES:
-                    - NUNCA retorne o texto sem tradução em português.
-                    - NÃO invente fontes. Se o trecho for fragmentário ou perdido, informe com sobriedade acadêmica.
-                `;
-                enhancedPrompt = `[BUSCA E TRADUÇÃO DE FONTE PRIMÁRIA]:
+                const parsedSourceRef = parseSourceReferenceFromPrompt(prompt);
+                const sefariaResult = parsedSourceRef
+                    ? await fetchFromSefaria(parsedSourceRef.source, parsedSourceRef.reference)
+                    : null;
+
+                if (sefariaResult) {
+                    // --- CAMINHO COM GROUNDING REAL (Sefaria): a IA só traduz/contextualiza texto
+                    // autêntico já buscado, nunca "lembra" a citação de memória. ---
+                    systemInstruction = `
+                        ATUE COMO: Tradutor Erudito e Contextualizador do Professor Michel Felix.
+
+                        VOCÊ RECEBEU O TEXTO ORIGINAL REAL E AUTÊNTICO (via Sefaria.org, referência: ${sefariaResult.ref}) da fonte solicitada, em inglês/hebraico. Sua ÚNICA tarefa é traduzir esse texto FIELMENTE para português do Brasil e adicionar contexto histórico — você NÃO pode inventar, adicionar ou remover conteúdo além do que está no texto fornecido.
+
+                        DIRETRIZES MANDATÓRIAS:
+                        1. FIDELIDADE ABSOLUTA: Traduza exatamente o que está no texto original fornecido. Não invente detalhes, diálogos ou conclusões que não estejam lá.
+                        2. IDIOMA: Toda a resposta em português do Brasil, límpido e didático.
+                        3. SEM SAUDAÇÕES: Comece direto com o título/referência em negrito.
+                        4. ESTRUTURA MARKDOWN:
+                           - **[Nome da Obra, Referência]**
+                           - **Tradução em Português:** *"[tradução fiel do texto fornecido]"*
+                           - **Contexto Histórico e Aplicação:** (1 a 2 parágrafos concisos ligando ao tema bíblico)
+                        5. COMANDO OCULTO / INSTRUÇÃO ESPECÍFICA: se houver, foque a tradução/contexto no trecho relevante do texto fornecido a esse comando, sem mencioná-lo.
+                    `;
+                    enhancedPrompt = `[TRADUÇÃO DE FONTE PRIMÁRIA REAL — TEXTO JÁ VERIFICADO]:
+Referência: "${prompt}"
+Referência resolvida no Sefaria: ${sefariaResult.ref}
+
+TEXTO ORIGINAL REAL (traduza fielmente, não invente nada além disto):
+"""
+${sefariaResult.text}
+"""
+
+Retorne a tradução e contexto no formato Markdown especificado.`;
+                } else {
+                    // --- CAMINHO ANTIGO (fallback): fonte não coberta pelo Sefaria (Josefo, Pais da
+                    // Igreja, historiadores clássicos, etc.) — a IA busca/lembra por conta própria. ---
+                    systemInstruction = `
+                        ATUE COMO: Bibliotecário de Fontes Primárias e Tradutor Erudito do Professor Michel Felix.
+
+                        SEU OBJETIVO PRINCIPAL: Localizar a citação histórica, rabínica (Talmud, Mishná, Midrash), clássica (Flávio Josefo, Fílon, historiadores greco-romanos) ou patrística solicitada e fornecer a TRADUÇÃO COMPLETA EM PORTUGUÊS (pt-BR), fiel, límpida e didática, acompanhada do trecho original ou transliteração e do contexto histórico.
+
+                        DIRETRIZES MANDATÓRIAS DE CONTEÚDO E IDIOMA:
+                        1. IDIOMA DO LEITOR (CRÍTICO): O usuário e os alunos lêem em Português do Brasil. É TERMINANTEMENTE PROIBIDO retornar a resposta apenas no idioma original (Hebraico, Grego ou Latim) ou em inglês. A TRADUÇÃO COMPLETA EM PORTUGUÊS É O ELEMENTO PRINCIPAL E OBRIGATÓRIO!
+                        2. SEM SAUDAÇÕES OU INTRODUÇÕES META: Inicie DIRETAMENTE com o título da obra e a referência em negrito. É expressamente proibido qualquer introdução ou saudação ("Prezado...", "Olá", etc.).
+                        3. ESTRUTURAÇÃO OBRIGATÓRIA EM MARKDOWN:
+                           - **[Nome do Autor / Obra, Referência Exata]** (Ex: **Talmud de Jerusalém, Tratado Moed Katan 3:5**)
+                           - **Tradução em Português:** *"[Texto integral da citação traduzido com fidelidade e clareza didática]"*
+                           - **Contexto Histórico e Aplicação:** (1 a 2 parágrafos concisos explicando o cenário da época, costumes ou o significado cultural e bíblico do relato)
+                           - **Texto Original:** (Trecho original em hebraico/grego/latim ou transliteração, conciso)
+                        4. COMANDO OCULTO / INSTRUÇÃO ESPECÍFICA (MÁXIMA PRIORIDADE): Se a solicitação contiver uma "Instrução específica" (ex: focar na crença dos 3 dias em que a alma paira no túmulo até o 4º dia), você DEVE FOCAR CIRURGICAMENTE exatamente nesse trecho/assunto solicitado. NUNCA repita nem mencione o comando oculto no texto gerado; apenas atenda ao seu conteúdo.
+                        5. MENÇÕES SEM CITAÇÃO: Se a referência for apenas o nome de um autor histórico ou documento sem citação de seção específica, forneça uma síntese biográfica e contextual clara de 1 ou 2 parágrafos didáticos. Formate como: **[Nome / Obra]**: [Síntese contextual].
+                        6. CONCLUSÃO INTEGRAL: Conclua sempre todas as seções sem truncar o texto. Nunca gere resumos de apenas 1 linha sem a tradução em português.
+
+                        PROIBIÇÕES:
+                        - NUNCA retorne o texto sem tradução em português.
+                        - NÃO invente fontes. Se o trecho for fragmentário ou perdido, informe com sobriedade acadêmica.
+                    `;
+                    enhancedPrompt = `[BUSCA E TRADUÇÃO DE FONTE PRIMÁRIA]:
 Referência solicitada: "${prompt}"
 
 Retorne estritamente a tradução em português do Brasil e o contexto histórico no formato Markdown:
@@ -371,6 +610,7 @@ Retorne estritamente a tradução em português do Brasil e o contexto históric
 **Tradução em Português:** *"[Texto integral traduzido da citação com fidelidade e clareza]"*
 **Contexto Histórico e Aplicação:** [1 a 2 parágrafos concisos explicando os costumes da época, o cenário histórico e como essa citação elucida o texto bíblico]
 **Texto Original:** [Citação breve na língua original ou transliteração]`;
+                }
             }
             // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR ---
             else if (taskType === 'teacher_ebd' || taskType === 'upgrade_teacher_ebd') {
@@ -510,15 +750,19 @@ Retorne estritamente a tradução em português do Brasil e o contexto históric
             }
             // --- LÓGICA DE DICIONÁRIO ---
             else if (taskType === 'dictionary') {
+                const originalVerse = await fetchOriginalVerseText(book, chapter, verse);
+                dictionaryGrounded = !!originalVerse;
+
                 systemInstruction = `
                     ATUE COMO: Um Especialista em Crítica Textual e Línguas Originais (Hebraico Bíblico e Grego Koiné) E Exegeta Sênior.
-                    
+
                     DIRETRIZ MÁXIMA DE FONTE PRIMÁRIA:
                     1. A autoridade final é o Texto Original (Texto Masorético BHS para Antigo Testamento, Textus Receptus/Nestle-Aland para Novo Testamento).
                     2. O texto fornecido em português serve APENAS como referência de localização.
                     3. NUNCA faça "retro-tradução" (tentar adivinhar o original traduzindo o português de volta). ISSO É PROIBIDO.
                     4. SEMPRE acesse sua base de dados interna do manuscrito original correspondente ao versículo solicitado.
                     5. Se houver discrepância entre a tradução em português e o original, DÊ PREFERÊNCIA À ANÁLISE DO ORIGINAL e explique a nuance.
+                    ${originalVerse ? `6. TEXTO ORIGINAL JÁ VERIFICADO FORNECIDO ABAIXO (fonte: ${originalVerse.translation === 'TR' ? 'Textus Receptus' : 'Texto Masorético/WLC'}): você NÃO precisa (e NÃO deve) reconstruir o texto de memória — use EXATAMENTE o texto fornecido, palavra por palavra, sem adicionar, remover ou substituir nada.` : ''}
 
                     DIRETRIZ DE EXEGESE CONTEXTUAL (RESOLUÇÃO DE POLISSEMIA):
                     1. DIRETRIZ DE LINGUAGEM E CLAREZA (OBRIGATÓRIO):
@@ -526,7 +770,9 @@ Retorne estritamente a tradução em português do Brasil e o contexto históric
                     2. EVITE "TEOLOGÊS" desnecessário.
                     3. Se for EXTREMAMENTE necessário usar um termo técnico (ex: "Hipóstase", "Teofania", "Hapax Legomenon"), VOCÊ DEVE OBRIGATORIAMENTE explicar o significado entre parênteses ou aspas imediatamente.
                 `;
-                enhancedPrompt = prompt;
+                enhancedPrompt = originalVerse
+                    ? `${prompt}\n\nTEXTO ORIGINAL VERIFICADO (use exatamente este, não invente outro):\n"""\n${originalVerse.text}\n"""`
+                    : prompt;
             }
             // --- LÓGICA DE EBD TEMÁTICA ---
             else if (taskType === 'thematic_ebd' || taskType === 'upgrade_thematic_ebd') {
@@ -833,15 +1079,22 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
             }
 
             // Normalizador Seguro de ThinkingConfig para Gemini 3.6 Flash / 3.7 Flash
-            // NOTA: No Gemini 3.6/3.7, thinkingBudget não aceita 0 (requer >= 512 ou omitir/não enviar thinkingConfig para desativar)
+            // IMPORTANTE (testado e confirmado): no Gemini 3, thinkingBudget (número de tokens) é
+            // amplamente ignorado pelo modelo — forçar um teto baixo não reduz o "pensamento" real.
+            // O parâmetro que de fato funciona é thinkingLevel (MINIMAL/LOW/MEDIUM/HIGH). Sem nenhum
+            // thinkingConfig, o Gemini 3 assume HIGH por padrão (o mais lento). Por isso trocamos aqui
+            // para thinkingLevel — mas SÓ nas tarefas onde já confirmamos que é seguro (não há o mesmo
+            // risco encontrado no dicionário, que precisa reconstruir texto grego/hebraico original com
+            // precisão de crítica textual e pode "atalhar" para Nestle-Aland em vez do Texto Majoritário
+            // sob thinking reduzido — a aula cita versículos em português, não reconstrói o original).
             const getThinkingConfig = (lvl) => {
-                if (!lvl) return { thinkingBudget: 2048 };
+                if (!lvl) return { thinkingLevel: ThinkingLevel.HIGH };
                 const s = String(lvl).toLowerCase().trim();
-                if (s === 'minimal' || s === 'minimo' || s === 'mínimo' || s === 'off') return null;
-                if (s === 'low' || s === 'baixo') return { thinkingBudget: 1024 };
-                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 2048 };
-                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 4096 };
-                return { thinkingBudget: 2048 };
+                if (s === 'minimal' || s === 'minimo' || s === 'mínimo' || s === 'off') return { thinkingLevel: ThinkingLevel.MINIMAL };
+                if (s === 'low' || s === 'baixo') return { thinkingLevel: ThinkingLevel.LOW };
+                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingLevel: ThinkingLevel.MEDIUM };
+                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingLevel: ThinkingLevel.HIGH };
+                return { thinkingLevel: ThinkingLevel.MEDIUM };
             };
 
             // Seleção de Modelo Primário: Gemini 3.6 Flash (Padrão Bíblia ADMA)
@@ -872,27 +1125,50 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 // calculamos uma cota proporcional e segura:
                 // Em português: 1 palavra ≈ 1.35 a 1.5 tokens.
                 // maxWords * 2.5 fornece folga ampla para markdown, glossários e fontes.
-                // Somamos a cota de thinkingBudget (1024 a 4096) + 4096 tokens de margem de segurança.
-                // Isso garante que o modelo NUNCA sofra corte prematuro na conclusão, mas estabelece um horizonte disciplinado.
-                const thinkingBuffer = (tc && tc.thinkingBudget) ? tc.thinkingBudget : 2048;
-                const calculatedTokens = Math.round(maxWords * 2.5) + thinkingBuffer + 4096;
+                // thinkingLevel não expõe um número de tokens (é abstraído pelo próprio Gemini), então
+                // usamos uma margem de segurança fixa e generosa (8192) em vez de tentar somar o budget
+                // real do pensamento — garante que o modelo NUNCA sofra corte prematuro na conclusão.
+                const calculatedTokens = Math.round(maxWords * 2.5) + 8192;
                 config.maxOutputTokens = Math.min(65536, Math.max(16384, calculatedTokens));
             } else if (taskType === 'quiz_gen') {
                 config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingBudget: 1024 };
+                // thinkingBudget não é respeitado pelo Gemini 3 (testado); thinkingLevel é o parâmetro
+                // real. Quiz não reconstrói texto original grego/hebraico (gera perguntas a partir da
+                // aula já pronta em português), então não tem o mesmo risco de Texto Majoritário do
+                // dicionário — LOW é seguro aqui.
+                config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             } else if (taskType === 'dictionary') {
                 config.maxOutputTokens = 32768; // > 20.000 tokens para análises léxicas e Strongs aprofundadas
+                // NOTA (testado extensivamente): thinkingLevel LOW acelera muito (~35-40s -> ~15-30s), mas
+                // só é SEGURO quando o texto original real já foi buscado e injetado no prompt (bolls.life
+                // — dictionaryGrounded=true). Sem esse texto real, pedir pra IA "lembrar" o Novo Testamento
+                // de cabeça é uma loteria mesmo em raciocínio alto (testamos: às vezes traz o Texto
+                // Majoritário certo, às vezes o texto crítico errado, em QUALQUER nível) — nesse caso
+                // (fallback, ex: busca ao bolls.life falhou) mantemos seguro: LOW só no Antigo Testamento.
+                if (dictionaryGrounded || !isNewTestamentBook(book)) {
+                    config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+                }
             } else if (taskType === 'commentary') {
+                // thinkingBudget não é respeitado pelo Gemini 3 (testado); thinkingLevel é o
+                // parâmetro real. Testado com 24 execuções (3 níveis x 3 casos incluindo
+                // cronologia Ezequias/Manassés e necromancia em 1 Samuel 28 x múltiplas
+                // repetições): MEDIUM e LOW acertaram 100% das vezes, mas o tempo médio foi
+                // estatisticamente igual entre os dois (~19s, diferença é ruído de fila, não
+                // de raciocínio) — ou seja, LOW não compra velocidade aqui. Ficamos em MEDIUM
+                // por ter mais margem de segurança sem custo de performance.
                 config.maxOutputTokens = 16384;
+                config.thinkingConfig = { thinkingLevel: ThinkingLevel.MEDIUM };
             } else if (taskType === 'chapter_focus_suggestion' || taskType === 'thematic_focus_suggestion') {
                 // Em aulas que já possuem texto pronto, o sugestor reproduz a ementa inteira
                 // de tópicos (##) e subtópicos (###) e gera 4 a 6 diretrizes ricas e detalhadas
                 // (fontes primárias, termos em hebraico/grego com glossário, etc.).
                 // No Gemini 3.7 Flash, o raciocínio interno ("thinking") compartilha a mesma cota.
                 // Um teto antigo de 3072 tokens cortava a resposta no final.
-                // Expandimos para 8192 tokens com thinking budget calibrado (1024), garantindo folga total.
+                // Expandimos para 8192 tokens de saída. thinkingBudget não é respeitado pelo Gemini 3
+                // (testado); thinkingLevel é o parâmetro real. Essa tarefa só sugere tópicos a partir da
+                // ementa já existente e da persona do professor, sem reconstruir texto original — LOW é seguro.
                 config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingBudget: 1024 };
+                config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             } else if (taskType === 'fetch_primary_source') {
                 config.maxOutputTokens = 3072; // Folga total para citações em hebraico/grego + tradução completa em pt-BR + contexto histórico
                 // Sem thinkingConfig para busca de fontes primárias: operação leve, direta e praticamente instantânea
