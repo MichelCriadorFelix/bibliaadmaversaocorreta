@@ -30,6 +30,54 @@ export interface GenerationContext {
   relevanceWeight?: 'baixo' | 'medio' | 'alto';
 }
 
+// --- GERENCIAMENTO INTELIGENTE DE QUARENTENA DE CHAVES (LOCALSTORAGE) ---
+// Evita que o aplicativo insista em chaves que acabaram de bater cota (429) em gerações anteriores
+const EXHAUSTED_CACHE_KEY = 'adma_gemini_exhausted_hashes_cache_v1';
+
+interface ExhaustedRecord {
+    hash: string;
+    expiresAt: number;
+}
+
+const getCachedExhaustedHashes = (): string[] => {
+    try {
+        const raw = localStorage.getItem(EXHAUSTED_CACHE_KEY);
+        if (!raw) return [];
+        const records: ExhaustedRecord[] = JSON.parse(raw);
+        const now = Date.now();
+        const valid = records.filter(r => r && r.expiresAt > now);
+        if (valid.length !== records.length) {
+            localStorage.setItem(EXHAUSTED_CACHE_KEY, JSON.stringify(valid));
+        }
+        return valid.map(r => r.hash);
+    } catch {
+        return [];
+    }
+};
+
+const saveExhaustedHashesToCache = (hashes: string[], ttlMs: number = 75000) => {
+    try {
+        if (!hashes || !Array.isArray(hashes) || hashes.length === 0) return;
+        const raw = localStorage.getItem(EXHAUSTED_CACHE_KEY);
+        const existing: ExhaustedRecord[] = raw ? JSON.parse(raw) : [];
+        const now = Date.now();
+        const map = new Map<string, number>();
+        
+        for (const r of existing) {
+            if (r.expiresAt > now) map.set(r.hash, r.expiresAt);
+        }
+        for (const h of hashes) {
+            map.set(h, now + ttlMs);
+        }
+
+        const updated: ExhaustedRecord[] = Array.from(map.entries()).map(([hash, expiresAt]) => ({
+            hash,
+            expiresAt
+        }));
+        localStorage.setItem(EXHAUSTED_CACHE_KEY, JSON.stringify(updated));
+    } catch {}
+};
+
 export const generateContent = async (
   prompt: string, 
   jsonSchema?: any,
@@ -38,14 +86,18 @@ export const generateContent = async (
   context?: GenerationContext,
   onProgress?: (progress: GenerationProgress) => void
 ) => {
-    const attemptedHashes = new Set<string>();
+    // 1. Carrega de antemão as chaves que bateram limite recentemente (em cooldown)
+    const cachedExhausted = getCachedExhaustedHashes();
+    const attemptedHashes = new Set<string>(cachedExhausted);
     const allRotationLogs: any[] = [];
-    const maxClientCycles = 43; // Rotação individual precisa: 1 a 1 passando pelas 43 chaves
+    
+    // Com failover inteligente no servidor (5 chaves por ciclo), 10 ciclos cobrem com folga até 50 tentativas
+    const maxClientCycles = 10;
     let lastErrorMessage = "Falha na comunicação com o Professor Virtual.";
 
     onProgress?.({
-        percent: 5,
-        message: "Conectando ao pool de 43 Chaves ADMA...",
+        percent: 6,
+        message: "Sorteando chave ativa no pool inteligente de IA...",
         stage: 'connecting',
         totalKeys: 43
     });
@@ -54,20 +106,20 @@ export const generateContent = async (
         let progressTimer: any = null;
         try {
             const attemptedCount = allRotationLogs.length;
-            const startPct = Math.min(8 + Math.floor((attemptedCount / 43) * 72), 30);
+            const startPct = Math.min(8 + Math.floor((attemptedCount / 43) * 72), 32);
             
             const subjectLabel = context?.themeTitle 
                 ? `tema "${context.themeTitle}"` 
                 : (context?.book ? `${context.book} ${context.chapter || ''}`.trim() : 'Passagem');
 
             const stageMessages = [
-                `Conectando ao pool e acervo teológico (Chave #${cycle})...`,
+                `Conectando ao modelo neural e acervo teológico...`,
                 `Analisando textos e fundamentação teológica de ${subjectLabel}...`,
                 `Executando exegese profunda e aplicando diretrizes do professor...`,
                 `Destrinchando os tópicos e formulando o efeito "Ah! Entendi!"...`,
                 `Injetando Pérolas de Ouro e Fontes Primárias (Josefo, Talmud, Pais da Igreja)...`,
                 `Inserindo Glossários Interativos e Tipologia Cristocêntrica...`,
-                `Validando Curiosidades, Teologia e Metrado de Páginas...`
+                `Validando Arqueologia, Hermenêutica, Teologia e Metrado de Páginas...`
             ];
 
             let msgIdx = 0;
@@ -76,7 +128,7 @@ export const generateContent = async (
             onProgress?.({
                 percent: currentPct,
                 message: cycle > 1 
-                    ? `Alternando Chave (${cycle}/43)... Analisando ${subjectLabel}` 
+                    ? `Balanceando carga para novo lote de IA... Analisando ${subjectLabel}` 
                     : stageMessages[0],
                 stage: 'querying',
                 cycle,
@@ -99,8 +151,9 @@ export const generateContent = async (
             }, 3500);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 295000); // 295s — o backend agora usa um teto único de 280s para qualquer tarefa; o cliente precisa esperar um pouco mais que isso pra nunca desistir antes do servidor.
+            const timeoutId = setTimeout(() => controller.abort(), 295000); // 295s
             
+            // Enviamos batchSize: 5 para o servidor testar em lote internamente com failover instantâneo
             const response = await fetch('/api/gemini', {
                 method: 'POST',
                 signal: controller.signal,
@@ -123,7 +176,7 @@ export const generateContent = async (
                     thinkingLevel: context?.thinkingLevel,
                     relevanceWeight: context?.relevanceWeight,
                     excludedKeyHashes: Array.from(attemptedHashes),
-                    batchSize: 1
+                    batchSize: 5
                 })
             });
             clearTimeout(timeoutId);
@@ -141,6 +194,7 @@ export const generateContent = async (
 
             if (data?.failedKeyHashes && Array.isArray(data.failedKeyHashes)) {
                 data.failedKeyHashes.forEach((h: string) => attemptedHashes.add(h));
+                saveExhaustedHashesToCache(data.failedKeyHashes, 75000); // Salva na quarentena por 75s
             }
 
             if (response.ok && data?.text) {
@@ -196,13 +250,13 @@ export const generateContent = async (
             lastErrorMessage = data?.error || `Erro HTTP ${response.status}`;
             console.warn(`[Gemini Router] Ciclo #${cycle} concluído sem sucesso (${data?.rotationLog?.length || 0} chaves tentadas). Buscando próximo lote do pool...`);
 
-            if (data?.canClientRetry === false || (data?.remainingKeysCount === 0 && cycle > 3)) {
+            if (data?.canClientRetry === false || (data?.remainingKeysCount === 0 && cycle > 2)) {
                 // Se o servidor avisar que não há mais chaves disponíveis no pool, encerra
                 break;
             }
 
             // Pequeno intervalo antes do próximo ciclo para evitar rajada
-            await new Promise(resolve => setTimeout(resolve, 400));
+            await new Promise(resolve => setTimeout(resolve, 250));
 
         } catch (error: any) {
             if (progressTimer) clearInterval(progressTimer);
@@ -211,7 +265,7 @@ export const generateContent = async (
             if (error.name === 'AbortError') {
                 lastErrorMessage = "Tempo de resposta excedido para este lote de chaves.";
             }
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 300));
         }
     }
 
@@ -246,7 +300,8 @@ export const fetchPrimarySourceText = async (
         ? `Referência: ${source}, ${reference}. Instrução específica: ${hiddenCommand}` 
         : `${source}, ${reference}`;
 
-    const attemptedHashes = new Set<string>();
+    const cachedExhausted = getCachedExhaustedHashes();
+    const attemptedHashes = new Set<string>(cachedExhausted);
     let lastError = "Falha ao consultar fonte primária no momento.";
     const maxCycles = 3; // Até 3 ciclos com rotação automática de chaves
 
@@ -265,7 +320,7 @@ export const fetchPrimarySourceText = async (
                     taskType: 'fetch_primary_source',
                     prompt: promptText,
                     excludedKeyHashes: Array.from(attemptedHashes),
-                    batchSize: 2
+                    batchSize: 4
                 })
             });
             clearTimeout(timeoutId);
@@ -278,6 +333,7 @@ export const fetchPrimarySourceText = async (
 
             if (data?.failedKeyHashes && Array.isArray(data.failedKeyHashes)) {
                 data.failedKeyHashes.forEach((h: string) => attemptedHashes.add(h));
+                saveExhaustedHashesToCache(data.failedKeyHashes, 75000);
             }
 
             if (response.ok && data?.text) {

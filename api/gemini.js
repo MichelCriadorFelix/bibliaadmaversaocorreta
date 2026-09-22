@@ -403,32 +403,52 @@ export default async function handler(request, response) {
       return false;
     };
 
-    // Filtra chaves ativas não esgotadas e não excluídas na sessão
-    let candidateKeys = uniqueKeys.filter(key => !isKeyExhausted(key));
+    // 5. SELEÇÃO ALEATÓRIA INTELIGENTE E BALANCEADA (SMART HEALTH ROUTER)
+    // Classifica as chaves em camadas para NUNCA insistir em chaves que bateram limite:
+    
+    // Tier 1: Chaves totalmente saudáveis (sem cooldown ativo, não esgotadas e não tentadas recentemente)
+    const tier1HealthyKeys = uniqueKeys.filter(key => !isKeyExhausted(key));
 
-    // Se todas as chaves foram excluídas ou esgotadas, remove a exclusão temporária para permitir tentar chaves restantes
-    if (candidateKeys.length === 0) {
-        candidateKeys = uniqueKeys.filter(key => {
-            const h = hashKey(key);
-            const row = remoteKeyStates.get(h);
-            if (row?.daily_exhausted_date === todayStr) return false;
-            return true;
-        });
-        if (candidateKeys.length === 0) {
-            candidateKeys = [...uniqueKeys];
+    // Tier 2: Chaves cujo cooldown por minuto expirou ou que não têm bloqueio diário registrado
+    const tier2RecoveringKeys = uniqueKeys.filter(key => {
+        const h = hashKey(key);
+        const row = remoteKeyStates.get(h);
+        if (row?.daily_exhausted_date === todayStr) return false; // Bloqueio diário estrito
+        if (global.exhaustedKeys.has(key)) {
+            const exp = global.exhaustedKeys.get(key);
+            if (now < exp) return false; // Ainda em cooldown local
         }
+        return !tier1HealthyKeys.includes(key);
+    });
+
+    // Algoritmo de embaralhamento estocástico Fisher-Yates (aleatoriedade uniforme verdadeira)
+    const shuffleArray = (arr) => {
+        const copy = [...arr];
+        for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+    };
+
+    // Monta a fila de candidatos priorizando 100% as chaves saudáveis sorteadas aleatoriamente
+    let candidateKeys = [
+        ...shuffleArray(tier1HealthyKeys),
+        ...shuffleArray(tier2RecoveringKeys)
+    ];
+
+    // Fallback absoluto: se todas as chaves estiverem sob restrição, sorteia aleatoriamente de todo o pool
+    if (candidateKeys.length === 0) {
+        candidateKeys = shuffleArray(uniqueKeys);
     }
 
-    // 5. SELEÇÃO ALEATÓRIA BALANCEADA (Fisher-Yates Shuffle para garantir uso de todas as 43 chaves sem repetição estrita)
-    const shuffledKeys = [...candidateKeys];
-    for (let i = shuffledKeys.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledKeys[i], shuffledKeys[j]] = [shuffledKeys[j], shuffledKeys[i]];
-    }
-
-    // Para tarefas de busca rápida (fontes primárias), tenta até 3 chaves no mesmo ciclo para garantir resposta instantânea
-    const maxKeysInBatch = taskType === 'fetch_primary_source' ? 3 : 1;
-    const keysToTryInThisInvocation = shuffledKeys.slice(0, Math.max(1, Math.min(Number(batchSize) || maxKeysInBatch, maxKeysInBatch)));
+    // FAST-FAILOVER INTELIGENTE NO SERVIDOR:
+    // Em vez de testar apenas 1 chave e devolver erro para o navegador a cada 429,
+    // o servidor testa até 5 chaves saudáveis internamente. Como um erro 429 responde
+    // em ~200ms, o servidor pula para a próxima chave instantaneamente sem roundtrips de rede!
+    const defaultBatchSize = taskType === 'fetch_primary_source' ? 4 : 5;
+    const maxKeysInBatch = Math.max(1, Math.min(Number(batchSize) || defaultBatchSize, 8));
+    const keysToTryInThisInvocation = candidateKeys.slice(0, maxKeysInBatch);
 
             let systemInstruction = "Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito.";
             let enhancedPrompt = prompt;
@@ -980,7 +1000,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
 
                 const introInstruction = (chapter === 1) 
                     ? "2. INTRODUÇÃO GERAL:\n           Texto rico contextualizando O LIVRO (autor, data, propósito) e o cenário deste primeiro capítulo."
-                    : `2. INTRODUÇÃO DO CAPÍTULO:\n           FOCAR EXCLUSIVAMENTE no contexto imediato do capítulo ${chapter}. NÃO repita a introdução geral do livro de ${book} (autoria, data, etc), pois já foi dado nos capítulos anteriores. Vá direto ao ponto do enredo atual.`;
+                    : `2. INTRODUÇÃO DO CAPÍTULO (COM COSTURA DE TRANSIÇÃO):\n           Inicie com 1 ou 2 frases fazendo a ponte viva com o desfecho do capítulo anterior (${chapter - 1}), situando a continuidade da narrativa, e então FOQUE EXCLUSIVAMENTE no contexto imediato do capítulo ${chapter}. NÃO repita a introdução geral do livro de ${book} (autoria, data, etc), pois já foi dada nos capítulos anteriores.`;
 
                 const WRITING_STYLE = `
         ATUE COMO: Professor Michel Felix.
@@ -988,7 +1008,9 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         
         MARCO TEOLÓGICO E DOUTRINÁRIO (IMPLÍCITO NO MOTOR):
         Sua mente exegética opera ESTRITAMENTE sob a seguinte lente doutrinária:
-        - Arminiano (visão soteriológica arminiana).
+        - Soteriologia Arminiana Clássica / Pentecostal (Assembleia de Deus Ministério Ágape):
+          * PROIBIÇÃO TERMINANTE DE TERMOS E CONCEITOS DO TULIP CALVINISTA: É expressamente proibido usar jargões reformados/calvinistas como "graça incondicional", "graça irresistível", "eleição incondicional", "poder irresistível de regeneração" ou "incapacidade total de crer".
+          * TERMINOLOGIA CORRETA E PRECISA: A graça de Deus é SOBERANA, PREVENIENTE e IMERECIDA (ninguém merece a salvação), porém a salvação oferecida em Cristo é CONDICIONAL À RESPOSTA DA FÉ humana capacitada pelo Espírito (Jo 3:16; Rm 1:16-17; Ef 2:8). A graça pode ser resistida (At 7:51; Mt 23:37) e exige a rendição voluntária da fé (como Paulo declarou em At 26:19: "não fui desobediente à visão celestial"). Portanto, na estrada de Damasco Paulo foi alcançado pela graça soberana e imerecida de Deus, e não por "graça incondicional" ou "poder irresistível".
         - Pré-tribulacionista e Pré-milenista (escatologia).
         - Ortodoxo e Trinitariano (defesa inegociável da Trindade e divindade de Cristo).
         - Pentecostal e Continuísta (os dons espirituais, milagres e batismo no Espírito Santo não cessaram, são contemporâneos).
@@ -997,10 +1019,10 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         IMPORTANTE: NÃO cite esses rótulos ("Como um arminiano...") no texto. Eles devem moldar de forma orgânica e absoluta a sua interpretação e o conteúdo gerado!
 
         DIRETRIZ DE IDIOMA E PURISMO VERBAL (RIGOROSO - PORTUGUÊS DO BRASIL):
-        1. Escreva 100% em Português do Brasil (pt-BR) límpido, gramativamente irrepreensível e natural.
-        2. É ESTRITAMENTE PROIBIDO o uso de palavras em francês (ex: 'Loin', 'Bref', 'Chez'), inglês ou galicismos/estrangeirismos de outros idiomas modernos no texto da aula.
+        1. Escreva 100% em Português do Brasil (pt-BR) culto, límpido, gramaticalmente irrepreensível e natural.
+        2. É TERMINANTEMENTE PROIBIDO deixar vazar palavras em inglês ou falsos amigos no texto (por exemplo: NUNCA escreva 'sovereign' — escreva 'soberana' ou 'soberano'; NUNCA escreva 'Son de Deus' — escreva 'Filho de Deus'; NUNCA escreva 'Father' — escreva 'Pai'; NUNCA escreva 'ortopraxie' — escreva 'ortopraxia'; NUNCA use 'covenant' — use 'aliança'; NUNCA use 'grace' — use 'graça').
         3. AS ÚNICAS EXCEÇÕES PERMITIDAS a vocábulos não-portugueses são:
-           - Termos das línguas bíblicas originais (Hebraico, Grego Koiné, Aramaico) e sua transliteração;
+           - Termos das línguas bíblicas originais (Hebraico, Grego Koiné, Aramaico) com a devida transliteração;
            - Expressões em Latim teológico/jurídico consagrado (ex: Sola Scriptura, Imago Dei, Ex nihilo).
 
         DIRETRIZ DE PRECISÃO ONOMÁSTICA E NOMES BÍBLICOS (PADRÃO BRASILEIRO - ARC / ACF / ARA / NVI):
@@ -1025,6 +1047,31 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         6. PRIORIDADE MÁXIMA PARA AS ORIENTAÇÕES DO PROFESSOR: Caso haja ênfases específicas no pedido (ex: foco especial em versículos específicos, explicações detalhadas de pontos difíceis), aplique-as com rigor cirúrgico — mas SEMPRE reescritas na linguagem simples da regra 1, nunca coladas verbatim se vierem em tom acadêmico.
         7. ANCORAGEM EM RELATOS E CASOS BÍBLICOS PRÁTICOS (RIGOR CONTEXTUAL E HERMENÊUTICO ABSOLUTO — SEM FORÇAR OU ALUCINAR): Doutrinas, leis, ritos, ordenanças e mandamentos não devem ficar apenas no campo abstrato ou teórico. Sempre que explicar um mandamento, princípio espiritual, categoria de erro/pecado ou ordenança divina, conecte a explicação a 1 ou 2 relatos bíblicos práticos ou narrativas históricas onde esse princípio se manifestou na prática na Bíblia (por exemplo: ao tratar de líderes pecando por ignorância em Lv 4, mencione como isso se viu na prática no erro de Davi ao conduzir a Arca num carro de bois em 1 Cr 13/15 ou no juramento precipitado de Saul em 1 Sm 14; ao tratar de quebras coletivas da lei, cite as reformas de Josias em 2 Rs 22 ou Ezequias em 2 Cr 30; ao tratar de votos ou pureza, cite casos narrativos reais).
            - REGRA DE FIDELIDADE HERMENÊUTICA: A narrativa utilizada DEVE ter correspondência bíblica e contextual real, legítima e exata com o que o texto está ensinando. É TERMINANTEMENTE PROIBIDO inventar, alucinar, distorcer fatos históricos, espiritualizar de forma forçada ou encaixar uma história fora do seu contexto original apenas para preencher espaço. Faça sempre uma análise bíblica consistente e sólida: se em determinado tema ou mandamento NÃO houver uma história bíblica correspondente direta e legítima em todas as Escrituras, NÃO invente e NÃO force nenhuma passagem — explique a teologia com sobriedade e verdade bíblica. A precisão exegética e a verdade das Escrituras estão acima de tudo.
+        8. MATRIZ HERMENÊUTICA DE GÊNEROS E MICROGÊNEROS LITERÁRIOS:
+           - Narrativa Histórica (Gn, Ex, Js, Jz, Sm, Rs, Cr, Ed, Ne, At): diferencie descrição (o que aconteceu) de prescrição (o que Deus ordena), evidenciando a providência e soberania divina tecida em meio às fraquezas humanas.
+           - Poesia e Sabedoria (Jó, Sl, Pv, Ec, Ct): identifique o paralelismo hebraico (sinônimo, antitético, sintético, quiástico), metáforas e linguagem contemplativa. Trate provérbios como princípios gerais de sabedoria prática e piedade, nunca como garantias matemáticas ou promessas irrevogáveis de prosperidade imediata.
+           - Profecia Clássica (Is a Ml): harmonize a denúncia imediata dos pecados da época do profeta (90% do texto) com o cumprimento tipológico messiânico e o horizonte escatológico final.
+           - Apocalíptico (Dn, Zc, Ap e discursos proféticos): decodifique a rica simbologia fundamentando-se nas imagens do Antigo Testamento (visões, números, cores e animais compósitos), banindo o sensacionalismo midiático.
+           - Evangelhos e Atos (Mt, Mc, Lc, Jo, At): destaque o testemunho quádruplo de Cristo, a ênfase teológica de cada evangelista e a mensagem central das parábolas no Reino de Deus.
+           - Epístolas (Rm a Jd): siga a linha de raciocínio apostólico contínuo, compreendendo a crise pastoral da igreja destinatária e respeitando a transição da doutrina (ortodoxia) para a conduta prática cristã (ortopraxia).
+           - Microgêneros intra-texto: detecte quando um cântico poético irrompe numa narrativa (ex: Ex 15, Jz 5) ou quando uma parábola surge numa biografia, ajustando a interpretação instantaneamente.
+        9. APLICAÇÃO ORGÂNICA E IMPLÍCITA (PROIBIÇÃO TOTAL DE RÓTULOS ROBÓTICOS):
+           - É TERMINANTEMENTE PROIBIDO usar rótulos artificiais de IA como "**Aplicação Pastoral:**", "**Aplicação Prática:**", "*Pergunta para a classe:*" ou "*Para reflexão:*". Isso soa robótico e quebra a elegância do ensino bíblico.
+           - A aplicação deve fluir NATURAL E IMPLICITAMENTE no fechamento da exegese do próprio tópico: ao expor a verdade bíblica original, conclua o pensamento mostrando a implicação viva para o coração, a ética e a postura do cristão hoje.
+           - Critério de oportunidade: aplique com sobriedade onde o texto bíblico genuinamente clama por aplicação. NÃO force moralismos artificiais em listas genealógicas, medidas arquitetônicas ou dados cronológicos neutros.
+        10. ARQUEOLOGIA E CONTEXTO HISTÓRICO IN-LOCO (FIM DO BLOCO ISOLADO NO FINAL):
+           - A antiga seção final "### CURIOSIDADES E ARQUEOLOGIA" está EXTINTA. Ela isolava o dado e o tornava esquecível.
+           - Insira evidências arqueológicas (tabuinhas, estelas, cilindros), costumes do Antigo Oriente Próximo e dados históricos verificáveis DIRETAMENTE no corpo do texto, no parágrafo do versículo em que o fato ocorre.
+           - FILTRO ANTI-MITOS DE PÚLPITO: Apenas cite fatos arqueológicos e históricos DOCUMENTADOS e COMPROVADOS. É expressamente proibido citar lendas urbanas de púlpito (como a corda na perna do sumo sacerdote ou o buraco da agulha em Jerusalém).
+        11. ONOMÁSTICA BÍBLICA (SIGNIFICADO TEOLÓGICO DOS NOMES E CIDADES):
+           - No pensamento bíblico, nomes revelam planos espirituais, juízos e promessas divinas.
+           - Sempre que um personagem, povo, monte (ex: Moriá, Carmelo), vale (ex: Cedrom) ou cidade (ex: Betânia, Belém, Jericó) tiver significado etimológico relevante nas línguas originais que ilumine a mensagem do capítulo, esse significado DEVE ser explicitado e conectado ao tema.
+        12. DECODIFICAÇÃO DE EXPRESSÕES IDIOMÁTICAS E COSTUMES FORENSES DE CHOQUE:
+           - Expressões e metáforas antigas ou práticas jurídicas/forenses que soam obscuras ou amenas ao leitor do século XXI (ex: o "corpo de morte" de Rm 7:24, "cortar aliança" entre animais em Gn 15, tirar a sandália em Rt 4, rasgar vestes) devem ser explicadas em sua realidade histórica crua, para que a classe sinta o mesmo impacto e choque dos ouvintes originais.
+        13. DESARMAMENTO DE ERROS COMUNS E MITOS DE PÚLPITO:
+           - Quando a passagem contiver um erro de interpretação popular clássico amplamente difundido, desfaça o equívoco com elegância, sobriedade e embasamento bíblico ("Muitos pensam equivocadamente que... contudo, a exegese do original demonstra que...").
+        14. COSTURA DE TRANSIÇÃO (GANCHO PARA O PRÓXIMO CAPÍTULO):
+           - Na última frase da exposição da aula (logo antes do apêndice de Tipologia), lance um gancho instigante e reflexivo conectando com o capítulo seguinte, mantendo a visão panorâmica e contínua das Escrituras.
 
         INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
 
@@ -1067,37 +1114,48 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
            caso), escreva isso SEMPRE como TEXTO CORRIDO fluido, com frases completas conectando
            as ideias (como no exemplo CERTO acima) — nunca como lista telegráfica de rótulos entre
            parênteses com seta.
-        10. EMBASAMENTO BÍBLICO FLUÍDO: Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
-        11. SELAGEM FINAL OBRIGATÓRIA: Todo estudo encerra com:
+        10. EMBASAMENTO BÍBLICO FLUÍDO E COMPLETO (REFERÊNCIAS COM LIVRO E CAPÍTULO): Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
+           - REGRA CRÍTICA PARA CLICABILIDADE: Mesmo ao citar versículos do próprio capítulo que está sendo estudado, dê sempre preferência a referências com o livro e capítulo: '(${book || 'Livro'} ${chapter || '1'}:8)' ou '(${book || 'Livro'} ${chapter || '1'}:9-10)'. Evite referências soltas sem contexto para que a plataforma gere links bíblicos instantâneos com total precisão!
+        11. SELAGEM CRISTOLÓGICA FINAL (ÚNICO APÊNDICE TEMÁTICO): Todo estudo encerra exclusivamente com o apêndice:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
-           ### CURIOSIDADES E ARQUEOLOGIA (Numerada 1., 2., 3...)
-        12. PESO MENOR PARA AS SEÇÕES FINAIS: TIPOLOGIA e CURIOSIDADES são um bônus complementar — a "cereja do bolo" — NÃO o prato principal da aula. Os parágrafos do corpo principal da aula (os tópicos numerados) podem e devem ser mais longos e densos, com profundidade total. Já os parágrafos de TIPOLOGIA e CURIOSIDADES devem ser bem mais curtos e diretos (2 a 4 linhas cada, no máximo), um insight rápido e específico por parágrafo — sem repetir com o mesmo nível de detalhe o que já foi dito na aula principal.
+           (A antiga seção final de Curiosidades e Arqueologia foi extinta: a arqueologia e a história agora estão inseridas in-loco no corpo do texto).
+        12. FORMATO OBRIGATÓRIO DA TIPOLOGIA (DE 1 A 5 PARALELOS NUMERADOS E CONCISOS):
+           - NUNCA escreva a Tipologia como bloco de texto corrido ou parágrafos contínuos sem numeração!
+           - Apresente entre 1 e 5 conexões messiânicas numeradas (de acordo com as sombras genuínas que o capítulo permitir, sem forçar alegorias; tipicamente 2 a 4 paralelos).
+           - Cada item DEVE começar com o número arábico seguido de ponto: '1. ', '2. ', '3. ', com título do paralelo seguido de dois pontos.
+           - O conteúdo de cada paralelo deve ser DIRETO, LÍMPIDO e NÃO DENSO DEMAIS: exatamente UM parágrafo de 2 a 3 linhas explicando o paralelo entre a figura/sombra do texto estudado e a pessoa, obra, sacrifício, sacerdócio ou graça de Jesus Cristo, fundamentado com a referência bíblica exata do capítulo e a referência do Novo Testamento que sela a tipologia.
+           - Exemplo de Padrão Ouro:
+             1. O Sacerdote Perfeito e Puro: O sumo sacerdote terreno estava sujeito a contrair impurezas rituais que o impediam temporariamente de ministrar (${book || 'Lv'} ${chapter || '22'}:3-4). Jesus Cristo, contudo, é o nosso perfeito Sumo Sacerdote que permaneceu santo e imaculado, mediando eternamente por nós diante do Pai (Hb 7:26; 9:14).
+             2. O Sacrifício Sem Defeito: A exigência de animais machos sem qualquer defeito físico (${book || 'Lv'} ${chapter || '22'}:19-20) prefigura a perfeição moral e espiritual de Jesus Cristo, o verdadeiro Cordeiro sem defeito e sem mácula cujo sangue precioso nos resgatou (1 Pe 1:18-19).
 
         --- MANDATO CRÍTICO DE VOLUME E RITMO DE ESCRITA (${pages} PÁGINAS = ${wordCountTarget} PALAVRAS) ---
         ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): O usuário definiu rigorosamente ${pages} páginas (~${baseWordCount} palavras). Não expanda desenfreadamente.
         2. ATUALIZAÇÃO CIRÚRGICA E COMPACTAÇÃO: Mantenha a essência do texto e enriqueça com os elementos que faltam. Se a aula já for longa, COMPACTE parágrafos redundantes para manter o tamanho estritamente dentro da faixa de ${wordCountTarget} palavras.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): Planeje o tamanho do texto estruturalmente para respeitar este limite com precisão cirúrgica.`}
         2. TETO MÁXIMO INVIOLÁVEL: NUNCA ultrapasse ${maxWords} palavras! Em uma aula solicitada para ${pages} páginas (~${baseWordCount} palavras), ultrapassar ${maxWords} palavras (ex: gerar 5.000 palavras) é expressamente PROIBIDO e constitui erro grave de extrapolação.
         3. FÓRMULA DE RITMO E DISTRIBUIÇÃO POR SEÇÃO (PACING OBRIGATÓRIO):
-           - Introdução do capítulo: 200 a 250 palavras.
-           - Tópicos do estudo (##): divida os versículos do capítulo em 3 a 5 tópicos principais. Cada tópico deve conter entre 350 e 450 palavras no máximo (2 a 3 parágrafos explicativos densos).
+           - Introdução do capítulo: 200 a 250 palavras (com ponte viva conectando ao capítulo anterior).
+           - Tópicos do estudo (##): divida os versículos do capítulo em 3 a 5 tópicos principais. Cada tópico deve conter entre 350 e 450 palavras no máximo (2 a 3 parágrafos explicativos densos, encerrando com implicação prática orgânica e sem rótulos artificiais).
            - Relatos bíblicos práticos cruzados: mencione o caso prático em 2 a 4 linhas no máximo, sem narrar o capítulo inteiro da história cruzada.
-           - Seções finais (Tipologia e Curiosidades): devem ser curtas e objetivas (150 a 250 palavras cada), servindo como complemento conciso, sem inflar o texto.
+           - Seção final de Tipologia Cristológica: entre 1 e 5 conexões numeradas concisas (cada uma em 2 a 3 linhas, totalizando cerca de 120 a 220 palavras), sem inflar o texto.
         4. CONTROLE DE ERUDIÇÃO: Profundidade teológica significa rigor exegético e clareza didática, NÃO prolixidade. Mantenha o texto fluido e denso sem divagações secundárias.
 
         --- ESTRUTURA VISUAL OBRIGATÓRIA ---
         1. TÍTULO PRINCIPAL: # PANORAMA BÍBLICO - ${book ? book.toUpperCase() : 'BÍBLIA'} ${chapter || ''} (PROF. MICHEL FELIX)
         ${introInstruction}
         3. TÓPICOS DO ESTUDO: ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: ${book || 'Livro'} X:Y-Z)
-           - Desenvolva cada tópico com subtópicos ### temáticos descritivos quando necessário, destrinchando os versículos com profundidade, listas enumeradas explicativas, glossários [[Termo|Significado]] e Pérolas de Ouro {{Autor|Ref|Comando}}.
-        4. SEÇÕES FINAIS:
+           - Desenvolva cada tópico com subtópicos ### temáticos descritivos quando necessário, destrinchando os versículos com profundidade, listas enumeradas explicativas, glossários [[Termo|Significado]], Pérolas de Ouro {{Autor|Ref|Comando}}, onomástica hebraica/grega e arqueologia in-loco. A aplicação cristã flui de forma orgânica e implícita no final do tópico.
+        4. SEÇÃO FINAL:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
-           ### CURIOSIDADES E ARQUEOLOGIA (Numerada 1., 2., 3...)
-        5. NÍVEIS DE TÍTULO — SOMENTE ESTES TRÊS, NUNCA MAIS: "#" (só o título principal, uma vez), "##" (tópico do estudo) e "###" (subtópico, incluindo dentro de TIPOLOGIA e CURIOSIDADES). É PROIBIDO usar "####" ou mais cerquilhas, e é PROIBIDO criar sub-subtópicos numerados dentro de TIPOLOGIA/CURIOSIDADES usando "#" — se precisar de itens dentro dessas seções, use texto corrido ou "1., 2., 3." simples, sem cerquilha nenhuma na frente.
+           1. Título do Paralelo 1: [Explicação concisa em 2 a 3 linhas conectando o paralelo do texto com Cristo e citando as passagens bíblicas]
+           2. Título do Paralelo 2: [Explicação concisa em 2 a 3 linhas conectando o paralelo do texto com Cristo e citando as passagens bíblicas]
+           (Traga entre 1 e 5 paralelos numerados com '1. ', '2. ', '3. ' para acionar a tipografia capitular do app; NUNCA use texto corrido ou cerquilhas # nos itens).
+        5. NÍVEIS DE TÍTULO — SOMENTE ESTES TRÊS, NUNCA MAIS: "#" (só o título principal, uma vez), "##" (tópico do estudo) e "###" (subtópico, incluindo a barra temática "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO"). É PROIBIDO usar "####" ou mais cerquilhas, e é PROIBIDO criar títulos com cerquilha dentro da Tipologia (use unicamente os números '1. ', '2. ', '3. ').
+        6. PROIBIÇÃO DE DIVISORES BRUTOS: NUNCA use separadores '---' ou '***' soltos no texto. Separe as seções unicamente com os cabeçalhos '##' e quebras normais de parágrafo.
         `;
-                systemInstruction = WRITING_STYLE;
+        systemInstruction = WRITING_STYLE;
                 if (isUpgrade) {
                     enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]: 
-                    Aplique todas as diretrizes do Professor Michel Felix (explicação detalhada dos porquês, clareza máxima, enumerações onde aplicável, glossários interativos [[Termo|Explicação]], fontes {{Autor|Ref|Comando}}, pérolas de ouro e tipologia). Nunca inclua termos de metalinguagem no texto.
+                    Aplique todas as diretrizes do Professor Michel Felix: matriz hermenêutica do gênero bíblico, onomástica dos nomes com raiz espiritual, decodificação de costumes forenses antigos, arqueologia in-loco no parágrafo do versículo (sem seção de curiosidades no fim), aplicação prática orgânica e 100% implícita (proibido usar rótulos como 'Aplicação Pastoral:'), desarmamento de erros populares de púlpito, costura entre capítulos, glossários [[Termo|Explicação]], fontes {{Autor|Ref|Comando}} e tipologia messiânica estruturada estritamente em 1 a 5 paralelos numerados (1. , 2. , 3. ), cada um com 2 a 3 linhas (proibido texto corrido na seção de Tipologia). Nunca inclua termos de metalinguagem no texto.
                     INSTRUÇÃO OBRIGATÓRIA (CRUZAMENTO BÍBLICO): Toda afirmação e regra deve estar acompanhada da referência bíblica exata no texto. Você DEVE fazer cruzamentos temáticos com outros textos e livros da Bíblia de forma concisa (2 a 4 linhas por relato).
                     
                     SOLICITAÇÃO / TEXTO DA AULA PARA ATUALIZAR:
@@ -1121,7 +1179,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     3. TEXTO CRUZADO E ILUSTRAÇÃO BÍBLICA PRÁTICA (CONCISO): Não se limite ao texto base! Conecte com outros textos bíblicos e ilustre com relatos práticos resumidos em 2 a 4 linhas por caso (sem recontar capítulos inteiros). Para toda afirmação, insira a referência bíblica exata no meio do texto.
                     4. Aplique o Glossário Interativo [[Termo|Explicação]] em abundância ao longo do texto.
                     5. Insira as Pérolas de Ouro no formato {{Autor ou Obra | Ref | Comando Oculto}}.
-                    6. Encerre obrigatoriamente com "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" e "### CURIOSIDADES E ARQUEOLOGIA".
+                    6. Arqueologia e História In-Loco: insira achados e costumes diretamente no parágrafo do versículo (a antiga seção de curiosidades no fim foi extinta). Aplicação prática deve vir 100% implícita e orgânica (proibido usar rótulos como 'Aplicação Pastoral:' ou 'Pergunta para a classe:'). Encerre a aula com um gancho reflexivo para o próximo capítulo e finalize exclusivamente com o apêndice "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" contendo entre 1 e 5 paralelos numerados (1. , 2. , 3. ), cada um com título e explicação concisa de 2 a 3 linhas (nunca texto corrido).
                     7. ⚠️ RITMO E TRAVA DE VOLUME: Mantenha o tamanho RIGOROSAMENTE entre ${minWords} e ${maxWords} palavras (${pages} páginas). NÃO ultrapasse ${maxWords} palavras sob nenhuma hipótese! Regule o tamanho dos tópicos para terminar dentro desta meta.`;
                 }
             }
@@ -1445,8 +1503,30 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
             return out.join('\n');
         };
 
+        // Sanitização de Purismo Linguístico: intercepta e substitui qualquer estrangeirismo residual antes da entrega
+        const purifyPortuguese = (t) => {
+            return t
+                // Correções de 'sovereign' com flexão de gênero
+                .replace(/\b(graça|iniciativa|vontade|autoridade|mão|soberania)\s+sovereign\b/gi, '$1 soberana')
+                .replace(/\b(Deus|Senhor|Criador|Pai|Rei|plano|propósito|decreto)\s+sovereign\b/gi, '$1 soberano')
+                .replace(/\bé\s+sovereign\b/gi, 'é soberana')
+                .replace(/\bsovereign\b/g, 'soberana')
+                .replace(/\bSovereign\b/g, 'Soberana')
+                // Outros termos comuns de vazamento da rede neural
+                .replace(/\bortopraxie\b/gi, 'ortopraxia')
+                .replace(/\bSon\s+de\s+Deus\b/g, 'Filho de Deus')
+                .replace(/\bson\s+de\s+Deus\b/g, 'filho de Deus')
+                .replace(/\bFather\b/g, 'Pai')
+                .replace(/\bcovenant\b/gi, 'aliança')
+                .replace(/\bCovenant\b/g, 'Aliança')
+                .replace(/\bpropitiation\b/gi, 'propiciação')
+                .replace(/\bjustification\b/gi, 'justificação')
+                .replace(/\bsanctification\b/gi, 'santificação')
+                .replace(/\bredemption\b/gi, 'redenção');
+        };
+
         // Sanitização de Metalinguagem: remove qualquer vazamento acidental de termos internos de instrução
-        let sanitizedText = detableify(stripCodeFences(desflowchartify(successResponse)))
+        let sanitizedText = purifyPortuguese(detableify(stripCodeFences(desflowchartify(successResponse))))
             .replace(/(###?\s*)?O\s+EFEITO\s+["'“”]?AH!?\s*ENTENDI!?["'“”]?\s*:\s*/gi, '$1')
             .replace(/(###?\s*)?EFEITO\s+["'“”]?AH!?\s*ENTENDI!?["'“”]?\s*:\s*/gi, '$1')
             .replace(/["'“”]?EFEITO\s+AH!?\s*ENTENDI!?["'“”]?/gi, '')

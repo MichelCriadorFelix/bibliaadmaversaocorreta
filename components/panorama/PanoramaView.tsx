@@ -295,13 +295,56 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         : userProgress?.ebd_read?.includes(studyKey);
     const hasAccess = activeTab === 'student' || activeTab === 'thematic' || isAdmin;
 
+    const parseVerseOnly = (textSegment: string, prefixKey: string): React.ReactNode[] => {
+        // Detecta menções a versículos do próprio capítulo atual:
+        // Ex: (v. 8), (v. 9-10), (v. 9 a 11), (vv. 5 a 7), (vv. 1-7), (versículo 8), (versículos 5 a 7)
+        const vRegex = /(?:(\()?\b(vv?\.|vers[íi]culos?)\s*(\d+(?:\s*(?:-|a|,)\s*\d+)*)(\))?)/gi;
+        
+        const nodes: React.ReactNode[] = [];
+        let lastIdx = 0;
+        let match;
+
+        const currentBookName = book || 'Gênesis';
+        const currentChapterNum = parseInt(String(chapter || '1'), 10) || 1;
+
+        while ((match = vRegex.exec(textSegment)) !== null) {
+            if (match.index > lastIdx) {
+                nodes.push(textSegment.substring(lastIdx, match.index));
+            }
+
+            const fullMatch = match[0];
+            const rawVerses = match[3] || '';
+            const normalizedVerses = rawVerses.replace(/\s*a\s*/g, '-').replace(/\s+/g, '');
+
+            nodes.push(
+                <BibleReference
+                    key={`${prefixKey}-vo-${match.index}`}
+                    book={currentBookName}
+                    chapter={currentChapterNum}
+                    verses={normalizedVerses}
+                    isAdmin={isAdmin || userProgress?.role === 'admin'}
+                >
+                    {fullMatch}
+                </BibleReference>
+            );
+
+            lastIdx = match.index + fullMatch.length;
+        }
+
+        if (lastIdx < textSegment.length) {
+            nodes.push(textSegment.substring(lastIdx));
+        }
+
+        return nodes.length > 0 ? nodes : [textSegment];
+    };
+
     const parseBibleReferences = (text: string, keyPrefix: string) => {
         const parts = text.split(bibleRegex);
-        if (parts.length === 1) return text;
+        if (parts.length === 1) return parseVerseOnly(text, keyPrefix);
 
-        const result = [];
+        const result: React.ReactNode[] = [];
         for (let i = 0; i < parts.length; i += 5) {
-            if (parts[i]) result.push(parts[i]);
+            if (parts[i]) result.push(...parseVerseOnly(parts[i], `${keyPrefix}-seg-${i}`));
             if (i + 4 < parts.length) {
                 const prefix = parts[i + 1];
                 const bookRaw = parts[i + 2];

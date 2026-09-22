@@ -1067,6 +1067,15 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
           );
         }
 
+        // Divisor horizontal markdown (ex: --- ou *** ou ___)
+        if (/^(\*{3,}|-{3,}|_{3,})$/.test(tr)) {
+          return (
+            <div key={idx} className="my-8 flex items-center justify-center">
+              <div className="w-24 h-[1px] bg-[#C5A059]/40" />
+            </div>
+          );
+        }
+
         return (
           <div
             key={idx}
