@@ -10,6 +10,7 @@ import PlansView from './components/plans/PlansView';
 import RankingView from './components/ranking/RankingView';
 import MessagesView from './components/messages/MessagesView';
 import DynamicModuleViewer from './components/dynamic/DynamicModuleViewer';
+import LiveClassroomView from './components/classroom/LiveClassroomView';
 import BibleSearch from './components/bible/BibleSearch';
 import AdminPasswordModal from './components/modals/AdminPasswordModal';
 import ChallengeInviteToast from './components/modals/ChallengeInviteToast';
@@ -568,6 +569,16 @@ export default function App() {
                 onProgressUpdate={setUserProgress} 
                 initialBook={navParams.book}
                 initialChapter={navParams.chapter}
+            />;
+        case 'live_classroom':
+            return <LiveClassroomView 
+                onBack={() => handleNavigate('dashboard')} 
+                isAdmin={isAdmin} 
+                user={user} 
+                userProgress={userProgress} 
+                onShowToast={showToast} 
+                initialBook={navParams.book} 
+                initialChapter={navParams.chapter} 
             />;
         case 'devotional':
             return <DevotionalView onBack={() => handleNavigate('dashboard')} onNavigate={handleNavigate} onShowToast={showToast} isAdmin={isAdmin} />;

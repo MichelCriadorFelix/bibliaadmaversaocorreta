@@ -33,7 +33,7 @@ import {
   StretchVertical, Maximize as Fit, Minimize as Shrink, Move,
   Hand, Pointer, Mouse, Laptop, Tablet, Watch, Tv, Command as CmdIcon,
   Brain, FolderOpen, List, File, ArrowLeft, Star, ArrowUp, ArrowDown,
-  Folder, FolderPlus, Unlock, Wand2
+  Folder, FolderPlus, Unlock, Wand2, Video
 } from 'lucide-react';
 import { BIBLE_BOOKS, generateChapterKey } from '../../constants';
 import { UserProgress, ThematicTheme, ThematicLesson, BibleBook } from '../../types';
@@ -639,6 +639,21 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                                 {chaptersList.map(c => <option key={c} value={c} className="bg-white dark:bg-dark-card text-gray-800 dark:text-white">Capítulo {c}</option>)}
                             </select>
                         </div>
+                    </div>
+                )}
+
+                {/* Botão de Transmissão Ao Vivo (Exclusivo Admin) */}
+                {isAdmin && activeTab !== 'thematic' && (
+                    <div className="mb-8 flex justify-end">
+                        <button
+                            onClick={() => onNavigate('live_classroom', { book, chapter })}
+                            className="bg-gradient-to-r from-[#8B0000] via-[#500000] to-[#1a0f0f] border border-[#C5A059]/40 hover:border-[#C5A059] text-white px-6 py-3.5 rounded-2xl font-cinzel font-bold text-xs flex items-center gap-3 shadow-lg hover:shadow-xl hover:scale-102 transition-all active:scale-95 group"
+                        >
+                            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></span>
+                            <Video className="w-4 h-4 text-[#C5A059] group-hover:text-white transition-colors" />
+                            <span>Abrir na Sala de Aula Ao Vivo</span>
+                            <span className="bg-[#C5A059] text-black font-black text-[9px] px-1.5 py-0.5 rounded font-mono uppercase">BETA</span>
+                        </button>
                     </div>
                 )}
 

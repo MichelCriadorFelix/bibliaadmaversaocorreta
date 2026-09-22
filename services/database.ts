@@ -450,5 +450,6 @@ export const db = {
         ThematicThemes: createHelpers('thematic_themes'),
         ThematicFolders: createHelpers('thematic_folders'),
         ThematicLessons: createHelpers('thematic_lessons'),
+        ClassroomMessages: createHelpers('classroom_messages'),
     }
 };

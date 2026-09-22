@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, BookOpen, GraduationCap, ShieldCheck, Trophy, Calendar, ListChecks, Mail, Moon, Sun, X, Share, LogOut, Sparkles, Brain, FileText, Link as LinkIcon, Star, MapPin, Monitor, PlusSquare, Instagram, Zap, ZapOff, ClipboardList, ChevronRight, User } from 'lucide-react';
+import { Search, BookOpen, GraduationCap, ShieldCheck, Trophy, Calendar, ListChecks, Mail, Moon, Sun, X, Share, LogOut, Sparkles, Brain, FileText, Link as LinkIcon, Star, MapPin, Monitor, PlusSquare, Instagram, Zap, ZapOff, ClipboardList, ChevronRight, User, Video } from 'lucide-react';
 
 // Variável global para capturar o evento de instalação fora do ciclo de vida do componente
 // Isso evita perder o evento se o usuário navegar para outra tela e voltar
@@ -464,6 +464,29 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
                         <span className="text-[10px] opacity-60 uppercase">Chamada & Frequência</span>
                     </div>
                 </motion.button>
+            )}
+
+            {isAdmin && (
+                <button 
+                    onClick={() => onNavigate('live_classroom')} 
+                    className="col-span-2 bg-gradient-to-r from-[#8B0000] via-[#500000] to-[#1a0f0f] text-[#F5F5DC] p-5 rounded-3xl flex items-center justify-between border border-[#C5A059]/40 hover:border-[#C5A059] transition-all shadow-xl active:scale-95 group"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-[#C5A059]/20 flex items-center justify-center border border-[#C5A059]/40 text-[#C5A059] group-hover:bg-[#C5A059] group-hover:text-black transition-all">
+                            <Video className="w-6 h-6" />
+                        </div>
+                        <div className="text-left">
+                            <div className="flex items-center gap-2">
+                                <span className="font-cinzel font-black block text-sm tracking-wide text-white">Sala de Aula Ao Vivo</span>
+                                <span className="bg-[#C5A059] text-black font-black text-[9px] px-2 py-0.5 rounded font-mono uppercase tracking-wider">BETA</span>
+                            </div>
+                            <span className="text-[10px] text-white/70 uppercase tracking-widest font-montserrat">Estudo Panorama + Câmera Flutuante</span>
+                        </div>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[#C5A059] group-hover:translate-x-1 transition-transform">
+                        <ChevronRight className="w-4 h-4" />
+                    </div>
+                </button>
             )}
 
             {isAdmin && (
