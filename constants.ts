@@ -1,9 +1,84 @@
-import { BibleBook, ReadingPlan } from './types';
+import { BibleBook, ReadingPlan, Quiz, QuizUnitRelease } from './types';
 
 export const CHURCH_NAME = "Assembleia de Deus Ministério Ágape";
 export const CHURCH_INSTAGRAM = "@adma.vilardosteles";
 export const PASTOR_PRESIDENT = "Pr. Daniel Barbosa";
 export const APP_VERSION = "v11.5 - Edição Oficial (Universal)";
+
+export type ChurchUnit = 'sede' | 'praca_gil';
+
+export interface ChurchUnitInfo {
+  id: ChurchUnit;
+  name: string;
+  shortName: string;
+  tagline: string;
+  neighborhood: string;
+  address: string;
+  instagramHandle: string;
+  instagramUrl: string;
+  mapsUrl: string;
+  badge: string;
+}
+
+export const CHURCH_UNITS: Record<ChurchUnit, ChurchUnitInfo> = {
+  sede: {
+    id: 'sede',
+    name: 'ADMA Sede',
+    shortName: 'Sede',
+    tagline: 'Vilar dos Teles',
+    neighborhood: 'Vilar dos Teles - São João de Meriti, RJ',
+    address: 'Av. Comendador Teles, Vilar dos Teles, São João de Meriti - RJ',
+    instagramHandle: '@adma.vilardosteles',
+    instagramUrl: 'https://www.instagram.com/adma.vilardosteles/',
+    mapsUrl: 'https://maps.app.goo.gl/cyZBbWNGFaAjEm2aA',
+    badge: 'Sede • Vilar dos Teles'
+  },
+  praca_gil: {
+    id: 'praca_gil',
+    name: 'ADMA Congregação',
+    shortName: 'Praça Gil',
+    tagline: 'Praça Gil',
+    neighborhood: 'Jardim Meriti / Praça Gil - São João de Meriti, RJ',
+    address: 'R. Águiar, 10 - Jardim Meriti, São João de Meriti - RJ, 25555-451',
+    instagramHandle: '@adma.pracagil',
+    instagramUrl: 'https://www.instagram.com/adma.pracagil',
+    mapsUrl: 'https://maps.app.goo.gl/WbXP1nKSfE5ESn578',
+    badge: 'Congregação • Praça Gil'
+  }
+};
+
+export const getChurchUnitInfo = (unit?: string | null): ChurchUnitInfo => {
+  if (unit === 'praca_gil') return CHURCH_UNITS.praca_gil;
+  return CHURCH_UNITS.sede; // Contas antigas e padrão são Sede
+};
+
+export const getQuizReleaseForUnit = (quiz: Quiz | null | undefined, unit?: string | null): QuizUnitRelease => {
+  if (!quiz) {
+    return { is_visible: false, released_at: undefined, time_limit_minutes: undefined };
+  }
+  const targetUnit = unit === 'praca_gil' ? 'praca_gil' : 'sede';
+  
+  if (quiz.unit_releases && quiz.unit_releases[targetUnit]) {
+    return quiz.unit_releases[targetUnit]!;
+  }
+
+  // Fallback para quizzes legados:
+  // Se for Sede, herda as propriedades raiz do quiz
+  if (targetUnit === 'sede') {
+    return {
+      is_visible: quiz.is_visible ?? false,
+      released_at: quiz.released_at,
+      time_limit_minutes: quiz.time_limit_minutes
+    };
+  }
+
+  // Para Praça Gil em quizzes legados onde ainda não houve liberação explícita
+  return {
+    is_visible: false,
+    released_at: undefined,
+    time_limit_minutes: quiz.time_limit_minutes
+  };
+};
 
 export const BIBLE_BOOKS: BibleBook[] = [
   { name: "Gênesis", abbrev: "gn", chapters: 50, testament: "old" },

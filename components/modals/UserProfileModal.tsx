@@ -4,7 +4,7 @@ import {
     X, Trophy, Medal, Crown, Star, Sparkles, BookOpen, GraduationCap, 
     Shield, Swords, Award, Flame, CheckCircle2, Lock, 
     Layers, HeartHandshake, Compass, Zap, HelpCircle, Highlighter, Share2, 
-    User, ArrowUpRight
+    User, ArrowUpRight, Church, MapPin, Instagram, RefreshCw
 } from 'lucide-react';
 import { 
     ACHIEVEMENTS, 
@@ -14,6 +14,8 @@ import {
     Achievement, 
     GamificationStats 
 } from '../../services/gamificationService';
+import { ChurchUnit, CHURCH_UNITS, getChurchUnitInfo } from '../../constants';
+import { db } from '../../services/database';
 
 interface UserProfileModalProps {
     isOpen: boolean;
@@ -34,8 +36,40 @@ export default function UserProfileModal({
 }: UserProfileModalProps) {
     const [selectedCategory, setSelectedCategory] = useState<'all' | 'reading' | 'ebd' | 'thematic' | 'quiz' | 'duel' | 'special'>('all');
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+    const [currentUnit, setCurrentUnit] = useState<ChurchUnit>(userProgress?.church_unit || user?.church_unit || 'sede');
+    const [isSavingUnit, setIsSavingUnit] = useState(false);
 
     if (!isOpen) return null;
+
+    const unitInfo = getChurchUnitInfo(currentUnit);
+
+    const handleSwitchUnit = async (newUnit: ChurchUnit) => {
+        if (newUnit === currentUnit || isSavingUnit) return;
+        setIsSavingUnit(true);
+        try {
+            setCurrentUnit(newUnit);
+            if (userProgress) userProgress.church_unit = newUnit;
+            if (user) user.church_unit = newUnit;
+
+            if (userProgress?.id) {
+                await db.entities.ReadingProgress.update(userProgress.id, { church_unit: newUnit });
+            }
+
+            const stored = localStorage.getItem('adma_user');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                parsed.church_unit = newUnit;
+                localStorage.setItem('adma_user', JSON.stringify(parsed));
+            }
+
+            if (onShowToast) onShowToast(`Unidade alterada para ${CHURCH_UNITS[newUnit].name}!`, 'success');
+        } catch(e) {
+            console.error(e);
+            if (onShowToast) onShowToast('Erro ao atualizar unidade.', 'error');
+        } finally {
+            setIsSavingUnit(false);
+        }
+    };
 
     const stats: GamificationStats = calculateUserStats(userProgress);
     const totalXp = calculateTotalXP(stats);
@@ -164,6 +198,12 @@ export default function UserProfileModal({
                             {userEmail && (
                                 <p className="text-[10px] text-gray-400 font-mono truncate">{userEmail}</p>
                             )}
+                            <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[10px] px-2.5 py-0.5 rounded-full font-cinzel font-bold bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/40 flex items-center gap-1">
+                                    <Church className="w-3 h-3" />
+                                    {unitInfo.name} ({unitInfo.tagline})
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -233,6 +273,73 @@ export default function UserProfileModal({
                             </button>
                         </div>
                     )}
+
+                    {/* CARD DA IGREJA ADMA DO MEMBRO */}
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-br from-black/60 to-black/30 border border-[#C5A059]/30 space-y-2.5 shadow-md">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-8 h-8 rounded-xl bg-[#8B0000]/40 border border-[#C5A059]/40 flex items-center justify-center text-[#C5A059] shrink-0">
+                                    <Church className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <h4 className="font-cinzel font-bold text-xs text-white truncate">{unitInfo.name}</h4>
+                                    <p className="text-[10px] text-gray-400 font-montserrat truncate">{unitInfo.neighborhood}</p>
+                                </div>
+                            </div>
+
+                            {/* Alternador de Congregação */}
+                            <div className="flex items-center gap-1 p-0.5 bg-white/5 rounded-lg border border-white/10 shrink-0">
+                                <button
+                                    onClick={() => handleSwitchUnit('sede')}
+                                    disabled={isSavingUnit}
+                                    className={`px-2 py-1 rounded text-[9px] font-cinzel font-bold transition-all ${
+                                        currentUnit === 'sede' 
+                                            ? 'bg-[#8B0000] text-white shadow-sm' 
+                                            : 'text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    Sede
+                                </button>
+                                <button
+                                    onClick={() => handleSwitchUnit('praca_gil')}
+                                    disabled={isSavingUnit}
+                                    className={`px-2 py-1 rounded text-[9px] font-cinzel font-bold transition-all ${
+                                        currentUnit === 'praca_gil' 
+                                            ? 'bg-[#8B0000] text-white shadow-sm' 
+                                            : 'text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    Praça Gil
+                                </button>
+                            </div>
+                        </div>
+
+                        <p className="text-[10px] text-gray-300 leading-relaxed font-sans flex items-start gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-[#C5A059] shrink-0 mt-0.5" />
+                            <span>{unitInfo.address}</span>
+                        </p>
+
+                        <div className="flex items-center gap-2 pt-1">
+                            <a 
+                                href={unitInfo.instagramUrl}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex-1 py-1.5 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/90 font-cinzel text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                            >
+                                <Instagram className="w-3.5 h-3.5 text-[#C5A059]" />
+                                <span className="truncate">{unitInfo.instagramHandle}</span>
+                            </a>
+                            <a 
+                                href={unitInfo.mapsUrl}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex-1 py-1.5 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/90 font-cinzel text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                            >
+                                <MapPin className="w-3.5 h-3.5 text-[#C5A059]" />
+                                <span>Como Chegar</span>
+                            </a>
+                        </div>
+                    </div>
 
                     {/* FILTROS DE CATEGORIAS DE CONQUISTAS */}
                     <div className="space-y-2 pt-1">

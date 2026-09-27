@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Bell, Flame, Plus, Trash2, Send, Megaphone, User, Heart, Edit } from 'lucide-react';
+import { ChevronLeft, Bell, Flame, Plus, Trash2, Send, Megaphone, User, Heart, Edit, Church } from 'lucide-react';
 import { db } from '../../services/database';
 import { Announcement, PrayerRequest } from '../../types';
+import { ChurchUnit, CHURCH_UNITS } from '../../constants';
 import { format } from 'date-fns';
 
 interface MessagesViewProps {
   onBack: () => void;
   isAdmin?: boolean; // Prop para saber se pode postar aviso
   user?: any; // Dados do usuário logado
+  userProgress?: any;
 }
 
-export default function MessagesView({ onBack, isAdmin = false, user }: MessagesViewProps) {
+export default function MessagesView({ onBack, isAdmin = false, user, userProgress }: MessagesViewProps) {
   const [activeTab, setActiveTab] = useState<'avisos' | 'oracao'>('avisos');
+  const userChurchUnit: ChurchUnit = userProgress?.church_unit || user?.church_unit || 'sede';
+  const [selectedUnit, setSelectedUnit] = useState<ChurchUnit | 'all'>(userChurchUnit);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +26,7 @@ export default function MessagesView({ onBack, isAdmin = false, user }: Messages
   const [newTitle, setNewTitle] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [prayerCategory, setPrayerCategory] = useState('saude');
+  const [announcementUnit, setAnnouncementUnit] = useState<'sede' | 'praca_gil' | 'geral'>('geral');
 
   // Load Data
   useEffect(() => {
@@ -80,7 +85,8 @@ export default function MessagesView({ onBack, isAdmin = false, user }: Messages
                     message: newMessage,
                     date: new Date().toISOString(),
                     author: 'Secretaria ADMA',
-                    priority: 'normal'
+                    priority: 'normal',
+                    church_unit: announcementUnit
                 };
                 await db.entities.Announcements.create(item);
             }
@@ -92,7 +98,8 @@ export default function MessagesView({ onBack, isAdmin = false, user }: Messages
                 date: new Date().toISOString(),
                 prayer_count: 0,
                 praying_users: [], // Inicializa lista vazia
-                category: prayerCategory as any
+                category: prayerCategory as any,
+                church_unit: userChurchUnit
             };
             await db.entities.PrayerRequests.create(item);
         }
@@ -178,6 +185,45 @@ export default function MessagesView({ onBack, isAdmin = false, user }: Messages
             </button>
         </div>
 
+        {/* Filtro de Congregação: Sede | Praça Gil | Todas */}
+        <div className="bg-[#180a0a] border-b border-[#C5A059]/30 px-3 py-2 flex items-center justify-between gap-2 overflow-x-auto">
+            <span className="text-[10px] font-cinzel font-bold text-white/60 uppercase tracking-widest flex items-center gap-1.5 shrink-0">
+                <Church className="w-3.5 h-3.5 text-[#C5A059]" /> {activeTab === 'avisos' ? 'Avisos de:' : 'Orações de:'}
+            </span>
+            <div className="inline-flex items-center gap-1 p-0.5 bg-black/50 rounded-xl border border-white/10 shrink-0">
+                <button
+                    onClick={() => setSelectedUnit('sede')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-cinzel font-bold transition-all flex items-center gap-1.5 ${
+                        selectedUnit === 'sede'
+                            ? 'bg-[#8B0000] text-white shadow-md ring-1 ring-[#C5A059]'
+                            : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                    <span>Sede (Vilar dos Teles)</span>
+                </button>
+                <button
+                    onClick={() => setSelectedUnit('praca_gil')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-cinzel font-bold transition-all flex items-center gap-1.5 ${
+                        selectedUnit === 'praca_gil'
+                            ? 'bg-[#8B0000] text-white shadow-md ring-1 ring-[#C5A059]'
+                            : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                    <span>Praça Gil</span>
+                </button>
+                <button
+                    onClick={() => setSelectedUnit('all')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-cinzel font-bold transition-all flex items-center gap-1.5 ${
+                        selectedUnit === 'all'
+                            ? 'bg-[#C5A059] text-black font-black shadow-md'
+                            : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                    <span>Todas</span>
+                </button>
+            </div>
+        </div>
+
         {/* Form Modal Inline */}
         {showForm && (
             <div className="p-4 bg-white dark:bg-dark-card shadow-md animate-in slide-in-from-top-5">
@@ -188,27 +234,52 @@ export default function MessagesView({ onBack, isAdmin = false, user }: Messages
                         </h3>
                     </div>
                     {activeTab === 'avisos' && (
-                        <input 
-                            type="text" 
-                            placeholder="Título do Aviso" 
-                            className="w-full p-3 border rounded dark:bg-gray-800 dark:text-white"
-                            value={newTitle}
-                            onChange={e => setNewTitle(e.target.value)}
-                            required
-                        />
+                        <>
+                            <input 
+                                type="text" 
+                                placeholder="Título do Aviso" 
+                                className="w-full p-3 border rounded dark:bg-gray-800 dark:text-white"
+                                value={newTitle}
+                                onChange={e => setNewTitle(e.target.value)}
+                                required
+                            />
+                            {isAdmin && (
+                                <div className="flex items-center gap-2 pt-1">
+                                    <label className="text-xs font-bold text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                                        <Church className="w-3.5 h-3.5 text-[#C5A059]" />
+                                        Destino do Aviso:
+                                    </label>
+                                    <select 
+                                        value={announcementUnit}
+                                        onChange={e => setAnnouncementUnit(e.target.value as any)}
+                                        className="p-2 border rounded-lg text-xs font-montserrat dark:bg-gray-800 dark:text-white dark:border-gray-700"
+                                    >
+                                        <option value="geral">Geral (Todas as Unidades)</option>
+                                        <option value="sede">Apenas Sede (Vilar dos Teles)</option>
+                                        <option value="praca_gil">Apenas Praça Gil</option>
+                                    </select>
+                                </div>
+                            )}
+                        </>
                     )}
                     {activeTab === 'oracao' && (
-                         <select 
-                            value={prayerCategory}
-                            onChange={e => setPrayerCategory(e.target.value)}
-                            className="w-full p-3 border rounded dark:bg-gray-800 dark:text-white"
-                         >
-                             <option value="saude">Saúde</option>
-                             <option value="familia">Família</option>
-                             <option value="espiritual">Espiritual</option>
-                             <option value="financeiro">Financeiro</option>
-                             <option value="outros">Outros</option>
-                         </select>
+                         <div className="flex flex-col sm:flex-row gap-2">
+                            <select 
+                                value={prayerCategory}
+                                onChange={e => setPrayerCategory(e.target.value)}
+                                className="flex-1 p-3 border rounded dark:bg-gray-800 dark:text-white"
+                            >
+                                <option value="saude">Saúde</option>
+                                <option value="familia">Família</option>
+                                <option value="espiritual">Espiritual</option>
+                                <option value="financeiro">Financeiro</option>
+                                <option value="outros">Outros</option>
+                            </select>
+                            <div className="p-2.5 rounded-lg border border-[#C5A059]/30 bg-[#C5A059]/10 text-[#C5A059] text-xs font-bold flex items-center gap-1.5">
+                                <Church className="w-4 h-4 shrink-0" />
+                                <span>Igreja: {userChurchUnit === 'praca_gil' ? 'Praça Gil' : 'Sede'}</span>
+                            </div>
+                         </div>
                     )}
                     <textarea 
                         placeholder={activeTab === 'avisos' ? "Digite o comunicado..." : "Descreva seu pedido de oração..."}
@@ -232,16 +303,31 @@ export default function MessagesView({ onBack, isAdmin = false, user }: Messages
             {loading ? (
                 <div className="text-center py-10 opacity-50">Carregando...</div>
             ) : activeTab === 'avisos' ? (
-                announcements.length === 0 ? (
-                    <div className="text-center py-20 text-gray-400">
-                        <Megaphone className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                        <p>Nenhum aviso no momento.</p>
-                    </div>
-                ) : (
-                    announcements.map(ann => (
+                (() => {
+                    const filtered = announcements.filter(ann => {
+                        if (selectedUnit === 'all') return true;
+                        if (!ann.church_unit || ann.church_unit === 'geral') return true;
+                        return ann.church_unit === selectedUnit;
+                    });
+                    
+                    if (filtered.length === 0) {
+                        return (
+                            <div className="text-center py-20 text-gray-400">
+                                <Megaphone className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                                <p>Nenhum aviso para esta unidade no momento.</p>
+                            </div>
+                        );
+                    }
+
+                    return filtered.map(ann => (
                         <div key={ann.id} className="bg-white dark:bg-dark-card p-6 rounded-xl shadow-md border-l-4 border-[#8B0000] relative">
                             <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-cinzel font-bold text-lg dark:text-white">{ann.title}</h3>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="font-cinzel font-bold text-lg dark:text-white">{ann.title}</h3>
+                                    <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded border border-[#C5A059]/40 bg-[#C5A059]/10 text-[#C5A059]">
+                                        {ann.church_unit === 'praca_gil' ? 'Praça Gil' : ann.church_unit === 'sede' ? 'Sede' : 'Geral'}
+                                    </span>
+                                </div>
                                 {isAdmin && (
                                     <div className="flex gap-2">
                                         <button onClick={() => handleEditClick(ann)} className="text-gray-400 hover:text-[#C5A059]" title="Editar">
@@ -259,17 +345,27 @@ export default function MessagesView({ onBack, isAdmin = false, user }: Messages
                                 <span>{new Date(ann.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                         </div>
-                    ))
-                )
+                    ));
+                })()
             ) : (
-                prayers.length === 0 ? (
-                    <div className="text-center py-20 text-gray-400">
-                        <Flame className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                        <p>Mural de oração vazio.</p>
-                        <p className="text-sm">Seja o primeiro a pedir oração.</p>
-                    </div>
-                ) : (
-                    prayers.map(req => {
+                (() => {
+                    const filtered = prayers.filter(req => {
+                        if (selectedUnit === 'all') return true;
+                        const unit = req.church_unit || 'sede';
+                        return unit === selectedUnit;
+                    });
+
+                    if (filtered.length === 0) {
+                        return (
+                            <div className="text-center py-20 text-gray-400">
+                                <Flame className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                                <p>Mural de oração vazio para esta congregação.</p>
+                                <p className="text-sm">Seja o primeiro a pedir oração.</p>
+                            </div>
+                        );
+                    }
+
+                    return filtered.map(req => {
                         const isPraying = (req.praying_users || []).includes(user?.user_email);
                         
                         return (
@@ -279,7 +375,12 @@ export default function MessagesView({ onBack, isAdmin = false, user }: Messages
                                         <User className="w-5 h-5 text-gray-500 dark:text-gray-300" />
                                     </div>
                                     <div>
-                                        <p className="font-bold text-sm dark:text-white">{req.user_name}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-bold text-sm dark:text-white">{req.user_name}</p>
+                                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border border-[#C5A059]/40 bg-[#C5A059]/10 text-[#C5A059]">
+                                                {req.church_unit === 'praca_gil' ? 'Praça Gil' : 'Sede'}
+                                            </span>
+                                        </div>
                                         <p className="text-xs text-gray-500 capitalize">{req.category} • {format(new Date(req.date), "dd/MM")}</p>
                                     </div>
                                     {(isAdmin || user?.user_email === req.user_email) && (
@@ -305,8 +406,8 @@ export default function MessagesView({ onBack, isAdmin = false, user }: Messages
                                 </div>
                             </div>
                         );
-                    })
-                )
+                    });
+                })()
             )}
         </div>
     </div>

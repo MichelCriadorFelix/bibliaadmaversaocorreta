@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Trophy, Medal, Crown, User, Loader2, BookOpen, GraduationCap, X, Flame, Star, Shield, RefreshCw, Brain, Swords, Users, Radio } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trophy, Medal, Crown, User, Loader2, BookOpen, GraduationCap, X, Flame, Star, Shield, RefreshCw, Brain, Swords, Users, Radio, Church, MapPin } from 'lucide-react';
 import { db } from '../../services/database';
 import { AnimatePresence, motion } from 'framer-motion';
 import { challengeService } from '../../services/challengeService';
 import { presenceService } from '../../services/presenceService';
 import ArenaLobbyModal from '../modals/ArenaLobbyModal';
+import { ChurchUnit, CHURCH_UNITS } from '../../constants';
 
 export default function RankingView({ onBack, userProgress, onStartDuel, onShowToast }: any) {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'chapters' | 'ebd' | 'quiz' | 'duels'>('chapters');
+  const userUnit: ChurchUnit = userProgress?.church_unit || 'sede';
+  const [selectedUnit, setSelectedUnit] = useState<ChurchUnit | 'all'>(userUnit);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showArenaLobby, setShowArenaLobby] = useState(false);
   const [onlineEmails, setOnlineEmails] = useState<Set<string>>(new Set());
@@ -43,10 +46,10 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
     return () => clearInterval(interval);
   }, [activeTab]);
 
-  // Reseta página ao trocar de aba
+  // Reseta página ao trocar de aba ou congregação
   useEffect(() => {
       setPage(0);
-  }, [activeTab]);
+  }, [activeTab, selectedUnit]);
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -65,6 +68,7 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                 
                 if (!existing) {
                     const profile = { ...u };
+                    profile.church_unit = profile.church_unit || 'sede';
                     profile.total_chapters = profile.chapters_read ? profile.chapters_read.length : (profile.total_chapters || 0);
                     profile.total_ebd_read = profile.ebd_read ? profile.ebd_read.length : (profile.total_ebd_read || 0);
                     profile.total_thematic_read = profile.thematic_read ? profile.thematic_read.length : (profile.total_thematic_read || 0);
@@ -72,6 +76,7 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                 } else {
                     // Merge logic: take the best of each category
                     const merged = { ...existing };
+                    merged.church_unit = u.church_unit || existing.church_unit || 'sede';
                     
                     // Chapters: Merge arrays to combine progress from different sources
                     const chaptersSet = new Set([
@@ -134,10 +139,13 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
             const existing = usersMap.get(myEmail);
             
             if (!existing) {
-                usersMap.set(myEmail, userProgress);
+                const myProfile = { ...userProgress };
+                myProfile.church_unit = myProfile.church_unit || 'sede';
+                usersMap.set(myEmail, myProfile);
             } else {
                 // Merge local progress with cloud data to ensure the UI shows the latest
                 const merged = { ...existing };
+                merged.church_unit = userProgress.church_unit || existing.church_unit || 'sede';
                 
                 // Chapters
                 const chaptersSet = new Set([
@@ -287,9 +295,16 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
       return badges;
   };
 
+  // Filtro de Congregação (Sede, Praça Gil ou Geral)
+  const filteredUsers = users.filter(u => {
+      if (selectedUnit === 'all') return true;
+      const unit = u.church_unit || 'sede';
+      return unit === selectedUnit;
+  });
+
   // Cálculo da Paginação
-  const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
-  const paginatedUsers = users.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / ITEMS_PER_PAGE));
+  const paginatedUsers = filteredUsers.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
 
   return (
     <div className="min-h-screen bg-[#F5F5DC] dark:bg-dark-bg transition-colors duration-300 pb-20">
@@ -316,7 +331,12 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                             <h2 className="font-cinzel font-bold text-xl text-[#1a0f0f] dark:text-white text-center">
                                 {formatUserName(selectedUser.user_name)}
                             </h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Membro ADMA</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-xs px-2.5 py-0.5 rounded-full font-cinzel font-bold bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30 flex items-center gap-1">
+                                    <Church className="w-3 h-3" />
+                                    {selectedUser.church_unit === 'praca_gil' ? 'ADMA Praça Gil' : 'ADMA Sede (Vilar dos Teles)'}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -440,6 +460,45 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
             </button>
         </div>
 
+        {/* SELETOR DE CONGREGAÇÃO: Sede (Vilar dos Teles) | Praça Gil | Geral */}
+        <div className="bg-[#180a0a] border-b border-[#C5A059]/30 px-3 py-2 flex items-center justify-between gap-2 overflow-x-auto">
+            <span className="text-[10px] font-cinzel font-bold text-white/60 uppercase tracking-widest flex items-center gap-1.5 shrink-0">
+                <Church className="w-3.5 h-3.5 text-[#C5A059]" /> Unidade:
+            </span>
+            <div className="inline-flex items-center gap-1 p-0.5 bg-black/50 rounded-xl border border-white/10 shrink-0">
+                <button
+                    onClick={() => setSelectedUnit('sede')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-cinzel font-bold transition-all flex items-center gap-1.5 ${
+                        selectedUnit === 'sede'
+                            ? 'bg-[#8B0000] text-white shadow-md ring-1 ring-[#C5A059]'
+                            : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                    <span>Sede (Vilar dos Teles)</span>
+                </button>
+                <button
+                    onClick={() => setSelectedUnit('praca_gil')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-cinzel font-bold transition-all flex items-center gap-1.5 ${
+                        selectedUnit === 'praca_gil'
+                            ? 'bg-[#8B0000] text-white shadow-md ring-1 ring-[#C5A059]'
+                            : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                    <span>Praça Gil</span>
+                </button>
+                <button
+                    onClick={() => setSelectedUnit('all')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-cinzel font-bold transition-all flex items-center gap-1.5 ${
+                        selectedUnit === 'all'
+                            ? 'bg-[#C5A059] text-black font-black shadow-md'
+                            : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                    <span>Geral</span>
+                </button>
+            </div>
+        </div>
+
         <div className="flex bg-white dark:bg-dark-card border-b border-[#C5A059]">
             <button 
                 onClick={() => setActiveTab('chapters')}
@@ -468,6 +527,28 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
         </div>
 
         <div className="p-4 max-w-lg mx-auto">
+            {/* Banner de Identificação da Congregação e Independência do Ranking */}
+            <div className="mb-4 p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-[#C5A059]/30 flex items-center justify-between gap-2 shadow-sm">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#8B0000] text-[#C5A059] flex items-center justify-center font-bold shrink-0">
+                        <Church className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h3 className="font-cinzel font-bold text-xs text-[#1a0f0f] dark:text-white flex items-center gap-1.5">
+                            {selectedUnit === 'praca_gil' ? 'Ranking ADMA Praça Gil' : selectedUnit === 'sede' ? 'Ranking ADMA Sede' : 'Ranking Geral Ministério Ágape'}
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-[#C5A059]/20 text-[#C5A059] font-bold">
+                                {filteredUsers.length} {filteredUsers.length === 1 ? 'membro' : 'membros'}
+                            </span>
+                        </h3>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                            {selectedUnit === 'all'
+                                ? 'Visualizando todos os membros de todas as congregações'
+                                : 'Pontos de Bíblia, EBD e Quiz contam exclusivamente neste ranking'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {/* Texto motivacional condicional */}
             <div className="bg-[#8B0000]/10 dark:bg-white/5 p-4 rounded-lg mb-6 text-center">
                 <p className="font-cinzel font-bold text-[#8B0000] dark:text-[#ff6b6b] text-sm">
@@ -512,6 +593,9 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
                                             <p className="font-cinzel font-bold truncate text-lg">
                                                 {formatUserName(u.user_name)}
                                             </p>
+                                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border border-[#C5A059]/40 bg-[#C5A059]/10 text-[#C5A059] flex-shrink-0">
+                                                {u.church_unit === 'praca_gil' ? 'Praça Gil' : 'Sede'}
+                                            </span>
                                             {isMe && <span className="text-[10px] font-bold bg-[#C5A059] text-black px-1.5 rounded flex-shrink-0">VOCÊ</span>}
                                             {isOnline && !isMe && (
                                                 <span className="text-[9px] font-bold bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30 px-1.5 py-0.2 rounded-full flex items-center gap-1">

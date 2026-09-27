@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { BookOpen, Loader2, ShieldCheck, Sparkles, User, Lock, ArrowRight, UserPlus, LogIn, ExternalLink } from 'lucide-react';
+import { BookOpen, Loader2, ShieldCheck, Sparkles, User, Lock, ArrowRight, UserPlus, LogIn, ExternalLink, Church, MapPin, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CHURCH_NAME, PASTOR_PRESIDENT } from '../../constants';
+import { CHURCH_NAME, PASTOR_PRESIDENT, ChurchUnit, CHURCH_UNITS } from '../../constants';
 import PrivacyPolicyModal from '../modals/PrivacyPolicyModal';
 
 interface LoginScreenProps {
-  onLogin: (firstName: string, lastName: string, password: string, isRegister: boolean) => Promise<string | void>;
+  onLogin: (firstName: string, lastName: string, password: string, isRegister: boolean, churchUnit?: ChurchUnit) => Promise<string | void>;
   loading: boolean;
 }
 
@@ -14,6 +14,7 @@ export default function LoginScreen({ onLogin, loading }: LoginScreenProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
+  const [churchUnit, setChurchUnit] = useState<ChurchUnit | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -24,6 +25,11 @@ export default function LoginScreen({ onLogin, loading }: LoginScreenProps) {
 
       if (!firstName.trim() || !lastName.trim() || !password.trim()) {
           setErrorMsg("Por favor, preencha todos os campos.");
+          return;
+      }
+
+      if (isRegistering && !churchUnit) {
+          setErrorMsg("Selecione de qual ADMA você faz parte: Sede (Vilar dos Teles) ou Congregação (Praça Gil).");
           return;
       }
 
@@ -38,7 +44,7 @@ export default function LoginScreen({ onLogin, loading }: LoginScreenProps) {
       }
 
       // Aguarda a resposta da autenticação (que pode retornar uma string de erro)
-      const error = await onLogin(firstName.trim(), lastName.trim(), password.trim(), isRegistering);
+      const error = await onLogin(firstName.trim(), lastName.trim(), password.trim(), isRegistering, churchUnit || undefined);
       
       if (error && typeof error === 'string') {
           setErrorMsg(error);
@@ -132,8 +138,70 @@ export default function LoginScreen({ onLogin, loading }: LoginScreenProps) {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="space-y-4"
+                    className="space-y-4 pt-1"
                   >
+                    {/* Seletor de Igreja / Unidade ADMA (Obrigatório) */}
+                    <div className="space-y-2">
+                        <label className="block text-[11px] font-bold font-montserrat uppercase tracking-wider text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                            <Church className="w-3.5 h-3.5 text-[#C5A059]" />
+                            <span>Qual é a sua igreja ADMA? <span className="text-red-500">*</span></span>
+                        </label>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {/* Card Sede */}
+                            <button
+                                type="button"
+                                onClick={() => setChurchUnit('sede')}
+                                className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
+                                    churchUnit === 'sede'
+                                        ? 'border-[#C5A059] bg-[#C5A059]/10 shadow-md ring-1 ring-[#C5A059]'
+                                        : 'border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-black/20 hover:border-gray-300 dark:hover:border-gray-700'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="font-cinzel font-bold text-xs text-[#1a0f0f] dark:text-white flex items-center gap-1">
+                                        ADMA Sede
+                                    </span>
+                                    {churchUnit === 'sede' ? (
+                                        <CheckCircle2 className="w-4 h-4 text-[#C5A059] shrink-0" />
+                                    ) : (
+                                        <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600" />
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                                    <MapPin className="w-3 h-3 text-[#8B0000] dark:text-[#C5A059] shrink-0" />
+                                    <span className="truncate">Vilar dos Teles</span>
+                                </div>
+                            </button>
+
+                            {/* Card Praça Gil */}
+                            <button
+                                type="button"
+                                onClick={() => setChurchUnit('praca_gil')}
+                                className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
+                                    churchUnit === 'praca_gil'
+                                        ? 'border-[#C5A059] bg-[#C5A059]/10 shadow-md ring-1 ring-[#C5A059]'
+                                        : 'border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-black/20 hover:border-gray-300 dark:hover:border-gray-700'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="font-cinzel font-bold text-xs text-[#1a0f0f] dark:text-white flex items-center gap-1">
+                                        Congregação
+                                    </span>
+                                    {churchUnit === 'praca_gil' ? (
+                                        <CheckCircle2 className="w-4 h-4 text-[#C5A059] shrink-0" />
+                                    ) : (
+                                        <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600" />
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                                    <MapPin className="w-3 h-3 text-[#8B0000] dark:text-[#C5A059] shrink-0" />
+                                    <span className="truncate">Praça Gil (Jd. Meriti)</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-black/20 rounded-2xl border border-gray-100 dark:border-white/5">
                         <label className="relative flex items-center cursor-pointer">
                             <input 

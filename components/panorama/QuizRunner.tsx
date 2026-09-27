@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Clock, Award, Play, AlertTriangle, RefreshCw, ArrowRight, Timer, CalendarOff, Hourglass, Lock } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Award, Play, AlertTriangle, RefreshCw, ArrowRight, Timer, CalendarOff, Hourglass, Lock, Church } from 'lucide-react';
 import { Quiz, UserProgress, QuizQuestion, QuizAttempt } from '../../types';
 import { db } from '../../services/database';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getQuizReleaseForUnit, getChurchUnitInfo } from '../../constants';
 
 interface Props {
     quiz: Quiz;
@@ -85,26 +86,33 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
     const [showResult, setShowResult] = useState(false);
     const [score, setScore] = useState(0);
     
+    // Liberação e prazos específicos da congregação do usuário
+    const userChurchUnit = userProgress?.church_unit || 'sede';
+    const unitInfo = getChurchUnitInfo(userChurchUnit);
+    const unitRelease = getQuizReleaseForUnit(quiz, userChurchUnit);
+
     // DEFINIÇÃO RÍGIDA DE TEMPO POR TIPO (Fallback se não vier do banco)
     const questionsCount = Array.isArray(quiz?.questions) ? quiz.questions.length : 5;
     const DEFAULT_DURATION = questionsCount > 5 ? 40 : 20;
-    const EFFECTIVE_TIME_LIMIT = (quiz.time_limit_minutes && quiz.time_limit_minutes > 0) 
-        ? quiz.time_limit_minutes 
-        : DEFAULT_DURATION;
+    const rawLimit = typeof unitRelease.time_limit_minutes === 'number'
+        ? unitRelease.time_limit_minutes 
+        : quiz.time_limit_minutes;
+    const EFFECTIVE_TIME_LIMIT = (typeof rawLimit === 'number' && rawLimit > 0)
+        ? rawLimit 
+        : (rawLimit === 0 ? 0 : DEFAULT_DURATION);
     
-    const [timeLeft, setTimeLeft] = useState(EFFECTIVE_TIME_LIMIT * 60);
+    const [timeLeft, setTimeLeft] = useState((EFFECTIVE_TIME_LIMIT > 0 ? EFFECTIVE_TIME_LIMIT : DEFAULT_DURATION) * 60);
     const [isFinished, setIsFinished] = useState(false);
     const [timeExpired, setTimeExpired] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     
-    // Verifica se o quiz está aguardando liberação (Admin ainda não clicou)
-    const isWaitingToStart = !quiz.released_at;
+    // Verifica se o quiz está aguardando liberação para a congregação do usuário
+    const isWaitingToStart = !unitRelease.released_at;
 
-    // Cálculo do Deadline Global (Memoizado logicamente)
-    // ATUALIZAÇÃO: REMOVIDO fallback de 'created_at'. Só conta se 'released_at' existir.
+    // Cálculo do Deadline Global para a congregação do aluno
     const getGlobalDeadline = () => {
-        if (quiz.released_at && EFFECTIVE_TIME_LIMIT > 0) {
-            const startMs = new Date(quiz.released_at).getTime();
+        if (unitRelease.released_at && EFFECTIVE_TIME_LIMIT > 0) {
+            const startMs = new Date(unitRelease.released_at).getTime();
             const deadlineMs = startMs + (EFFECTIVE_TIME_LIMIT * 60 * 1000);
             return new Date(deadlineMs);
         }
@@ -117,11 +125,15 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
     const calculateTimeRemaining = () => {
         // SE AINDA NÃO FOI LIBERADO: Retorna o tempo total estático (ex: 00:20:00)
         if (isWaitingToStart) {
-            const totalSeconds = EFFECTIVE_TIME_LIMIT * 60;
+            const totalSeconds = (EFFECTIVE_TIME_LIMIT > 0 ? EFFECTIVE_TIME_LIMIT : DEFAULT_DURATION) * 60;
             const h = Math.floor((totalSeconds / (60 * 60)) % 24);
             const m = Math.floor((totalSeconds / 60) % 60);
             const s = Math.floor(totalSeconds % 60);
             return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        }
+
+        if (EFFECTIVE_TIME_LIMIT === 0) {
+            return "Sem Limite (Livre)";
         }
 
         if (!globalDeadline) return "00:00:00";
@@ -163,12 +175,18 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
 
     // Timer Effect (Contagem Regressiva do Prazo Global na Home - CRONÔMETRO 1)
     useEffect(() => {
-        // Atualiza imediatamente ao montar ou mudar released_at
+        // Atualiza imediatamente ao montar ou mudar released_at da unidade
         const initialStr = calculateTimeRemaining();
         setGlobalTimeRemaining(initialStr);
         
-        // Se está aguardando, reseta estado de deadline e para por aqui (não cria intervalo)
+        // Se está aguardando, reseta estado de deadline e para por aqui
         if (isWaitingToStart) {
+            setIsDeadlineMet(false);
+            return;
+        }
+
+        // Se o modo for livre (sem limite de minutos)
+        if (EFFECTIVE_TIME_LIMIT === 0) {
             setIsDeadlineMet(false);
             return;
         }
@@ -177,7 +195,7 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
 
         let interval: any;
         
-        // Só conta se foi liberado (globalDeadline existe)
+        // Só conta se foi liberado e há deadline global definido
         if (!alreadyTaken && globalDeadline) {
             interval = setInterval(() => {
                 const str = calculateTimeRemaining();
@@ -191,7 +209,7 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
         }
         
         return () => clearInterval(interval);
-    }, [alreadyTaken, quiz.released_at, isWaitingToStart]);
+    }, [alreadyTaken, unitRelease.released_at, isWaitingToStart, EFFECTIVE_TIME_LIMIT]);
 
     // Algoritmo de Embaralhamento (Fisher-Yates)
     const shuffleArray = (array: any[]) => {
@@ -395,9 +413,9 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
                 const updated = await db.entities.ReadingProgress.update(userProgress.id, newPayload);
                 onProgressUpdate(newPayload);
                 if (updated._queued) {
-                    onShowToast(`Quiz Finalizado! +${score} pontos. (Salvo offline, sincronizando em breve)`, 'info');
+                    onShowToast(`Quiz Finalizado! +${score} pontos no ranking da ${unitInfo.shortName}! (Salvo offline, sincronizando em breve)`, 'info');
                 } else {
-                    onShowToast(`Quiz Finalizado! +${score} pontos.`, 'success');
+                    onShowToast(`Quiz Finalizado! +${score} pontos no ranking da ${unitInfo.shortName}!`, 'success');
                 }
             } catch (e) {
                 console.error("Erro ao salvar pontos:", e);
@@ -502,14 +520,19 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
     if (!started) {
         return (
             <div className="text-center py-20 px-5 bg-white dark:bg-dark-card rounded-3xl shadow-xl border border-[#C5A059]/30 p-8 mb-20 w-full max-w-full overflow-hidden box-border">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30 text-xs font-cinzel font-bold mb-4">
+                    <Church className="w-3.5 h-3.5" />
+                    Unidade: {unitInfo.name} ({unitInfo.tagline})
+                </div>
+
                 <Award className="w-20 h-20 mx-auto text-[#C5A059] mb-4 animate-bounce" />
                 <h2 className="font-cinzel text-2xl md:text-3xl font-bold mb-2 dark:text-white break-words">{quiz.title}</h2>
                 
-                {/* --- AQUI: CRONÔMETRO 1 (GLOBAL) --- */}
+                {/* --- AQUI: CRONÔMETRO 1 (GLOBAL DA UNIDADE) --- */}
                 <div className="flex flex-col md:flex-row justify-center items-center gap-2 md:gap-4 mb-8 text-sm font-bold uppercase tracking-widest w-full max-w-full">
                     <div className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-300 w-full md:w-auto ${isWaitingToStart ? 'bg-gray-100 border-gray-300 text-gray-500 dark:bg-gray-800 dark:border-gray-700' : isDeadlineMet ? 'bg-red-50 border-red-200 text-red-500 dark:bg-red-900/10 dark:border-red-800 dark:text-red-400' : 'bg-yellow-50 dark:bg-yellow-900/10 border-[#C5A059] text-[#C5A059] animate-pulse'}`}>
                         <span className="text-[10px] opacity-70 mb-1">
-                            {isWaitingToStart ? "Aguardando Início" : "Cronômetro 1 (Janela Global)"}
+                            {isWaitingToStart ? `Aguardando Liberação (${unitInfo.shortName})` : EFFECTIVE_TIME_LIMIT === 0 ? "Cronômetro Global (Sem Limite)" : `Cronômetro 1 (${unitInfo.shortName})`}
                         </span>
                         <span className="flex items-center gap-2 text-xl font-black font-mono">
                             {isWaitingToStart ? <Lock className="w-5 h-5"/> : <Timer className="w-5 h-5"/>} 
@@ -528,17 +551,24 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
                     
                     <div className="space-y-3">
                         <div className="flex gap-2">
-                            <div className="bg-[#C5A059] text-white f-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0">1</div>
-                            <p className="break-words"><strong>Cronômetro 1 (Acima):</strong> Janela Global. Começará a contar ASSIM QUE O PROFESSOR LIBERAR. Você DEVE entregar a prova antes que ele zere.</p>
+                            <div className="bg-[#C5A059] text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0">1</div>
+                            <p className="break-words"><strong>Janela da Congregação:</strong> Conta a partir da liberação do professor para a <strong>{unitInfo.name}</strong>. {EFFECTIVE_TIME_LIMIT === 0 ? 'Modo de estudo livre: sem limite global restrito.' : 'Você deve entregar antes que o cronômetro zere.'}</p>
                         </div>
                         
                         <div className="flex gap-2">
                             <div className="bg-[#8B0000] text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0">2</div>
-                            <p className="break-words"><strong>Cronômetro 2 (Prova):</strong> Ao clicar "Iniciar", você terá <strong>{EFFECTIVE_TIME_LIMIT} minutos</strong> para responder. Se estourar este tempo, também perde os pontos.</p>
+                            <p className="break-words"><strong>Tempo de Prova:</strong> Ao iniciar, você terá <strong>{EFFECTIVE_TIME_LIMIT > 0 ? `${EFFECTIVE_TIME_LIMIT} minutos` : 'tempo livre'}</strong> para responder as {quiz.questions.length} questões.</p>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <div className="bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0">3</div>
+                            <p className="break-words"><strong>Ranking da Congregação:</strong> Seus pontos serão somados automaticamente no Ranking da <strong>{unitInfo.badge}</strong>!</p>
                         </div>
                     </div>
                     
-                    <p className="mt-3 text-center font-bold text-gray-500">Para pontuar, ambos os cronômetros devem estar válidos na entrega.</p>
+                    <p className="mt-3 text-center font-bold text-gray-500">
+                        {isWaitingToStart ? `Aguarde o professor liberar o quiz para a sua congregação (${unitInfo.shortName}).` : 'Para pontuar no ranking, entregue a prova dentro do tempo.'}
+                    </p>
                 </div>
 
                 <button 
@@ -547,7 +577,7 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
                     className={`w-full md:w-auto px-10 py-4 rounded-full font-black text-lg shadow-xl transition-transform flex items-center justify-center gap-3 mx-auto ${isWaitingToStart ? 'bg-gray-300 dark:bg-gray-800 text-gray-500 cursor-not-allowed' : isDeadlineMet ? 'bg-blue-600 text-white hover:scale-105 active:shadow-inner' : 'bg-[#8B0000] text-white hover:scale-105'}`}
                 >
                     {isWaitingToStart ? <Lock className="w-6 h-6"/> : isDeadlineMet ? <RefreshCw className="w-6 h-6"/> : <Play className="w-6 h-6 fill-current"/>} 
-                    {isWaitingToStart ? 'AGUARDANDO LIBERAÇÃO' : isDeadlineMet ? 'FAZER COMO TREINAMENTO' : 'INICIAR VALENDO PONTOS'}
+                    {isWaitingToStart ? `AGUARDANDO LIBERAÇÃO (${unitInfo.shortName.toUpperCase()})` : isDeadlineMet ? 'FAZER COMO TREINAMENTO' : 'INICIAR VALENDO PONTOS'}
                 </button>
             </div>
         );

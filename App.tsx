@@ -349,6 +349,9 @@ export default function App() {
             }
 
             setUserProgress(mergedProfile);
+            if (!mergedProfile.church_unit) {
+                mergedProfile.church_unit = 'sede';
+            }
             
             // Ativa Admin se o perfil no banco tiver a role correspondente
             if (mergedProfile.role === 'admin') {
@@ -359,6 +362,7 @@ export default function App() {
             const newP = await db.entities.ReadingProgress.create({ 
                 user_email: email, 
                 user_name: displayName, 
+                church_unit: 'sede',
                 chapters_read: [], 
                 total_chapters: 0,
                 active_plans: [],
@@ -372,7 +376,7 @@ export default function App() {
     }
   };
 
-  const handleLogin = async (first: string, last: string, password: string, isRegister: boolean): Promise<string | void> => {
+  const handleLogin = async (first: string, last: string, password: string, isRegister: boolean, churchUnit?: any): Promise<string | void> => {
     if (first === "Visitante" && last === "Preview") {
         const visitorName = "Visitante Preview";
         const visitorEmail = "visitante.preview@adma.local";
@@ -381,6 +385,7 @@ export default function App() {
             id: 'local_visitor_id',
             user_email: visitorEmail,
             user_name: visitorName,
+            church_unit: 'sede',
             chapters_read: [],
             total_chapters: 0,
             active_plans: [],
@@ -390,7 +395,7 @@ export default function App() {
         };
 
         setUserProgress(visitorProfile);
-        setUser({ user_name: visitorName, user_email: visitorEmail });
+        setUser({ user_name: visitorName, user_email: visitorEmail, church_unit: 'sede' });
         setIsAuthenticated(true);
         return;
     }
@@ -416,15 +421,20 @@ export default function App() {
             return l.includes('chelseano') || l.includes('wendell') || l.includes('nicole');
         };
 
+        let activeChurchUnit: 'sede' | 'praca_gil' = 'sede';
+
         if (isRegister) {
             if (existingUser) {
                 return "Usuário já existe com este nome. Tente entrar.";
             }
+
+            activeChurchUnit = churchUnit || 'sede';
             
             const newUser = await db.entities.ReadingProgress.create({ 
                 user_email: email, 
                 user_name: fullName, 
                 password_pin: password,
+                church_unit: activeChurchUnit,
                 chapters_read: [], 
                 total_chapters: 0,
                 active_plans: [],
@@ -446,6 +456,15 @@ export default function App() {
                 return "Senha incorreta.";
             }
 
+            // Garante que contas antigas que não tinham church_unit fiquem como sede
+            if (!existingUser.church_unit) {
+                existingUser.church_unit = 'sede';
+                if (existingUser.id) {
+                    await db.entities.ReadingProgress.update(existingUser.id, { church_unit: 'sede' });
+                }
+            }
+            activeChurchUnit = existingUser.church_unit;
+
             if (isSecEmail(existingUser.user_email) && existingUser.role !== 'secretary' && existingUser.role !== 'admin') {
                 existingUser.role = 'secretary';
                 if (existingUser.id) {
@@ -465,7 +484,7 @@ export default function App() {
             }
         }
 
-        const u = { user_name: fullName, user_email: email };
+        const u = { user_name: fullName, user_email: email, church_unit: activeChurchUnit };
         localStorage.setItem('adma_user', JSON.stringify(u));
         setUser(u);
         setIsAuthenticated(true);
@@ -598,7 +617,7 @@ export default function App() {
                 onShowToast={showToast}
             />;
         case 'messages':
-            return <MessagesView onBack={() => handleNavigate('dashboard')} isAdmin={isAdmin} user={user} />;
+            return <MessagesView onBack={() => handleNavigate('dashboard')} isAdmin={isAdmin} user={user} userProgress={userProgress} />;
         case 'dynamic_module':
             return activeModule ? <DynamicModuleViewer module={activeModule} onBack={() => handleNavigate('dashboard')} /> : <div className="p-10 text-center">Módulo não encontrado</div>;
         default:

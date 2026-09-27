@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ShieldCheck, RefreshCw, Loader2, Upload, Download, Server, HardDrive, Flag, CheckCircle, XCircle, MessageSquare, Languages, GraduationCap, Calendar, CloudUpload, Wand2, StopCircle, Trash2, AlertTriangle, Save, Lock, Unlock, KeyRound, Search, Cloud, Activity, Zap, Battery, UserX, Edit, Wifi, WifiOff, Brain, Eye, EyeOff, Wrench, LayoutGrid, Check, ClipboardList, UserCheck } from 'lucide-react';
+import { ChevronLeft, ShieldCheck, RefreshCw, Loader2, Upload, Download, Server, HardDrive, Flag, CheckCircle, XCircle, MessageSquare, Languages, GraduationCap, Calendar, CloudUpload, Wand2, StopCircle, Trash2, AlertTriangle, Save, Lock, Unlock, KeyRound, Search, Cloud, Activity, Zap, Battery, UserX, Edit, Wifi, WifiOff, Brain, Eye, EyeOff, Wrench, LayoutGrid, Check, ClipboardList, UserCheck, Church } from 'lucide-react';
 import { generateContent } from '../../services/geminiService';
 import { BIBLE_BOOKS, generateChapterKey, generateVerseKey, TOTAL_CHAPTERS } from '../../constants';
 import { db, bibleStorage } from '../../services/database';
@@ -1148,25 +1148,46 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       }
   };
 
-  const handleToggleVisibility = async (quiz: Quiz, visible: boolean, minutes: number = 0) => {
+  const handleToggleVisibility = async (quiz: Quiz, visible: boolean, minutes: number = 0, targetUnit: 'sede' | 'praca_gil' | 'both' = 'both') => {
       if (!quiz.id) return;
       try {
+          const now = new Date().toISOString();
+          const currentReleases = quiz.unit_releases || {};
+          const updatedReleases: any = { ...currentReleases };
+
+          if (targetUnit === 'sede' || targetUnit === 'both') {
+              updatedReleases.sede = {
+                  is_visible: visible,
+                  time_limit_minutes: minutes > 0 ? minutes : null,
+                  released_at: visible ? now : null
+              };
+          }
+          if (targetUnit === 'praca_gil' || targetUnit === 'both') {
+              updatedReleases.praca_gil = {
+                  is_visible: visible,
+                  time_limit_minutes: minutes > 0 ? minutes : null,
+                  released_at: visible ? now : null
+              };
+          }
+
           await db.entities.Quizzes.update(quiz.id, { 
               is_visible: visible,
               time_limit_minutes: minutes > 0 ? minutes : null,
-              // Ao liberar, gravamos a data/hora exata para controle de prazo global
-              released_at: visible ? new Date().toISOString() : null
+              released_at: visible ? now : null,
+              unit_releases: updatedReleases
           });
-          // Atualiza estado local se for o quiz atual
+          
           if (generatedQuiz && generatedQuiz.chapter_key === quiz.chapter_key) {
               setGeneratedQuiz({ 
                   ...generatedQuiz, 
                   is_visible: visible, 
                   time_limit_minutes: minutes || undefined,
-                  released_at: visible ? new Date().toISOString() : undefined 
+                  released_at: visible ? now : undefined,
+                  unit_releases: updatedReleases
               });
           }
-          onShowToast(visible ? `Quiz liberado! ${minutes ? `Tempo: ${minutes}m` : 'Sem tempo.'}` : "Quiz ocultado.", 'success');
+          const unitLabel = targetUnit === 'both' ? 'Todas as Unidades' : targetUnit === 'sede' ? 'Sede' : 'Praça Gil';
+          onShowToast(visible ? `Quiz liberado para ${unitLabel}! ${minutes ? `Tempo: ${minutes}m` : 'Sem tempo.'}` : "Quiz ocultado.", 'success');
       } catch (e) {
           onShowToast("Erro ao atualizar status.", 'error');
       }
@@ -1191,7 +1212,6 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       setIsProcessing(true);
       setProcessStatus("Corrigindo Quizzes...");
       try {
-          // Note: using direct filtering might be safer if list returns all
           const allQuizzes = await db.entities.Quizzes.list();
           const targetQuizzes = allQuizzes.filter((q: Quiz) => q.is_visible && !q.released_at);
           
@@ -1204,6 +1224,56 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
           }
           
           onShowToast(`Sucesso! ${count} quizzes foram destravados e iniciados.`, 'success');
+      } catch (e: any) {
+          onShowToast(`Erro: ${e.message}`, 'error');
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  const handleReleaseAllQuizzesForPracaGil = async () => {
+      const mode = window.prompt(
+          "LIBERAÇÃO DE QUIZZES DA EBD PARA A CONGREGAÇÃO PRAÇA GIL:\n\n" +
+          "Os quizzes já existentes para a Sede (Gênesis 1-14 etc.) ficarão disponíveis para a congregação Praça Gil sem precisar refazer perguntas.\n\n" +
+          "Digite o tempo limite em minutos para Praça Gil:\n" +
+          "- Digite '0' para Modo Livre (recomendado: alunos estudam no próprio ritmo e pontuam no ranking de Praça Gil)\n" +
+          "- Ou digite os minutos (ex: '20' ou '40')",
+          "0"
+      );
+      if (mode === null) return;
+      const minutes = parseInt(mode, 10);
+      const safeMinutes = isNaN(minutes) ? 0 : minutes;
+
+      setIsProcessing(true);
+      setProcessStatus("Disponibilizando Quizzes para Praça Gil...");
+      try {
+          const allQuizzes = await db.entities.Quizzes.list();
+          let count = 0;
+          const now = new Date().toISOString();
+
+          for (const q of allQuizzes) {
+              const currentReleases = q.unit_releases || {};
+              const updatedReleases: any = {
+                  ...currentReleases,
+                  sede: currentReleases.sede || {
+                      is_visible: q.is_visible ?? true,
+                      released_at: q.released_at,
+                      time_limit_minutes: q.time_limit_minutes
+                  },
+                  praca_gil: {
+                      is_visible: true,
+                      released_at: now,
+                      time_limit_minutes: safeMinutes
+                  }
+              };
+
+              await db.entities.Quizzes.update(q.id!, {
+                  unit_releases: updatedReleases
+              });
+              count++;
+          }
+
+          onShowToast(`Sucesso! ${count} quizzes foram disponibilizados para a congregação Praça Gil!`, 'success');
       } catch (e: any) {
           onShowToast(`Erro: ${e.message}`, 'error');
       } finally {
@@ -1717,8 +1787,11 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                                             <button onClick={() => handleToggleVisibility(generatedQuiz, false)} className="text-xs bg-red-500 text-white px-3 py-1 rounded flex items-center gap-1 hover:bg-red-600"><EyeOff className="w-3 h-3"/> Ocultar</button>
                                         ) : (
                                             <button onClick={() => {
-                                                const time = prompt("Tempo limite em minutos (0 para sem limite):", "0");
-                                                if(time !== null) handleToggleVisibility(generatedQuiz, true, Number(time));
+                                                const unitChoice = prompt("Liberar quiz para qual congregação?\n1. Todas as Unidades\n2. Apenas Sede (Vilar dos Teles)\n3. Apenas Praça Gil\n\nDigite 1, 2 ou 3:", "1");
+                                                if (!unitChoice) return;
+                                                const targetUnit = unitChoice === '2' ? 'sede' : unitChoice === '3' ? 'praca_gil' : 'both';
+                                                const time = prompt("Tempo limite em minutos (0 para sem limite / modo livre):", "0");
+                                                if (time !== null) handleToggleVisibility(generatedQuiz, true, Number(time), targetUnit);
                                             }} className="text-xs bg-green-500 text-white px-3 py-1 rounded flex items-center gap-1 hover:bg-green-600"><Eye className="w-3 h-3"/> Liberar Agora</button>
                                         )}
                                     </>
@@ -1738,12 +1811,15 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                 )}
 
                 {/* Botões de Ação Administrativa */}
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button onClick={handleResetRanking} className="text-xs text-red-500 hover:text-red-700 border border-red-200 p-2 rounded flex items-center justify-center gap-2 hover:bg-red-50">
-                        <Trash2 className="w-3 h-3"/> Zerar Ranking de Quizzes (Início de Livro)
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button onClick={handleResetRanking} className="text-xs text-red-500 hover:text-red-700 border border-red-200 p-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-950/20">
+                        <Trash2 className="w-4 h-4"/> Zerar Ranking de Quizzes
                     </button>
-                    <button onClick={handleFixLegacyQuizzes} disabled={isProcessing} className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 p-2 rounded flex items-center justify-center gap-2 hover:bg-blue-50">
-                        <Wrench className={`w-3 h-3 ${isProcessing ? 'animate-spin' : ''}`}/> Reparar Quizzes Sem Data (Destravar Gênesis)
+                    <button onClick={handleFixLegacyQuizzes} disabled={isProcessing} className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 p-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-950/20">
+                        <Wrench className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`}/> Reparar Quizzes Sem Data
+                    </button>
+                    <button onClick={handleReleaseAllQuizzesForPracaGil} disabled={isProcessing} className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 border border-emerald-300 dark:border-emerald-700 p-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 font-bold shadow-sm">
+                        <Church className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`}/> Liberar Quizzes Existentes para Praça Gil
                     </button>
                 </div>
             </div>

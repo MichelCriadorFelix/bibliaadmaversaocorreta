@@ -15,7 +15,7 @@ if (typeof window !== 'undefined') {
     });
 }
 
-import { CHURCH_NAME, TOTAL_CHAPTERS, PASTOR_PRESIDENT } from '../../constants';
+import { CHURCH_NAME, TOTAL_CHAPTERS, PASTOR_PRESIDENT, ChurchUnit, getChurchUnitInfo } from '../../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppConfig, DynamicModule } from '../../types';
 import { db } from '../../services/database';
@@ -57,6 +57,18 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showArenaLobby, setShowArenaLobby] = useState(false);
+
+  // Unidade da Igreja ADMA (Sede ou Praça Gil)
+  const userChurchUnit: ChurchUnit = userProgress?.church_unit || user?.church_unit || 'sede';
+  const [activeUnitView, setActiveUnitView] = useState<ChurchUnit>(userChurchUnit);
+
+  useEffect(() => {
+    if (userProgress?.church_unit) {
+      setActiveUnitView(userProgress.church_unit);
+    }
+  }, [userProgress?.church_unit]);
+
+  const activeUnit = getChurchUnitInfo(activeUnitView);
 
   // Verificação de Permissão da Secretária (Nicole, Chelseano, Wendell ou quem tiver a role)
   const userEmailLower = (userProgress?.user_email || user?.user_email || '').toLowerCase();
@@ -321,34 +333,78 @@ export default function DashboardHome({ onNavigate, isAdmin, onEnableAdmin, onOp
                 </div>
             </div>
 
-            <div className="relative z-10 px-6 pt-8 flex flex-col items-center justify-center text-center space-y-5">
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-                    <h3 className="font-montserrat text-[8px] font-medium tracking-[0.5em] text-white/40 uppercase">{CHURCH_NAME}</h3>
+            <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 flex flex-col items-center justify-center text-center space-y-3 sm:space-y-4">
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+                    <h3 className="font-montserrat text-[8px] font-medium tracking-[0.4em] sm:tracking-[0.5em] text-white/40 uppercase">{CHURCH_NAME}</h3>
                 </motion.div>
 
-                <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative group cursor-pointer my-1" onClick={handleLogoClick}>
-                    <div className="absolute inset-0 bg-[#C5A059] blur-[60px] opacity-15 rounded-full animate-pulse"></div>
-                    <div className="relative w-24 h-24 bg-gradient-to-br from-white/10 to-transparent rounded-[32px] border border-white/20 shadow-2xl flex items-center justify-center backdrop-blur-sm">
-                        <BookOpen className="w-10 h-10 text-[#C5A059]" />
+                <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative group cursor-pointer" onClick={handleLogoClick}>
+                    <div className="absolute inset-0 bg-[#C5A059] blur-[45px] opacity-20 rounded-full animate-pulse"></div>
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-white/10 to-transparent rounded-2xl sm:rounded-[28px] border border-white/20 shadow-2xl flex items-center justify-center backdrop-blur-sm">
+                        <BookOpen className="w-8 h-8 sm:w-9 sm:h-9 text-[#C5A059]" />
                     </div>
                 </motion.div>
 
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
-                    <h1 className="font-cinzel text-5xl md:text-6xl font-black text-white tracking-tighter drop-shadow-2xl">{appName}</h1>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-1 sm:space-y-1.5">
+                    <h1 className="font-cinzel text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tighter drop-shadow-2xl">{appName}</h1>
                     <div className="flex flex-col items-center">
-                        <p className="font-cormorant text-lg text-[#C5A059] italic font-semibold opacity-90 tracking-wide">Prof. Michel Felix</p>
-                        <div className="h-[1px] w-12 bg-[#C5A059]/30 my-2"></div>
-                        <p className="font-cinzel text-[8px] uppercase tracking-[0.3em] text-white/40 font-bold">Presidente: {PASTOR_PRESIDENT}</p>
+                        <p className="font-cormorant text-base sm:text-lg text-[#C5A059] italic font-semibold opacity-90 tracking-wide">Prof. Michel Felix</p>
+                        <div className="h-[1px] w-10 bg-[#C5A059]/30 my-1"></div>
+                        <p className="font-cinzel text-[8px] uppercase tracking-[0.25em] text-white/40 font-bold">Presidente: {PASTOR_PRESIDENT}</p>
                     </div>
                 </motion.div>
 
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-4 flex flex-wrap justify-center gap-3 px-4">
-                    <a href="https://www.instagram.com/adma.vilardosteles/" target="_blank" rel="noopener noreferrer" className="px-5 py-2 rounded-xl border border-white/10 bg-white/5 text-white/80 font-cinzel text-[9px] font-bold flex items-center gap-2 hover:bg-white/10 transition-all backdrop-blur-md active:scale-95">
-                        <Instagram className="w-3.5 h-3.5 text-[#C5A059]" /> <span>Instagram</span>
-                    </a>
-                    <a href="https://maps.app.goo.gl/cyZBbWNGFaAjEm2aA" target="_blank" rel="noopener noreferrer" className="px-5 py-2 rounded-xl border border-white/10 bg-white/5 text-white/80 font-cinzel text-[9px] font-bold flex items-center gap-2 hover:bg-white/10 transition-all backdrop-blur-md active:scale-95">
-                        <MapPin className="w-3.5 h-3.5 text-[#C5A059]" /> <span>Localização</span>
-                    </a>
+                {/* Bloco Simétrico e Compacto da Igreja (Sede / Praça Gil + Instagram & Localização) */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[290px] sm:max-w-[310px] mx-auto bg-black/35 backdrop-blur-md rounded-2xl border border-white/10 p-1.5 space-y-1.5 shadow-lg">
+                    {/* Seletor Simétrico de Congregação (50% / 50%) */}
+                    <div className="grid grid-cols-2 p-0.5 bg-white/5 rounded-xl border border-white/5">
+                        <button
+                            type="button"
+                            onClick={() => setActiveUnitView('sede')}
+                            className={`py-1.5 px-2 rounded-lg text-[9px] font-cinzel font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                                activeUnitView === 'sede'
+                                    ? 'bg-[#8B0000] text-white shadow-sm ring-1 ring-[#C5A059]/50'
+                                    : 'text-white/60 hover:text-white'
+                            }`}
+                        >
+                            <span>Sede (Vilar)</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveUnitView('praca_gil')}
+                            className={`py-1.5 px-2 rounded-lg text-[9px] font-cinzel font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                                activeUnitView === 'praca_gil'
+                                    ? 'bg-[#8B0000] text-white shadow-sm ring-1 ring-[#C5A059]/50'
+                                    : 'text-white/60 hover:text-white'
+                            }`}
+                        >
+                            <span>Praça Gil</span>
+                        </button>
+                    </div>
+
+                    {/* Botões Simétricos Lado a Lado (50% / 50%) */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                        <a 
+                            href={activeUnit.instagramUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="py-1.5 px-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 font-cinzel text-[9px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+                            title={`Instagram: ${activeUnit.instagramHandle}`}
+                        >
+                            <Instagram className="w-3.5 h-3.5 text-[#C5A059] shrink-0" /> 
+                            <span className="truncate">Instagram</span>
+                        </a>
+                        <a 
+                            href={activeUnit.mapsUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="py-1.5 px-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 font-cinzel text-[9px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+                            title={activeUnit.address}
+                        >
+                            <MapPin className="w-3.5 h-3.5 text-[#C5A059] shrink-0" /> 
+                            <span className="truncate">Localização</span>
+                        </a>
+                    </div>
                 </motion.div>
             </div>
         </div>

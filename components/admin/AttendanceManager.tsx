@@ -14,6 +14,7 @@ export default function AttendanceManager({ onClose, isAdmin, onShowToast }: Pro
     const [users, setUsers] = useState<UserProgress[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [unitFilter, setUnitFilter] = useState<'all' | 'sede' | 'praca_gil'>('all');
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
@@ -144,7 +145,10 @@ export default function AttendanceManager({ onClose, isAdmin, onShowToast }: Pro
 
     const filteredUsers = users.filter(u => {
         const name = u.user_name || '';
-        return name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase());
+        const userUnit = u.church_unit || 'sede';
+        const matchesUnit = unitFilter === 'all' || userUnit === unitFilter;
+        return matchesSearch && matchesUnit;
     });
 
     return (
@@ -189,6 +193,37 @@ export default function AttendanceManager({ onClose, isAdmin, onShowToast }: Pro
                                 className="bg-transparent border-none text-sm font-bold text-gray-700 dark:text-white outline-none"
                             />
                         </div>
+
+                        {/* Filtro por Unidade ADMA */}
+                        <div className="flex items-center gap-1 bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-300 dark:border-gray-700">
+                            <button
+                                type="button"
+                                onClick={() => setUnitFilter('all')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                                    unitFilter === 'all' ? 'bg-[#8B0000] text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                                }`}
+                            >
+                                Todas
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setUnitFilter('sede')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                                    unitFilter === 'sede' ? 'bg-[#8B0000] text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                                }`}
+                            >
+                                Sede
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setUnitFilter('praca_gil')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                                    unitFilter === 'praca_gil' ? 'bg-[#8B0000] text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                                }`}
+                            >
+                                Praça Gil
+                            </button>
+                        </div>
                     </div>
                     
                     <div className="flex items-center gap-4 text-xs font-bold text-gray-500 dark:text-gray-400">
@@ -228,7 +263,12 @@ export default function AttendanceManager({ onClose, isAdmin, onShowToast }: Pro
                                             {user.user_name ? user.user_name.charAt(0).toUpperCase() : '?'}
                                         </div>
                                         <div className="min-w-0">
-                                            <h3 className="font-bold text-gray-800 dark:text-white truncate">{user.user_name || 'Usuário Sem Nome'}</h3>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="font-bold text-gray-800 dark:text-white truncate">{user.user_name || 'Usuário Sem Nome'}</h3>
+                                                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border border-[#C5A059]/40 bg-[#C5A059]/10 text-[#C5A059] shrink-0">
+                                                    {user.church_unit === 'praca_gil' ? 'Praça Gil' : 'Sede'}
+                                                </span>
+                                            </div>
                                             <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
                                                 <span title="Total Presenças" className="text-green-600 font-bold">P: {att.p}</span>
                                                 <span title="Total Atrasos" className="text-yellow-600 font-bold">A: {att.a}</span>

@@ -44,16 +44,28 @@ export interface QuizQuestion {
     chapterRef?: string; // Ex: "Gênesis 8", "Salmo 23", "Mateus 5"
 }
 
+export interface QuizUnitRelease {
+    is_visible: boolean;
+    released_at?: string; // Data/hora exata em que foi liberado para esta unidade
+    time_limit_minutes?: number; // Tempo para fazer nesta unidade (opcional)
+}
+
 export interface Quiz {
     id?: string;
     chapter_key: string; // ex: genesis_1
     type: 'class' | 'general'; // 'class' = 5 perguntas da aula, 'general' = avaliação de 10
     title: string;
     questions: QuizQuestion[];
-    is_visible: boolean; // Controle do Admin para liberar
-    released_at?: string; // DATA/HORA EXATA DA LIBERAÇÃO (Para travar ranking após o tempo)
+    is_visible: boolean; // Controle do Admin para liberar (legado / padrão Sede)
+    released_at?: string; // DATA/HORA EXATA DA LIBERAÇÃO (legado / padrão Sede)
     time_limit_minutes?: number; // Tempo para fazer (opcional)
     created_at: string;
+    // Liberações independentes por congregação (Sede, Praça Gil, etc.)
+    unit_releases?: {
+        sede?: QuizUnitRelease;
+        praca_gil?: QuizUnitRelease;
+        [unitKey: string]: QuizUnitRelease | undefined;
+    };
 }
 
 export interface ThematicTheme {
@@ -136,6 +148,7 @@ export interface UserProgress {
   quizzes_taken?: string[]; // IDs dos quizzes já realizados
   quiz_attempts?: Record<string, QuizAttempt>; // NOVO: Rastreio de tentativas em andamento
   role?: string; // Papel do usuário (e.g., admin)
+  church_unit?: 'sede' | 'praca_gil'; // Sede (Vilar dos Teles) ou Congregação (Praça Gil)
   id?: string;
   created_at?: string;
 }
@@ -211,6 +224,7 @@ export interface PrayerRequest {
   prayer_count: number;
   praying_users?: string[]; // Lista de emails de quem vai orar
   category: 'saude' | 'familia' | 'espiritual' | 'financeiro' | 'outros';
+  church_unit?: 'sede' | 'praca_gil';
 }
 
 export interface Announcement {
@@ -220,6 +234,7 @@ export interface Announcement {
   date: string;
   author: string;
   priority: 'alta' | 'normal';
+  church_unit?: 'sede' | 'praca_gil' | 'geral';
 }
 
 export interface ContentReport {
