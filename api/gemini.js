@@ -1355,7 +1355,11 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 ]
             };
 
-            // Configuração precisa de thinkingConfig e maxOutputTokens (Calibrado para evitar exaustão prematura de TPM e 503 High Demand)
+            // Configuração precisa de thinkingConfig e maxOutputTokens:
+            // IMPORTANTE: Nos modelos Gemini 3, os tokens de raciocínio interno ("thinking") são descontados
+            // dentro do próprio limite de maxOutputTokens! Portanto, o controle de tamanho do texto visível deve
+            // ser feito pelo prompt e pelo thinkingLevel, NUNCA estrangulando o maxOutputTokens (o que causaria
+            // corte abrupto da resposta no meio de uma frase ou JSON inválido).
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 const pages = targetPages ? parseInt(targetPages) : 4;
                 const baseWordCount = pages * 600;
@@ -1363,39 +1367,39 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 const tc = getThinkingConfig(thinkingLevel);
                 if (tc) config.thinkingConfig = tc;
                 
-                // Calibragem enxuta de TPM: evita reservar 65.536 tokens por requisição (o que esgota a cota TPM em 1 ou 2 chamadas).
-                // Em português: 1 palavra ≈ 1.4 tokens + margem para pensamento (thinking).
-                const calculatedTokens = Math.round(maxWords * 1.8) + 6144;
-                config.maxOutputTokens = Math.min(32768, Math.max(12288, calculatedTokens));
+                // Folga ampla para o texto + markdown + glossários + pensamento profundo (HIGH):
+                // Garante que a apostila jamais seja cortada antes da conclusão/Tipologia.
+                const calculatedTokens = Math.round(maxWords * 2.5) + 12288;
+                config.maxOutputTokens = Math.min(65536, Math.max(24576, calculatedTokens));
             } else if (taskType === 'quiz_gen') {
-                config.maxOutputTokens = 4096;
+                config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             } else if (taskType === 'dictionary') {
-                config.maxOutputTokens = 16384; // Folga suficiente para todas as palavras do versículo sem esgotar a cota TPM
+                config.maxOutputTokens = 32768; // Versículos longos (ex: Ester 8:9, Ap 20:4) exigem JSON extenso sem risco de corte
                 if (dictionaryGrounded || !isNewTestamentBook(book)) {
                     config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
                 } else {
                     config.thinkingConfig = { thinkingLevel: ThinkingLevel.MEDIUM };
                 }
             } else if (taskType === 'commentary') {
-                config.maxOutputTokens = 2048; // Comentário tem teto de 210 palavras (~350 tokens) + margem de thinking MEDIUM
+                config.maxOutputTokens = 8192; // Folga total para o raciocínio MEDIUM + os 3 parágrafos sem risco de truncamento
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.MEDIUM };
             } else if (taskType === 'chapter_focus_suggestion' || taskType === 'thematic_focus_suggestion') {
-                config.maxOutputTokens = 4096;
+                config.maxOutputTokens = 8192; // Necessário quando a aula temática já possui ementa extensa de tópicos ## e ###
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             } else if (taskType === 'fetch_primary_source') {
-                config.maxOutputTokens = 1536; // Recorte cirúrgico conciso (1 a 2 parágrafos + contexto)
+                config.maxOutputTokens = 4096; // Folga segura para citação + tradução em pt-BR + contexto histórico
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
                 config.temperature = 0.2;
             } else if (taskType === 'metadata') {
-                config.maxOutputTokens = 1024;
+                config.maxOutputTokens = 2048;
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
                 config.temperature = 0.2;
             } else if (taskType === 'assistente_chat' || taskType === 'devotional') {
-                config.maxOutputTokens = 4096;
+                config.maxOutputTokens = 8192;
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             } else {
-                config.maxOutputTokens = 8192;
+                config.maxOutputTokens = 16384;
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             }
 
