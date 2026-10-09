@@ -402,17 +402,15 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     // IMPORTANTE: a dependência é a STRING content?.student_content, nunca o objeto `content`
     // inteiro — `content` troca de referência a cada atualização de estado (mesmo sem o texto
     // mudar), o que disparava esse efeito repetidas vezes à toa e regenerava a sugestão sem
-    // necessidade (gastando chamada de IA e resetando o cache visualmente) toda vez que
-    // qualquer outra coisa no app causava um novo objeto `content`.
+    // necessidade. Além disso, aplicamos um debounce de 450ms para que navegar rapidamente entre
+    // livros/capítulos não dispare chamadas de IA em segundo plano para capítulos intermediários.
     const studentContentText = content?.student_content;
     useEffect(() => {
-        if (isAdmin) {
+        if (!isAdmin) return;
+        const timer = setTimeout(() => {
             if (activeTab === 'student') {
                 loadOrGenerateFocusSuggestion(book, chapter);
             } else if (activeTab === 'teacher') {
-                // Guia do Mestre só gera sugestão (modo estratégia de ensino) quando a aula do
-                // aluno já estiver carregada — sem isso, não há base pra sugerir nada específico,
-                // e evitamos gerar/gravar por engano uma sugestão "modo aluno" na mesma chave.
                 if (studentContentText && studentContentText.trim().length > 100) {
                     loadOrGenerateFocusSuggestion(book, chapter, false, undefined, studentContentText);
                 } else {
@@ -425,7 +423,8 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                     setChapterFocusSuggestion(null);
                 }
             }
-        }
+        }, 450);
+        return () => clearTimeout(timer);
     }, [book, chapter, isAdmin, activeTab, studentContentText, thematicViewMode, activeLesson, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
 
     const calculateStats = useCallback((text: string) => {

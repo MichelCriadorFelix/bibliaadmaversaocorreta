@@ -1355,7 +1355,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 ]
             };
 
-            // Configuração precisa de thinkingConfig e maxOutputTokens (Calibrado proporcionalmente a targetPages)
+            // Configuração precisa de thinkingConfig e maxOutputTokens (Calibrado para evitar exaustão prematura de TPM e 503 High Demand)
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 const pages = targetPages ? parseInt(targetPages) : 4;
                 const baseWordCount = pages * 600;
@@ -1363,73 +1363,40 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 const tc = getThinkingConfig(thinkingLevel);
                 if (tc) config.thinkingConfig = tc;
                 
-                // Em vez de um teto cego de 65.536 que encoraja o modelo a se estender para além de 5.000 palavras quando pages >= 5,
-                // calculamos uma cota proporcional e segura:
-                // Em português: 1 palavra ≈ 1.35 a 1.5 tokens.
-                // maxWords * 2.5 fornece folga ampla para markdown, glossários e fontes.
-                // thinkingLevel não expõe um número de tokens (é abstraído pelo próprio Gemini), então
-                // usamos uma margem de segurança fixa e generosa (8192) em vez de tentar somar o budget
-                // real do pensamento — garante que o modelo NUNCA sofra corte prematuro na conclusão.
-                const calculatedTokens = Math.round(maxWords * 2.5) + 8192;
-                config.maxOutputTokens = Math.min(65536, Math.max(16384, calculatedTokens));
+                // Calibragem enxuta de TPM: evita reservar 65.536 tokens por requisição (o que esgota a cota TPM em 1 ou 2 chamadas).
+                // Em português: 1 palavra ≈ 1.4 tokens + margem para pensamento (thinking).
+                const calculatedTokens = Math.round(maxWords * 1.8) + 6144;
+                config.maxOutputTokens = Math.min(32768, Math.max(12288, calculatedTokens));
             } else if (taskType === 'quiz_gen') {
-                config.maxOutputTokens = 8192;
-                // thinkingBudget não é respeitado pelo Gemini 3 (testado); thinkingLevel é o parâmetro
-                // real. Quiz não reconstrói texto original grego/hebraico (gera perguntas a partir da
-                // aula já pronta em português), então não tem o mesmo risco de Texto Majoritário do
-                // dicionário — LOW é seguro aqui.
+                config.maxOutputTokens = 4096;
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             } else if (taskType === 'dictionary') {
-                config.maxOutputTokens = 32768; // > 20.000 tokens para análises léxicas e Strongs aprofundadas
-                // NOTA (testado extensivamente): thinkingLevel LOW acelera muito (~35-40s -> ~15-30s), mas
-                // só é SEGURO quando o texto original real já foi buscado e injetado no prompt (bolls.life
-                // — dictionaryGrounded=true). Sem esse texto real, pedir pra IA "lembrar" o Novo Testamento
-                // de cabeça é uma loteria mesmo em raciocínio alto (testamos: às vezes traz o Texto
-                // Majoritário certo, às vezes o texto crítico errado, em QUALQUER nível) — nesse caso
-                // (fallback, ex: busca ao bolls.life falhou) mantemos seguro: LOW só no Antigo Testamento.
+                config.maxOutputTokens = 16384; // Folga suficiente para todas as palavras do versículo sem esgotar a cota TPM
                 if (dictionaryGrounded || !isNewTestamentBook(book)) {
                     config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+                } else {
+                    config.thinkingConfig = { thinkingLevel: ThinkingLevel.MEDIUM };
                 }
             } else if (taskType === 'commentary') {
-                // thinkingBudget não é respeitado pelo Gemini 3 (testado); thinkingLevel é o
-                // parâmetro real. Testado com 24 execuções (3 níveis x 3 casos incluindo
-                // cronologia Ezequias/Manassés e necromancia em 1 Samuel 28 x múltiplas
-                // repetições): MEDIUM e LOW acertaram 100% das vezes, mas o tempo médio foi
-                // estatisticamente igual entre os dois (~19s, diferença é ruído de fila, não
-                // de raciocínio) — ou seja, LOW não compra velocidade aqui. Ficamos em MEDIUM
-                // por ter mais margem de segurança sem custo de performance.
-                config.maxOutputTokens = 16384;
+                config.maxOutputTokens = 2048; // Comentário tem teto de 210 palavras (~350 tokens) + margem de thinking MEDIUM
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.MEDIUM };
             } else if (taskType === 'chapter_focus_suggestion' || taskType === 'thematic_focus_suggestion') {
-                // Em aulas que já possuem texto pronto, o sugestor reproduz a ementa inteira
-                // de tópicos (##) e subtópicos (###) e gera 4 a 6 diretrizes ricas e detalhadas
-                // (fontes primárias, termos em hebraico/grego com glossário, etc.).
-                // No Gemini 3.7 Flash, o raciocínio interno ("thinking") compartilha a mesma cota.
-                // Um teto antigo de 3072 tokens cortava a resposta no final.
-                // Expandimos para 8192 tokens de saída. thinkingBudget não é respeitado pelo Gemini 3
-                // (testado); thinkingLevel é o parâmetro real. Essa tarefa só sugere tópicos a partir da
-                // ementa já existente e da persona do professor, sem reconstruir texto original — LOW é seguro.
-                config.maxOutputTokens = 8192;
+                config.maxOutputTokens = 4096;
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             } else if (taskType === 'fetch_primary_source') {
-                config.maxOutputTokens = 3072; // Folga total para citações em hebraico/grego + tradução completa em pt-BR + contexto histórico
-                // Sem thinkingConfig para busca de fontes primárias: operação leve, direta e praticamente instantânea
+                config.maxOutputTokens = 1536; // Recorte cirúrgico conciso (1 a 2 parágrafos + contexto)
+                config.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
                 config.temperature = 0.2;
             } else if (taskType === 'metadata') {
                 config.maxOutputTokens = 1024;
+                config.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
                 config.temperature = 0.2;
             } else if (taskType === 'assistente_chat' || taskType === 'devotional') {
-                // thinkingBudget não é respeitado pelo Gemini 3 (testado); thinkingLevel é o parâmetro
-                // real. Estavam sem nenhum thinkingConfig (HIGH implícito) — testado: LOW ficou 2x a
-                // 2.7x mais rápido nos dois (buscador: ~10s -> ~4.6s; devocional: ~18s -> ~6.5s) sem
-                // perda de qualidade (buscador: referências 100% corretas em todos os testes; devocional:
-                // sempre respeitou o capítulo pedido, fugiu de clichês, e manteve estrutura/tamanho).
-                // O buscador em especial é literalmente descrito como "ultrarrápido" no seu próprio
-                // system instruction — LOW é o nível certo pra ele.
-                config.maxOutputTokens = 16384;
+                config.maxOutputTokens = 4096;
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             } else {
-                config.maxOutputTokens = 16384;
+                config.maxOutputTokens = 8192;
+                config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
             }
 
             if (schema) {
@@ -1444,10 +1411,17 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
     const failedHashes = [];
     const functionStartTime = Date.now();
 
-    // Teto de tempo por chave, alinhado ao tipo de tarefa:
-    // - Tarefas rápidas (fontes primárias e epígrafes/metadata): 10s por chave
-    // - Tarefas intermediárias (quiz, sugestões, dicionário, comentário, chat): 45s por chave
-    // - Tarefas longas (EBD Panorama, Guia do Mestre, Apostila Temática): 110s por chave (permite testar múltiplas chaves dentro da mesma janela de 290s se uma chave travar)
+    // Classificação inteligente de modelos para distribuir carga entre cotas independentes (evita exaustão prematura e 503 High Demand):
+    // - Tarefas auxiliares/rápidas (fontes primárias, epígrafes/metadata, buscador rápido, sugestões de pontos de atenção em segundo plano):
+    //   usam 'gemini-3.1-flash-lite', que tem cota própria separada, latência ultrabaixa e preserva 100% da cota do 'gemini-3.6-flash' para as aulas e estudos principais!
+    // - Tarefas teológicas principais (EBD Panorama, Guia do Mestre, Estudos Temáticos, Dicionário, Comentário, Devocional, Quiz):
+    //   usam 'gemini-3.6-flash' como motor titular e, se uma chave sofrer 503 High Demand no modelo principal, tenta fallback imediato antes de descartar a chave.
+    const isLiteTask = [
+        'fetch_primary_source',
+        'metadata',
+        'assistente_chat',
+        'chapter_focus_suggestion'
+    ].includes(taskType);
     const isFastTask = taskType === 'fetch_primary_source' || taskType === 'metadata';
     const isHeavyLessonTask = ['ebd', 'teacher_ebd', 'thematic_ebd', 'upgrade_ebd', 'upgrade_teacher_ebd', 'upgrade_thematic_ebd'].includes(taskType);
     const perKeyTimeoutMs = isFastTask ? 10000 : (isHeavyLessonTask ? 110000 : 45000);
@@ -1473,9 +1447,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 }
             });
             
-            // Para tarefas leves e diretas como fontes primárias e epígrafes (metadata), gemini-3.1-flash-lite oferece alta estabilidade duradoura e resposta rápida (<1s)
-            // Para as tarefas teológicas aprofundadas (aula/quiz/sugestão), gemini-3.6-flash é o modelo principal
-            const TARGET_MODEL = isFastTask ? 'gemini-3.1-flash-lite' : 'gemini-3.6-flash';
+            const TARGET_MODEL = isLiteTask ? 'gemini-3.1-flash-lite' : 'gemini-3.6-flash';
 
             const generatePromise = ai.models.generateContent({
                 model: TARGET_MODEL,
