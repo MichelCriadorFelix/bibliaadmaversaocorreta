@@ -773,8 +773,128 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                     }
                 }
             }
-            // --- LÓGICA DE QUIZ (BLINDAGEM ANTI-ALUCINAÇÃO) ---
+            // --- LÓGICA DE QUIZ (BLINDAGEM ANTI-ALUCINAÇÃO E FILTRO ESTRITO DE CONTEÚDO PRINCIPAL) ---
             else if (taskType === 'quiz_gen') {
+                const extractMainLessonForQuiz = (rawText) => {
+                    if (!rawText || typeof rawText !== 'string') return '';
+                    const lines = rawText.split(/\r?\n/);
+
+                    const isExcludedHeadingText = (headingText) => {
+                        const clean = headingText
+                            .replace(/^[#*>\-\s]+/, '')
+                            .replace(/[*_]+/g, '')
+                            .trim();
+                        return /^(?:INTRODU[ÇC][ÃA]O|TIPOLOGIA|CONEX[ÃA]O\s+COM\s+(?:JESUS|CRISTO)|CURIOSIDADES?|ARQUEOLOGIA|P[ÉE]ROLAS?\s+DE\s+OURO|AP[ÊE]NDICE|DOSSI[ÊE]\s+ESPECIAL)/i.test(clean) ||
+                            /\b(?:TIPOLOGIA\s*:?\s*CONEX[ÃA]O|CONEX[ÃA]O\s+COM\s+JESUS\s+CRISTO|CURIOSIDADES?\s+E\s+ARQUEOLOGIA|ARQUEOLOGIA\s+E\s+CURIOSIDADES?)\b/i.test(clean);
+                    };
+
+                    const isMainTopicH2 = (line) => {
+                        const tr = line.trim();
+                        if (!/^##\s+/.test(tr) || /^###/.test(tr)) return false;
+                        return !isExcludedHeadingText(tr);
+                    };
+
+                    const hasMainTopicH2 = lines.some(isMainTopicH2);
+
+                    const filterLines = (requireMainTopicStart) => {
+                        const kept = [];
+                        let seenMainTopic = !requireMainTopicStart;
+                        let inExcludedSection = false;
+
+                        for (const rawLine of lines) {
+                            const tr = rawLine.trim();
+                            if (!tr) {
+                                if (seenMainTopic && !inExcludedSection && kept.length > 0 && kept[kept.length - 1] !== '') {
+                                    kept.push('');
+                                }
+                                continue;
+                            }
+
+                            if (/^#\s+/.test(tr) || /^PANOR[ÂA]MA\s+B[ÍI]BLICO/i.test(tr) || tr === '__CONTINUATION_MARKER__') {
+                                continue;
+                            }
+
+                            if (tr.startsWith('>')) {
+                                continue;
+                            }
+
+                            const isH2 = /^##\s+/.test(tr) && !/^###/.test(tr);
+                            const isH3 = /^###+\s+/.test(tr);
+                            const isStandaloneBoldHeading = tr.length < 100 && /^\*\*[^*]+\*\*$/.test(tr);
+
+                            if (isH2) {
+                                if (isExcludedHeadingText(tr)) {
+                                    inExcludedSection = true;
+                                } else {
+                                    seenMainTopic = true;
+                                    inExcludedSection = false;
+                                    kept.push(tr);
+                                }
+                                continue;
+                            }
+
+                            if (isH3 || isStandaloneBoldHeading || (tr.length < 90 && isExcludedHeadingText(tr))) {
+                                if (isExcludedHeadingText(tr)) {
+                                    inExcludedSection = true;
+                                    continue;
+                                }
+                                if (isH3 && seenMainTopic) {
+                                    inExcludedSection = false;
+                                    kept.push(tr);
+                                    continue;
+                                }
+                            }
+
+                            if (!seenMainTopic || inExcludedSection) {
+                                continue;
+                            }
+
+                            if (/^(?:[\*_>\-\s]*)*P[ÉE]ROLAS?\s+DE\s+OURO\b/i.test(tr)) {
+                                continue;
+                            }
+
+                            let cleanedLine = tr.replace(/(?:\*\*|\b)P[ÉE]ROLAS?\s+DE\s+OURO\s*:?\s*(?:\*\*)?[\s\S]*$/i, '').trim();
+                            if (!cleanedLine) continue;
+
+                            if (/\{\{[^}]+\}\}/.test(cleanedLine)) {
+                                const sentences = cleanedLine.split(/(?<=[.!?])\s+/);
+                                const filteredSentences = sentences.filter(s => !/\{\{[^}]+\}\}/.test(s) && !/P[ÉE]ROLAS?\s+DE\s+OURO/i.test(s));
+                                cleanedLine = filteredSentences.join(' ').trim();
+                                if (!cleanedLine) continue;
+                            }
+
+                            cleanedLine = cleanedLine.replace(/\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]/g, '$1');
+                            kept.push(cleanedLine);
+                        }
+
+                        return kept;
+                    };
+
+                    let resultLines = filterLines(hasMainTopicH2);
+                    let resultText = resultLines.join('\n').trim();
+
+                    if (hasMainTopicH2 && resultText.length < 200) {
+                        resultLines = filterLines(false);
+                        resultText = resultLines.join('\n').trim();
+                    }
+
+                    return resultText || rawText;
+                };
+
+                const sanitizeQuizPrompt = (rawPrompt) => {
+                    if (!rawPrompt || typeof rawPrompt !== 'string') return '';
+                    if (/"""[\s\S]+"""/.test(rawPrompt)) {
+                        return rawPrompt.replace(/"""([\s\S]+?)"""/, (_, inner) => `"""\n${extractMainLessonForQuiz(inner)}\n"""`);
+                    }
+                    if (/--- INÍCIO DO TEXTO DA AULA ---[\s\S]+--- FIM DO TEXTO DA AULA ---/.test(rawPrompt)) {
+                        return rawPrompt.replace(
+                            /--- INÍCIO DO TEXTO DA AULA ---([\s\S]+?)--- FIM DO TEXTO DA AULA ---/,
+                            (_, inner) => `--- INÍCIO DO TEXTO DA AULA ---\n${extractMainLessonForQuiz(inner)}\n--- FIM DO TEXTO DA AULA ---`
+                        );
+                    }
+                    return extractMainLessonForQuiz(rawPrompt);
+                };
+
                 systemInstruction = `
                     ATUE COMO: Um Robô de Análise Textual Estrita (Sem Conhecimento Externo).
                     
@@ -783,17 +903,28 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                     2. Sua ÚNICA fonte de verdade é o texto fornecido pelo usuário.
                     3. Se a informação não está escrita palavra por palavra no texto fornecido, ELA NÃO EXISTE para você.
                     
+                    ESCOPO EXCLUSIVO DA AULA PRINCIPAL (REGRA INVIOLÁVEL - ERRO CRÍTICO SE IGNORADA):
+                    Todas as perguntas DEVEM vir EXCLUSIVAMENTE do CONTEÚDO DA AULA PRINCIPAL (os tópicos principais de exposição bíblica do capítulo).
+                    É TERMINANTEMENTE PROIBIDO criar perguntas baseadas em qualquer um dos seguintes elementos (mesmo que apareçam no meio de um parágrafo):
+                    1. PROIBIDO PÉROLAS DE OURO E FONTES EXTRABÍBLICAS: NUNCA faça perguntas sobre "Pérolas de Ouro", citações rabínicas ou históricas, Talmud, Mishná, Midrash, Targum, Flávio Josefo, Fílon de Alexandria, Eusébio, Pais da Igreja, Manuscritos de Qumran ou tradições judaicas extrabíblicas.
+                    2. PROIBIDO INTRODUÇÃO: NUNCA faça perguntas sobre a introdução da aula (contexto geral do livro, datação, autoria geral ou gancho introdutório).
+                    3. PROIBIDO TIPOLOGIA COM CRISTO: NUNCA faça perguntas sobre a seção "Tipologia: Conexão com Jesus Cristo" ou paralelos tipológicos/prefigurações messiânicas.
+                    4. PROIBIDO CURIOSIDADES E ARQUEOLOGIA: NUNCA faça perguntas sobre curiosidades históricas, escavações, artefatos arqueológicos, museus, inscrições antigas ou notas arqueológicas (mesmo quando inseridas in-loco no parágrafo).
+                    5. PROIBIDO IDIOMAS ORIGINAIS E ETIMOLOGIA: NUNCA escolha como ponto chave uma palavra ou expressão em hebraico/grego/latim mencionada na aula (ex: nunca pergunte "o que significa a expressão grega X?"), nem etimologia, nem tradição de manuscritos. Escolha SEMPRE fatos bíblicos, ensinos, personagens ou eventos narrados em português do conteúdo expositivo principal da aula.
+                       - ERRADO (proibido): "Qual o significado da expressão grega 'tēreō ek' mencionada no texto?"
+                       - ERRADO (proibido): "Segundo o Tratado Hagigah do Talmud citado na aula, o que ensina a letra Bet?"
+                       - ERRADO (proibido): "O que as escavações arqueológicas no Oriente Médio revelam sobre esse costume?"
+                       - ERRADO (proibido): "Na tipologia com Cristo, o que a arca de Noé prefigura?"
+                       - CERTO (conteúdo da aula principal): "Segundo a aula, o que a promessa de Apocalipse 3:10 garante à igreja fiel?"
+                    
                     REGRAS DE GERAÇÃO:
-                    1. LEITURA COMPLETA: Leia todo o texto da aula antes de gerar qualquer pergunta.
-                    2. IDENTIFICAÇÃO DE PONTOS CHAVE: Identifique os pontos mais relevantes (ensinos, personagens, fatos) que o aluno DEVE aprender. Garanta que esses pontos sejam distintos entre si.
-                       - PROIBIDO GRAVE (ERRO CRÍTICO SE IGNORADO): NUNCA escolha como "ponto chave" uma palavra ou expressão em hebraico/grego/latim mencionada na aula (ex: nunca pergunte "o que significa a expressão grega X?"), nem etimologia, nem tradição de manuscritos. Mesmo que a aula cite e explique um termo original, esse termo NÃO pode virar pergunta de quiz — é informação de apoio pro professor, não matéria de prova pro aluno leigo, que não tem como adivinhar/decorar uma palavra em outro idioma. Escolha SEMPRE fatos, ensinos, personagens ou eventos narrados em português.
-                       - ERRADO (proibido, mesmo se a resposta estiver literalmente no texto): "Qual o significado da expressão grega 'tēreō ek' mencionada no texto?"
-                       - CERTO (mesmo trecho da aula, ponto certo a escolher): "Segundo a aula, o que a promessa de Apocalipse 3:10 garante à igreja fiel?"
+                    1. LEITURA COMPLETA: Leia todo o conteúdo dos tópicos principais da aula antes de gerar qualquer pergunta.
+                    2. IDENTIFICAÇÃO DE PONTOS CHAVE DA AULA PRINCIPAL: Identifique os pontos bíblicos e expositivos mais relevantes (ensinos centrais, personagens bíblicos, acontecimentos dos versículos do capítulo) que o aluno DEVE aprender. Garanta que esses pontos sejam distintos entre si e distribuídos pelos tópicos principais da aula.
                     3. FORMULAÇÃO DA PERGUNTA:
                        - Deve ser contextualizada, clara e bem formulada.
                        - Tamanho: Entre 10 e 16 palavras (OBRIGATÓRIO).
                     4. FORMULAÇÃO DA RESPOSTA CORRETA:
-                       - Deve estar expressamente no texto.
+                       - Deve estar expressamente no texto principal da aula.
                        - PROIBIDO: Não repita o enunciado ou partes da pergunta na resposta. A resposta deve ser direta.
                        - Tamanho:
                          - Se for um NOME PRÓPRIO: Exatamente 1 palavra.
@@ -803,10 +934,10 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                        - Devem ser desafiadoras e capazes de confundir o aluno.
                        - Use pegadinhas, respostas similares à correta ou respostas plausíveis, mas incorretas com base no texto.
                        - Devem parecer corretas à primeira vista para testar a atenção do aluno.
-                    6. PROVA TEXTUAL: O 'proofText' é OBRIGATÓRIO (cópia fiel de parte do texto) para provar que você não alucinou.
+                    6. PROVA TEXTUAL: O 'proofText' é OBRIGATÓRIO (cópia fiel de parte do texto principal da aula) para provar que você não alucinou.
                     
-                    PROIBIÇÕES:
-                    - PROIBIDO (reforço final, ERRO GRAVE): Perguntas ou respostas sobre tradição, etimologia, palavras no original (grego/hebraico/latim) ou termos linguísticos técnicos — mesmo que a aula os mencione. Revise cada pergunta gerada antes de retornar: se alguma perguntar "o que significa a palavra X" ou citar um termo transliterado, DESCARTE e troque por um ponto sobre fatos/ensinos narrados em português.
+                    REVISÃO OBRIGATÓRIA ANTES DE RETORNAR:
+                    Revise cada pergunta gerada: se alguma abordar Pérola de Ouro (Talmud/Midrash/Josefo/fontes históricas), Introdução, Tipologia com Cristo, Curiosidades/Arqueologia ou termos em hebraico/grego/latim, DESCARTE IMEDIATAMENTE e substitua por uma pergunta sobre a exposição bíblica da aula principal.
                     
                     EXEMPLO DE APLICAÇÃO:
                     Texto: "Jesus caminhou sobre as águas durante uma forte tempestade no mar da Galileia para encontrar seus discípulos."
@@ -816,7 +947,7 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                     Distração 2: "O evento ocorreu especificamente no rio Jordão." (Mesmo padrão)
                     Distração 3: "O evento ocorreu especificamente no mar Vermelho." (Mesmo padrão)
                 `;
-                enhancedPrompt = prompt;
+                enhancedPrompt = sanitizeQuizPrompt(prompt);
             }
             // --- LÓGICA DE DICIONÁRIO ---
             else if (taskType === 'dictionary') {

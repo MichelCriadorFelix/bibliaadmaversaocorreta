@@ -6,6 +6,7 @@ import { db, bibleStorage } from '../../services/database';
 import { Type as GenType } from "@google/genai";
 import { ContentReport, AppConfig, UserProgress, Quiz } from '../../types';
 import AppBuilder from './AppBuilder';
+import { extractMainLessonContentForQuiz } from '../../utils/quizContentFilter';
 
 /**
  * PAINEL ADMINISTRATIVO ADMA - MOTOR DE EXEGESE SUPREMO v102.0
@@ -1001,21 +1002,23 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       }
 
       setIsGeneratingQuiz(true);
+      const mainLessonText = extractMainLessonContentForQuiz(quizText);
       
       const prompt = `
-          FONTE DE DADOS EXCLUSIVA (IGNORAR CONHECIMENTO PRÉVIO):
+          FONTE DE DADOS EXCLUSIVA - APENAS CONTEÚDO DA AULA PRINCIPAL (IGNORAR CONHECIMENTO PRÉVIO):
           """
-          ${quizText}
+          ${mainLessonText}
           """
           
-          TAREFA: Gere ${quizTab === 'single' ? '5' : '2'} perguntas de múltipla escolha baseadas APENAS no texto acima entre aspas triplas.
+          TAREFA: Gere ${quizTab === 'single' ? '5' : '2'} perguntas de múltipla escolha baseadas EXCLUSIVAMENTE no conteúdo da aula principal acima entre aspas triplas.
           
-          REGRAS DE BLINDAGEM (Risco de Falha Crítica):
-          1. A resposta correta DEVE estar escrita explicitamente no texto fornecido.
-          2. Se o texto fala sobre "Arqueologia", NÃO faça perguntas sobre "Teologia" ou "Trindade" a menos que essas palavras estejam escritas no texto.
-          3. Não use seu conhecimento bíblico geral. Use APENAS o texto colado acima.
-          4. O campo 'proofText' deve ser uma CÓPIA IDÊNTICA da frase do texto que contém a resposta.
-          5. TENTE VARIAR A POSIÇÃO DA RESPOSTA CORRETA (A, B, C, D, E) entre as perguntas para não viciar na mesma letra.
+          REGRAS DE BLINDAGEM E ESCOPO (Risco de Falha Crítica):
+          1. A resposta correta DEVE estar escrita explicitamente no texto principal fornecido.
+          2. PROIBIÇÃO ABSOLUTA: NUNCA gere perguntas sobre Pérolas de Ouro (Talmud, Midrash, Mishná, Flávio Josefo, Pais da Igreja ou fontes extrabíblicas), nem sobre a Introdução da aula, nem sobre a Tipologia com Cristo, nem sobre Curiosidades e Arqueologia, nem sobre palavras em hebraico/grego/latim.
+          3. Todas as perguntas DEVEM tratar exclusivamente da exposição bíblica e dos ensinos centrais da aula principal.
+          4. Não use seu conhecimento bíblico geral. Use APENAS o texto colado acima.
+          5. O campo 'proofText' deve ser uma CÓPIA IDÊNTICA da frase do texto principal que contém a resposta.
+          6. TENTE VARIAR A POSIÇÃO DA RESPOSTA CORRETA (A, B, C, D, E) entre as perguntas para não viciar na mesma letra.
       `;
 
       const schema = {

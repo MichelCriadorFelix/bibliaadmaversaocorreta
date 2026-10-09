@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, Loader2, Check, X, RefreshCw, Save } from 'lucide-react';
 import { QuizQuestion } from '../../types';
 import { generateContent } from '../../services/geminiService';
+import { extractMainLessonContentForQuiz } from '../../utils/quizContentFilter';
 
 interface QuizGeneratorProps {
     lessonContent: string;
@@ -17,15 +18,17 @@ export const QuizGenerator: React.FC<QuizGeneratorProps> = ({ lessonContent, onQ
     const generateQuestions = async () => {
         setIsGenerating(true);
         try {
+            const mainLessonText = extractMainLessonContentForQuiz(lessonContent);
             const prompt = `
-                Gere 10 perguntas de múltipla escolha baseadas EXCLUSIVAMENTE no texto da aula delimitado abaixo.
+                Gere 10 perguntas de múltipla escolha baseadas EXCLUSIVAMENTE no conteúdo da aula principal delimitado abaixo.
                 
                 REGRAS:
-                1. A resposta deve estar no texto.
-                2. A pergunta deve ser clara.
-                3. 4 opções (A, B, C, D).
-                4. Apenas uma correta.
-                5. Inclua o trecho do texto que comprova a resposta (proofText).
+                1. A resposta deve estar explícita no texto principal da aula.
+                2. PROIBIDO gerar perguntas das Pérolas de Ouro (Talmud, Midrash, Josefo, fontes históricas), da Introdução, da Tipologia com Cristo, ou de Curiosidades e Arqueologia.
+                3. A pergunta deve ser clara e vir apenas do conteúdo expositivo da aula principal.
+                4. 4 opções (A, B, C, D).
+                5. Apenas uma correta.
+                6. Inclua o trecho do texto principal que comprova a resposta (proofText).
                 
                 Retorne APENAS um JSON no seguinte formato:
                 [
@@ -39,7 +42,7 @@ export const QuizGenerator: React.FC<QuizGeneratorProps> = ({ lessonContent, onQ
                 ]
 
                 --- INÍCIO DO TEXTO DA AULA ---
-                ${lessonContent}
+                ${mainLessonText}
                 --- FIM DO TEXTO DA AULA ---
             `;
             

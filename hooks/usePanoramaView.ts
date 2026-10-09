@@ -6,6 +6,7 @@ import { usePanoramaAudio } from './usePanoramaAudio';
 import { EBDContent, Quiz, ThematicTheme, ThematicLesson, ThematicFolder, UserProgress } from '../types';
 import { db } from '../services/database';
 import { generateContent } from '../services/geminiService';
+import { extractMainLessonContentForQuiz } from '../utils/quizContentFilter';
 
 interface UsePanoramaViewProps {
     initialBook: string;
@@ -133,19 +134,22 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
 
         setQuizLoading(true);
         try {
+            const mainLessonText = extractMainLessonContentForQuiz(content.student_content);
             const prompt = `
-                FONTE DE DADOS EXCLUSIVA (IGNORAR CONHECIMENTO PRÉVIO):
+                FONTE DE DADOS EXCLUSIVA - APENAS CONTEÚDO DA AULA PRINCIPAL (IGNORAR CONHECIMENTO PRÉVIO):
                 """
-                ${content.student_content}
+                ${mainLessonText}
                 """
                 
-                TAREFA: Gere 5 perguntas de múltipla escolha baseadas APENAS no texto acima entre aspas triplas.
+                TAREFA: Gere 5 perguntas de múltipla escolha baseadas EXCLUSIVAMENTE no conteúdo da aula principal acima entre aspas triplas.
                 
-                REGRAS DE BLINDAGEM (Risco de Falha Crítica):
-                1. A resposta correta DEVE estar escrita explicitamente no texto fornecido.
-                2. Não use seu conhecimento bíblico geral. Use APENAS o texto colado acima.
-                3. O campo 'proofText' deve ser uma CÓPIA IDÊNTICA da frase do texto que contém a resposta.
-                4. TENTE VARIAR A POSIÇÃO DA RESPOSTA CORRETA (A, B, C, D, E) entre as perguntas para não viciar na mesma letra.
+                REGRAS DE BLINDAGEM E ESCOPO (Risco de Falha Crítica):
+                1. A resposta correta DEVE estar escrita explicitamente no texto principal fornecido.
+                2. PROIBIÇÃO ABSOLUTA: NUNCA gere perguntas sobre Pérolas de Ouro (Talmud, Midrash, Mishná, Flávio Josefo, Pais da Igreja ou fontes extrabíblicas), nem sobre a Introdução da aula, nem sobre a Tipologia com Cristo, nem sobre Curiosidades e Arqueologia, nem sobre palavras em hebraico/grego/latim.
+                3. Todas as 5 perguntas DEVEM tratar exclusivamente da exposição bíblica e dos ensinos centrais da aula principal.
+                4. Não use seu conhecimento bíblico geral. Use APENAS o texto colado acima.
+                5. O campo 'proofText' deve ser uma CÓPIA IDÊNTICA da frase do texto principal que contém a resposta.
+                6. TENTE VARIAR A POSIÇÃO DA RESPOSTA CORRETA (A, B, C, D, E) entre as perguntas para não viciar na mesma letra.
             `;
 
             const schema = {
