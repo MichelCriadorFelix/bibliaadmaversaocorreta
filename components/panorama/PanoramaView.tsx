@@ -474,15 +474,15 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
 
     const parseInline = (t: string): React.ReactNode => {
         const cleanContext = t.replace(/\*\*/g, '').replace(/\{\{.*?\|.*?(\|.*?)?\}\}/g, '').replace(/\[\[(.*?)\|.*?\]\]/g, '$1').trim().slice(0, 280);
-        const parts = t.split(/(\{\{.*?\|.*?\}\}|\[\[.*?\|.*?\]\]|\*\*(?!\s).*?(?<!\s)\*\*|\*(?!\s).*?(?<!\s)\*)/g);
+        const parts = t.split(/(\{\{[\s\S]*?\|[\s\S]*?\}\}|\[\[[\s\S]*?\|[\s\S]*?\]\]|\*\*(?!\s)(?:\[\[[\s\S]*?\]\]|\{\{[\s\S]*?\}\}|[^*])+?(?<!\s)\*\*|\*(?!\s)(?:\[\[[\s\S]*?\]\]|\{\{[\s\S]*?\}\}|[^*])+?(?<!\s)\*)/g);
         return parts.map((part, i) => {
             if (!part) return null;
             
             if (part.startsWith('{{') && part.endsWith('}}') && part.includes('|')) {
                 const inner = part.slice(2, -2);
                 const refParts = inner.split('|');
-                const source = refParts[0]?.trim() || '';
-                const reference = refParts[1]?.trim() || '';
+                const source = refParts[0]?.replace(/\*+/g, '').trim() || '';
+                const reference = refParts[1]?.replace(/\*+/g, '').trim() || '';
                 const explicitCommand = refParts.slice(2).join('|').trim() || '';
                 const hiddenCommand = explicitCommand
                     ? (cleanContext ? `${explicitCommand}. (Contexto da aula: "${cleanContext}")` : explicitCommand)
@@ -497,10 +497,11 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
             if (part.startsWith('[[') && part.endsWith(']]') && part.includes('|')) {
                 const inner = part.slice(2, -2);
                 const [term, ...explanationParts] = inner.split('|');
-                const explanation = explanationParts.join('|');
+                const cleanTerm = term.replace(/^\*+|\*+$/g, '').trim();
+                const explanation = explanationParts.join('|').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').trim();
                 return (
-                    <GlossaryTerm key={`glossary-${i}`} term={term.trim()} explanation={explanation.trim()}>
-                        {term.trim()}
+                    <GlossaryTerm key={`glossary-${i}`} term={cleanTerm} explanation={explanation}>
+                        {cleanTerm}
                     </GlossaryTerm>
                 );
             }

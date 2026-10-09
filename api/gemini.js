@@ -518,9 +518,9 @@ ${existingContent.substring(0, 6000)}
 1. TEMA DOUTRINÁRIO RELEVANTE: se o capítulo toca algum tema que está na lente doutrinária do sistema (ex: como a salvação funciona, o fim dos tempos, os dons espirituais, quem é Jesus), aponte que vale reforçar esse ponto na aula — sem escrever a explicação inteira, só sinalizar, em palavras simples.
 2. INTERPRETAÇÃO ERRADA COMUM: se alguma passagem deste capítulo costuma ser mal interpretada ou usada por algum grupo pra defender algo fora do que a Bíblia realmente ensina, diga EM POUCAS PALAVRAS SIMPLES qual é esse erro e qual é a interpretação correta — pra o professor já saber que precisa esclarecer isso, sem citar nomes de heresias ou correntes teológicas como rótulo.
 3. CURIOSIDADE HISTÓRICA: algo pouco óbvio sobre o contexto, costume, geografia ou achado arqueológico ligado ao capítulo, explicado de forma simples.
-4. O PORQUÊ DE UM TERMO OU RITUAL: algum ritual, costume ou palavra original (hebraico/grego) mencionado cujo significado profundo vale a pena explicar — traduza o termo original e explique o "porquê por trás" em linguagem do dia a dia, não só cite.
+4. PALAVRAS-CHAVE NOS ORIGINAIS E SIGNIFICADO DE NOMES/LUGARES: aponte 1 ou 2 palavras-chave no hebraico/aramaico/grego ou nomes de personagens/lugares deste capítulo cujo significado original revele exatamente o que o autor quis transmitir e como os ouvintes da época entendiam aquilo — traduza e explique em linguagem simples do dia a dia.
 5. ALGO QUE SOA ESTRANHO HOJE: um costume, lei ou detalhe do texto que parece estranho, chocante ou sem sentido pra um leitor moderno, e que se beneficia de uma explicação simples.
-6. CONEXÃO QUE ESCLARECE: uma referência cruzada com outro texto bíblico, com a tradição judaica, com um historiador antigo, ou uma fonte primária que ajuda a entender melhor este capítulo, resumida em linguagem acessível.
+6. CONEXÃO HERMENÊUTICA E FONTES QUE ESCLAREÇAM: uma referência bíblica cruzada que pertença genuinamente ao mesmo contexto (a Bíblia explicando a própria Bíblia, sem forçar textos desconexos), ou uma fonte primária/judaica que ilumine o capítulo.
 7. EXEMPLO OU RELATO BÍBLICO PRÁTICO (RIGOR HERMENÊUTICO E CONTEXTUAL — SEM FORÇAR): Se o capítulo traz um mandamento, doutrina, lei ou princípio (ex: pecados por ignorância de líderes/congregação, votos, sacerdócio, julgamentos), aponte onde esse princípio foi vivido, quebrado ou cumprido na prática em uma história das Escrituras (ex: o erro de Davi ao transportar a Arca em 1 Cr 13/15, o juramento precipitado de Saul em 1 Sm 14, a purificação de Josias em 2 Rs 22). ATENÇÃO CRÍTICA: A correspondência bíblica deve ser REAL, LEGÍTIMA e no CONTEXTO EXATO da passagem. É TERMINANTEMENTE PROIBIDO inventar, alucinar, espiritualizar forçadamente ou encaixar uma história fora de contexto só para ter um exemplo. Se não houver uma narrativa bíblica que ilustre com exatidão aquele ponto específico, NÃO invente nem force uma conexão artificial — a fidelidade ao texto bíblico prevalece sempre sobre o desejo de exemplificar.
 
 Seja direto e específico deste capítulo — nada genérico que serviria para qualquer capítulo. Sem introduções, sem saudações, sem numerar as categorias acima no texto final (elas são só um guia interno seu), vá direto para a lista de itens.`;
@@ -987,11 +987,11 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                 const isUpgrade = taskType === 'upgrade_thematic_ebd';
                 
                 if (depthLevel === 'padrao') {
-                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os conceitos de forma clara, mas sem se estender excessivamente em teorias secundárias.";
+                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto, mas SEMPRE incluindo as palavras-chave nos originais (hebraico/grego), o significado clicável dos nomes/lugares e referências bíblicas cruzadas do mesmo contexto.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial. Cada explicação deve ser densa e informativa.";
+                    depthInstruction = "Forneça mais contexto histórico, palavras-chave nos idiomas originais (hebraico/aramaico/grego), significado clicável de nomes e lugares, referências cruzadas e explicações detalhadas para cada ponto. Não seja superficial.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "Análise teológica e histórica profunda, explorando teorias relevantes, contexto bíblico e significados originais com alta erudição, respeitando rigorosamente a escala de páginas solicitada.";
+                    depthInstruction = "Análise teológica, exegética e histórica profunda, explorando palavras-chave no hebraico/grego, recepção dos ouvintes originais, onomástica/toponímia clicável e harmonia canônica com alta erudição, respeitando rigorosamente a escala de páginas solicitada.";
                 }
 
                 systemInstruction = `
@@ -1002,18 +1002,32 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                     
                     INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
 
-                    --- DIRETRIZ DE LINGUAGEM E CLAREZA (MUITO IMPORTANTE) ---
-                    1. PÚBLICO-ALVO: Alunos leigos com pouca base teológica e dificuldades com português complexo.
-                    2. DIDÁTICA: Use linguagem CLARA, SIMPLES e ACESSÍVEL. Explique conceitos complexos usando analogias do dia a dia.
-                    3. GLOSSÁRIO INTERATIVO (OBRIGATÓRIO): Sempre que usar um termo técnico, teológico, ou uma palavra em português que seja difícil ou pouco comum (ex: "Hipóstase", "Ontológico", "Perscrutar", "Niilismo"), você DEVE OBRIGATORIAMENTE envolver a palavra e sua explicação simples no seguinte formato exato: [[Palavra|Explicação simples e didática]].
-                       - Exemplo: "...isso configura uma [[Teofania|uma aparição visível de Deus no Antigo Testamento]]..."
-                       - Exemplo: "...o estudo do ser humano exige que olhemos para o fundamento [[ontológico|relativo à natureza do ser, àquilo que o ser humano essencialmente é]] da nossa existência."
-                       - USE ESSE RECURSO ABUNDANTEMENTE PARA FACILITAR A COMPREENSÃO.
+                    --- DIRETRIZ DE LINGUAGEM, GLOSSÁRIO INTERATIVO, ONOMÁSTICA E ORIGINAIS (MUITO IMPORTANTE) ---
+                    1. PÚBLICO-ALVO E DIDÁTICA: Alunos leigos de EBD. Use linguagem CLARA, SIMPLES e ACESSÍVEL, explicando conceitos complexos com analogias do cotidiano, mas SEM JAMAIS omitir a riqueza dos idiomas originais e dos significados dos nomes e lugares.
+                    2. GLOSSÁRIO INTERATIVO CLICÁVEL OBRIGATÓRIO PARA TERMOS TÉCNICOS, NOMES DE PESSOAS, LUGARES E PALAVRAS NOS ORIGINAIS:
+                       Sempre que mencionar:
+                       (a) um **nome próprio de personagem bíblico** (antropônimo),
+                       (b) um **nome de lugar, cidade, região, monte, vale, rio ou povo** (topônimo/etnônimo),
+                       (c) uma **palavra-chave nos originais (Hebraico, Aramaico ou Grego Koiné)**, ou
+                       (d) um **termo técnico, teológico ou palavra difícil em português**,
+                       você DEVE OBRIGATORIAMENTE envolver a palavra no formato clicável: [[Termo ou Nome | Explicação breve, clara e didática]].
+                       - Exemplos de Nomes e Lugares (Onomástica e Toponímia Clicável):
+                         * "...quando Jacó chegou a [[Betel | Do hebraico Beit-El, que significa 'Casa de Deus'; antiga cidade de Luz onde Jacó teve a visão da escada celestial]]..."
+                         * "...o sacerdócio de [[Melquisedeque | Do hebraico Malki-Tzedeq, 'Rei de Justiça', rei de Salém ('Paz'), sacerdote do Deus Altíssimo (Gn 14:18)]]..."
+                         * "...no monte [[Moriá | Do hebraico Moriyyah, 'Visto/Escolhido pelo Senhor'; local do sacrifício de Isaque e futura esplanada do Templo]]..."
+                       - Exemplos de Palavras-Chave nos Originais (Intenção do Autor e Ouvintes Originais):
+                         * "...Deus demonstra Sua [[hesed | Palavra hebraica para o amor leal, fiel e pactual de Deus — muito mais que um sentimento, é um compromisso inquebrável de aliança]]..."
+                         * "...Cristo bradou [[tetelestai | Verbo grego no perfeito ('Está consumado / Foi pago integralmente'), termo comercial e jurídico usado no século I para quitar uma dívida para sempre]]..."
+                       - USE ESSE RECURSO EM TODOS OS TÓPICOS PARA QUE O ALUNO POSSA CLICAR NOS NOMES, LUGARES E PALAVRAS-CHAVE!
+                    3. EXEGESE DAS PALAVRAS-CHAVE NOS ORIGINAIS (INTENÇÃO DO AUTOR E COMPREENSÃO DOS OUVINTES ORIGINAIS):
+                       Em todos os tópicos principais (##), traga à luz pelo menos 1 a 2 palavras-chave decisivas no Hebraico, Aramaico ou Grego Koiné (transliteradas e clicáveis via [[... | ...]]), explicando com simplicidade o que a tradução em português não alcança sozinha: o que o autor inspirado realmente quis transmitir com aquela escolha vocabular e como os ouvintes originais da época entendiam aquela palavra ou expressão em seu ambiente cultural.
 
-                    --- EMBASAMENTO BÍBLICO OBRIGATÓRIO (CRÍTICO) ---
-                    1. Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto.
-                    2. Exemplo: "A morte física é a separação entre alma e corpo (Tiago 2:26; Eclesiastes 12:7). Originalmente, o ser humano não foi criado para morrer (Gênesis 2:17)."
-                    3. PROIBIDO: NÃO crie listas ou blocos de referências no final dos tópicos. As referências devem fluir natural e elegantemente dentro dos parágrafos, logo após a afirmação.
+                    --- HERMENÊUTICA BÍBLICA, CONTEXTO IMEDIATO/REMOTO E EMBASAMENTO BÍBLICO (CRÍTICO) ---
+                    1. EMBASAMENTO NO CORPO DO TEXTO: Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto (ex: Tiago 2:26; Eclesiastes 12:7). NUNCA crie listas soltas de referências no final dos tópicos.
+                    2. A BÍBLIA EXPLICA A PRÓPRIA BÍBLIA (ANALOGIA DA FÉ E INTERTEXTUALIDADE LEGÍTIMA):
+                       - Conecte o ensino com outras passagens bíblicas que pertençam genuinamente ao MESMO contexto teológico, histórico ou temático.
+                       - Respeite rigorosamente o **Contexto Imediato** (o argumento do parágrafo e do capítulo, o destinatário e o propósito do autor) e o **Contexto Remoto/Canônico** (a unidade da Escritura e a aliança em vigor).
+                       - **PROIBIÇÃO DE TEXTOS FORÇADOS E GARANTIA DE NÃO-CONTRADIÇÃO:** A Palavra de Deus jamais se contradiz. É terminantemente proibido tirar um versículo de seu contexto original para forçar uma conexão artificial com um texto que trata de outro assunto. Quando houver textos bíblicos que pareçam tensionar entre si à primeira vista, aplique a boa hermenêutica para harmonizá-los com clareza, demonstrando a unidade perfeita das Escrituras.
 
                     --- FONTE PRIMÁRIA INTERATIVA (OBRIGATÓRIO) ---
                     1. Sempre que citar um historiador (Josefo, Philo, Eusébio), a tradição judaica (Talmud, Mishná, Midrash) ou documentos da antiguidade, você DEVE OBRIGATORIAMENTE usar o formato de 3 partes: {{Autor ou Obra | Referência Visível | Comando Oculto para o Bibliotecário}}.
@@ -1126,11 +1140,11 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 const isUpgrade = taskType === 'upgrade_ebd';
                 
                 if (depthLevel === 'padrao') {
-                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto. Explique os versículos de forma clara e sucinta, sem se estender excessivamente em teorias secundárias.";
+                    depthInstruction = "Mantenha o foco no essencial e direto ao ponto, mas SEMPRE incluindo em todos os tópicos: (1) o significado clicável [[Nome|Significado...]] dos nomes próprios, cidades, montes e lugares, (2) palavras-chave decisivas nos idiomas originais (hebraico/aramaico/grego) mostrando o que o autor quis transmitir e como os ouvintes originais entendiam, e (3) referências bíblicas cruzadas do mesmo contexto.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça mais contexto histórico, referências cruzadas e explicações detalhadas para cada grupo de versículos com boa densidade informativa.";
+                    depthInstruction = "Forneça contexto histórico, palavras-chave nos idiomas originais (hebraico/aramaico/grego) com a percepção dos ouvintes originais, significado clicável de todos os nomes e lugares relevantes, referências bíblicas cruzadas sob boa hermenêutica e explicações detalhadas para cada grupo de versículos.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "Análise exegética e teológica aprofundada com idiomas originais (hebraico/grego), debates teológicos e contexto histórico detalhado, dimensionada com precisão para cobrir o capítulo dentro da meta estrita de palavras.";
+                    depthInstruction = "Análise exegética e teológica aprofundada com amplo uso de palavras-chave nos idiomas originais (hebraico/aramaico/grego), intenção autoral e recepção dos ouvintes originais, onomástica e toponímia clicável completa, debates teológicos, harmonia canônica e contexto histórico detalhado, dimensionada com precisão para cobrir o capítulo dentro da meta estrita de palavras.";
                 }
 
                 const introInstruction = (chapter === 1) 
@@ -1174,14 +1188,19 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         3. CHECAGEM OBRIGATÓRIA DE CITAÇÃO: Antes de citar qualquer personagem em um relato ou versículo, confirme se a referência bíblica (ex: Lc 19:8) corresponde ao nome exato do personagem em português (Zaqueu).
 
         DIRETRIZ PEDAGÓGICA SUPREMA (100% IMPLÍCITA):
-        1. PÚBLICO-ALVO — LINGUAGEM DE EBD, NÃO DE SEMINÁRIO: O leitor é um aluno leigo de Escola Bíblica Dominical, com conhecimento bíblico e teológico limitado — isto NÃO é uma aula de teologia acadêmica. Toda vez que um conceito complexo surgir (culpa objetiva, intenção subjetiva, hamartologia, etc.), explique-o com palavras do dia a dia ANTES ou NO LUGAR do rótulo técnico (ex: em vez de "a culpa objetiva não é anulada pela intenção subjetiva do indivíduo", escreva algo como "o erro continua sendo pecado mesmo que a pessoa não tivesse a intenção de pecar"). Evite palavras como "fulcral", "per se", "intrínseco" e similares quando existe uma palavra comum que diz a mesma coisa. Isso vale mesmo quando o termo técnico vier das Instruções Customizadas do professor (regra 6 abaixo) — traduza para linguagem simples ao usá-lo na aula, nunca copie o jargão sem traduzir.
+        1. PÚBLICO-ALVO — CLAREZA DE EBD UNIDA À RIQUEZA EXEGÉTICA DOS ORIGINAIS: O leitor é um aluno de Escola Bíblica Dominical que precisa de linguagem CLARA, ACESSÍVEL e DIDÁTICA, mas que deseje aprender profundamente a Bíblia! Portanto:
+           - Explique conceitos teológicos em português claro do dia a dia (evitando pedantismo ou palavras obscuras como "fulcral", "per se", "intrínseco").
+           - CONTUDO, simplicidade didática JAMAIS significa omitir os idiomas originais (Hebraico, Aramaico e Grego Koiné) ou o significado dos nomes e lugares! Pelo contrário: você DEVE trazer as palavras-chave nos originais e os significados dos nomes/lugares em TODOS os tópicos, explicando-os com tanta clareza que o aluno sinta o peso real do texto bíblico.
         2. CLAREZA E REVELAÇÃO EXEGÉTICA: O seu objetivo pedagógico é destrinchar cada detalhe do texto de forma tão clara e profunda que o leitor compreenda instantaneamente a razão de ser de cada mandamento, ritual e costume divino.
         3. O PORQUÊ DE CADA DETALHE: Nunca mencione um rito, sacrifício, lei ou costume sem explicar a raiz espiritual, o significado simbólico e o contexto histórico cultural.
         4. ENUMERAÇÃO DIDÁTICA: Quando explicar sequências de versículos, mandamentos, passos ou elementos rituais/teológicos, use SEMPRE listas numeradas (1., 2., 3...) com parágrafos explicativos claros e completos para cada item, em vez de aglomerar tudo em texto corrido.
         5. PROIBIÇÃO ABSOLUTA DE METALINGUAGEM: Termos como "Efeito Ah! Entendi", "Ah! Entendi", "Padrão Ouro", "Metrado", "Instruções Customizadas", "Diretriz do Professor" pertencem estritamente aos bastidores e JAMAIS podem ser escritos, mencionados ou usados como títulos, subtítulos ou no corpo do texto final. A didática deve ser 100% natural, fluida, reverente e teológica.
         6. PRIORIDADE MÁXIMA PARA AS ORIENTAÇÕES DO PROFESSOR: Caso haja ênfases específicas no pedido (ex: foco especial em versículos específicos, explicações detalhadas de pontos difíceis), aplique-as com rigor cirúrgico — mas SEMPRE reescritas na linguagem simples da regra 1, nunca coladas verbatim se vierem em tom acadêmico.
-        7. ANCORAGEM EM RELATOS E CASOS BÍBLICOS PRÁTICOS (RIGOR CONTEXTUAL E HERMENÊUTICO ABSOLUTO — SEM FORÇAR OU ALUCINAR): Doutrinas, leis, ritos, ordenanças e mandamentos não devem ficar apenas no campo abstrato ou teórico. Sempre que explicar um mandamento, princípio espiritual, categoria de erro/pecado ou ordenança divina, conecte a explicação a 1 ou 2 relatos bíblicos práticos ou narrativas históricas onde esse princípio se manifestou na prática na Bíblia (por exemplo: ao tratar de líderes pecando por ignorância em Lv 4, mencione como isso se viu na prática no erro de Davi ao conduzir a Arca num carro de bois em 1 Cr 13/15 ou no juramento precipitado de Saul em 1 Sm 14; ao tratar de quebras coletivas da lei, cite as reformas de Josias em 2 Rs 22 ou Ezequias em 2 Cr 30; ao tratar de votos ou pureza, cite casos narrativos reais).
-           - REGRA DE FIDELIDADE HERMENÊUTICA: A narrativa utilizada DEVE ter correspondência bíblica e contextual real, legítima e exata com o que o texto está ensinando. É TERMINANTEMENTE PROIBIDO inventar, alucinar, distorcer fatos históricos, espiritualizar de forma forçada ou encaixar uma história fora do seu contexto original apenas para preencher espaço. Faça sempre uma análise bíblica consistente e sólida: se em determinado tema ou mandamento NÃO houver uma história bíblica correspondente direta e legítima em todas as Escrituras, NÃO invente e NÃO force nenhuma passagem — explique a teologia com sobriedade e verdade bíblica. A precisão exegética e a verdade das Escrituras estão acima de tudo.
+        7. HERMENÊUTICA DE ALTA PRECISÃO, CONTEXTO IMEDIATO/REMOTO, INTERTEXTUALIDADE E NÃO-CONTRADIÇÃO (A BÍBLIA EXPLICA A PRÓPRIA BÍBLIA):
+           - **Contexto Imediato e Remoto:** Interprete cada versículo respeitando rigorosamente o contexto imediato (o parágrafo/perícope, o argumento do capítulo, quem está falando, para quem fala e a situação histórica real) e o contexto remoto/canônico (o propósito do livro inteiro, a aliança vigente e a história da redenção).
+           - **Embasamento e Conexão com Outras Passagens do Mesmo Contexto:** Não deixe as afirmações soltas nem restritas apenas ao capítulo estudado! Em todos os tópicos, fundamente o ensino conectando organicamente com outras passagens bíblicas que tratem genuinamente do MESMO contexto teológico, doutrinário ou histórico (ex: como uma lei do Pentateuco ecoa nos Salmos e Profetas e se esclarece no Novo Testamento; ou como um evento em Reis se cruza com Crônicas e os profetas contemporâneos).
+           - **Ancoragem em Relatos Bíblicos Práticos (2 a 4 linhas):** Sempre que explicar um mandamento, princípio espiritual, categoria de erro/pecado ou ordenança divina, conecte a explicação a 1 ou 2 relatos bíblicos práticos onde esse princípio se manifestou nas Escrituras (ex: o erro de Davi ao conduzir a Arca em 1 Cr 13/15; o juramento precipitado de Saul em 1 Sm 14; as reformas de Josias em 2 Rs 22 ou Ezequias em 2 Cr 30).
+           - **Proibição de "Forçar a Barra" (Zero Proof-Texting Fora de Contexto) e Princípio da Não-Contradição:** A Escritura jamais entra em contradição com a própria Escritura. É TERMINANTEMENTE PROIBIDO isolar um versículo do seu contexto para forçar uma conexão artificial com um texto que trata de assunto diferente, bem como é proibido inventar ou espiritualizar histórias de forma forçada. Se não houver um relato prático correspondente legítimo, não force. E sempre que o capítulo contiver um versículo que pareça, à primeira vista, contradizer outra passagem bíblica, aplique a **Analogia da Fé (Harmonia Bíblica)** para demonstrar brevemente como os textos se harmonizam perfeitamente quando lidos em seus respectivos contextos!
         8. MATRIZ HERMENÊUTICA DE GÊNEROS E MICROGÊNEROS LITERÁRIOS:
            - Narrativa Histórica (Gn, Ex, Js, Jz, Sm, Rs, Cr, Ed, Ne, At): diferencie descrição (o que aconteceu) de prescrição (o que Deus ordena), evidenciando a providência e soberania divina tecida em meio às fraquezas humanas.
            - Poesia e Sabedoria (Jó, Sl, Pv, Ec, Ct): identifique o paralelismo hebraico (sinônimo, antitético, sintético, quiástico), metáforas e linguagem contemplativa. Trate provérbios como princípios gerais de sabedoria prática e piedade, nunca como garantias matemáticas ou promessas irrevogáveis de prosperidade imediata.
@@ -1198,14 +1217,27 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
            - A antiga seção final "### CURIOSIDADES E ARQUEOLOGIA" está EXTINTA. Ela isolava o dado e o tornava esquecível.
            - Insira evidências arqueológicas (tabuinhas, estelas, cilindros), costumes do Antigo Oriente Próximo e dados históricos verificáveis DIRETAMENTE no corpo do texto, no parágrafo do versículo em que o fato ocorre.
            - FILTRO ANTI-MITOS DE PÚLPITO: Apenas cite fatos arqueológicos e históricos DOCUMENTADOS e COMPROVADOS. É expressamente proibido citar lendas urbanas de púlpito (como a corda na perna do sumo sacerdote ou o buraco da agulha em Jerusalém).
-        11. ONOMÁSTICA BÍBLICA (SIGNIFICADO TEOLÓGICO DOS NOMES E CIDADES):
-           - No pensamento bíblico, nomes revelam planos espirituais, juízos e promessas divinas.
-           - Sempre que um personagem, povo, monte (ex: Moriá, Carmelo), vale (ex: Cedrom) ou cidade (ex: Betânia, Belém, Jericó) tiver significado etimológico relevante nas línguas originais que ilumine a mensagem do capítulo, esse significado DEVE ser explicitado e conectado ao tema.
-        12. DECODIFICAÇÃO DE EXPRESSÕES IDIOMÁTICAS E COSTUMES FORENSES DE CHOQUE:
+        11. ONOMÁSTICA E TOPONÍMIA BÍBLICA INTERATIVA CLICÁVEL (SIGNIFICADO DE NOMES DE PESSOAS, LUGARES, CIDADES, MONTES, RIOS E POVOS — OBRIGATÓRIO):
+           - Na mentalidade bíblica, nomes próprios de pessoas (antropônimos) e nomes de lugares, cidades, aldeias, montes, vales, rios e regiões (topônimos) carregam revelações profundas, profecias, juízos, promessas e memória histórica.
+           - REGRA OBRIGATÓRIA DE CLICABILIDADE: Sempre que um personagem bíblico, cidade, região, monte, vale, rio ou povo aparecer na explicação do capítulo, você DEVE OBRIGATORIAMENTE torná-lo clicável usando o formato de dois colchetes: [[Nome ou Lugar | Significado etimológico no hebraico/aramaico/grego + breve explicação geográfica/histórica e sua relação com o contexto]].
+           - Além do balão clicável [[Nome | Explicação]], quando o significado do nome ou lugar iluminar diretamente o sentido do versículo, destaque essa conexão no próprio texto!
+           - Exemplos obrigatórios de aplicação:
+             * Personagens: [[Abrão | Do hebraico Avram, "Pai exaltado", posteriormente mudado por Deus para Abraão (Avraham), "Pai de uma multidão de nações" (Gn 17:5)]], [[Melquisedeque | Do hebraico Malki-Tzedeq, "Rei de Justiça", rei de Salém ("Paz") e sacerdote do Deus Altíssimo]], [[Barnabé | Do aramaico Bar-Navah, traduzido pelos apóstolos como "Filho da Consolação" ou "Filho da Exortação" (At 4:36)]].
+             * Cidades e Lugares: [[Betel | Do hebraico Beit-El, "Casa de Deus". Antiga cidade cananeia de Luz, onde Jacó teve a visão da escada celestial (Gn 28:19)]], [[Belém | Do hebraico Beit-Lechem, "Casa do Pão", cidade de Davi na Judeia onde nasceu Jesus, o Pão da Vida]], [[Cafarnaum | Do hebraico Kefar-Nahum, "Aldeia de Naum" ou "Aldeia da Consolação", cidade portuária no Mar da Galileia que serviu de base para o ministério de Jesus]], [[Moriá | Do hebraico Moriyyah, "Visto/Escolhido pelo Senhor", monte onde Abraão ofereceu Isaque e onde Salomão edificou o Templo (2 Cr 3:1)]], [[Cedrom | Do hebraico Qidron, "Escuro" ou "Turvo", vale entre Jerusalém e o Monte das Oliveiras atravessado por Davi e por Jesus em momentos de dor]].
+        12. PALAVRAS-CHAVE NOS ORIGINAIS (HEBRAICO, ARAMAICO E GREGO KOINÉ) — INTENÇÃO DO AUTOR E COMPREENSÃO DOS OUVINTES ORIGINAIS (OBRIGATÓRIO EM TODOS OS TÓPICOS):
+           - As traduções em português muitas vezes não conseguem transmitir toda a força, o tempo verbal ou a imagem cultural de uma palavra no original bíblico.
+           - Em TODOS os tópicos principais (##) da aula, você DEVE obrigatoriamente destacar pelo menos 2 a 3 palavras-chave, verbos ou expressões decisivas no idioma original do texto (Hebraico/Aramaico no AT; Grego Koiné no NT).
+           - Cada palavra-chave original DEVE ser apresentada transliterada e envolvida no formato clicável [[termo original | Do hebraico/grego: significado literal, nuance gramatical e como os ouvintes originais entendiam]], explicando também no fluxo do parágrafo:
+             (a) **O que o autor inspirado quis passar:** por que ele escolheu exatamente aquele termo no original e qual a diferença para sinônimos comuns;
+             (b) **Como os ouvintes originais entendiam aquilo:** qual imagem mental, jurídica, familiar, militar, agrícola ou litúrgica aquela palavra despertava imediatamente em um israelita do Antigo Oriente Próximo ou em um ouvinte do século I.
+           - Exemplos de aplicação:
+             * "...o texto diz que Deus sentiu íntima compaixão, usando o verbo grego [[splagchnizomai | Do grego splanchna (vísceras, entranhas): descreve um amor e compaixão tão profundos que estremecem o interior físico da pessoa, o grau mais intenso de misericórdia no grego koiné]], mostrando aos leitores originais que Jesus não sentiu apenas pena superficial..."
+             * "...no original hebraico, a palavra traduzida por benignidade é [[hesed | Do hebraico chesed: amor leal, fidelidade pactual e misericórdia inquebrável baseada na aliança de Deus com Seu povo]], que para o israelita significava que Deus jamais abandona a aliança..."
+        13. DECODIFICAÇÃO DE EXPRESSÕES IDIOMÁTICAS E COSTUMES FORENSES DE CHOQUE:
            - Expressões e metáforas antigas ou práticas jurídicas/forenses que soam obscuras ou amenas ao leitor do século XXI (ex: o "corpo de morte" de Rm 7:24, "cortar aliança" entre animais em Gn 15, tirar a sandália em Rt 4, rasgar vestes) devem ser explicadas em sua realidade histórica crua, para que a classe sinta o mesmo impacto e choque dos ouvintes originais.
-        13. DESARMAMENTO DE ERROS COMUNS E MITOS DE PÚLPITO:
+        14. DESARMAMENTO DE ERROS COMUNS E MITOS DE PÚLPITO:
            - Quando a passagem contiver um erro de interpretação popular clássico amplamente difundido, desfaça o equívoco com elegância, sobriedade e embasamento bíblico ("Muitos pensam equivocadamente que... contudo, a exegese do original demonstra que...").
-        14. COSTURA DE TRANSIÇÃO (GANCHO PARA O PRÓXIMO CAPÍTULO):
+        15. COSTURA DE TRANSIÇÃO (GANCHO PARA O PRÓXIMO CAPÍTULO):
            - Na última frase da exposição da aula (logo antes do apêndice de Tipologia), lance um gancho instigante e reflexivo conectando com o capítulo seguinte, mantendo a visão panorâmica e contínua das Escrituras.
 
         INSTRUÇÃO DE PROFUNDIDADE: ${depthInstruction}
@@ -1228,8 +1260,9 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
            - ERRADO (proibido): "**PÉROLA DE OURO:** {{Talmud | Tratado Shabbat 69a | ...}}"
            - CERTO: "**PÉROLA DE OURO:** O rabino também reconhecia que um erro cometido sem querer não isenta a pessoa de reparar o mal causado, como mostra {{Talmud | Tratado Shabbat 69a | Traga apenas a discussão específica sobre responsabilidade por erro involuntário}}."
         8. QUEBRA DE PARÁGRAFO OBRIGATÓRIA ANTES DA PÉROLA (ERRO GRAVE SE IGNORADO): "**PÉROLA DE OURO:**" DEVE OBRIGATORIAMENTE começar um parágrafo novo, numa linha própria, separada por quebra de linha do parágrafo anterior. É ESTRITAMENTE PROIBIDO continuar a última frase do parágrafo normal direto para "**PÉROLA DE OURO:**" na mesma linha/parágrafo — isso quebra a renderização visual do sistema (o parágrafo inteiro anterior fica com a formatação da Pérola). A Pérola de Ouro é sempre o INÍCIO de um bloco novo, nunca a continuação de um bloco existente.
-        8. GLOSSÁRIO INTERATIVO ABUNDANTE (OBRIGATÓRIO): Para qualquer termo técnico, teológico, hebraico, grego ou palavra pouco usual em português, use obrigatoriamente DOIS COLCHETES: [[Palavra/Termo | Explicação simples e didática para leigo]]. (Exemplo: [[Ontológico | Relativo à natureza essencial do ser]]). JAMAIS use colchete simples [ ] para glossário no meio do texto comum.
-        9. PROIBIÇÃO ABSOLUTA DE ESQUEMAS, FLUXOGRAMAS E TABELAS (EM QUALQUER FORMATO, INCLUSIVE
+        9. GLOSSÁRIO INTERATIVO ABUNDANTE PARA NOMES, LUGARES, ORIGINAIS E TERMOS TÉCNICOS (OBRIGATÓRIO):
+           Para todo nome de personagem bíblico relevante, nome de cidade/lugar/monte/rio/povo, palavra-chave em hebraico/aramaico/grego, termo técnico/teológico ou palavra pouco usual em português, use obrigatoriamente DOIS COLCHETES: [[Palavra/Nome/Lugar | Explicação breve, clara e didática para leigo]]. (Exemplos: [[Betel | Do hebraico Beit-El, "Casa de Deus", antiga Luz]], [[kippur | Do hebraico kafar, cobrir/expiar mediante sangue]], [[Ontológico | Relativo à natureza essencial do ser]]). JAMAIS use colchete simples [ ] para glossário no meio do texto comum, e NUNCA coloque asteriscos de negrito/itálico dentro da explicação dos colchetes duplos.
+        10. PROIBIÇÃO ABSOLUTA DE ESQUEMAS, FLUXOGRAMAS E TABELAS (EM QUALQUER FORMATO, INCLUSIVE
            DENTRO DE UM PARÁGRAFO NORMAL): NUNCA use blocos de código (\`\`\`esquema ou qualquer
            \`\`\`), NUNCA use "caixas" tipo [ Nó ] ---> , NUNCA use TABELAS EM MARKDOWN (formato
            | Coluna 1 | Coluna 2 | com linha separadora |---|---|), e NUNCA use um "[Título entre
@@ -1250,12 +1283,14 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
            caso), escreva isso SEMPRE como TEXTO CORRIDO fluido, com frases completas conectando
            as ideias (como no exemplo CERTO acima) — nunca como lista telegráfica de rótulos entre
            parênteses com seta.
-        10. EMBASAMENTO BÍBLICO FLUÍDO E COMPLETO (REFERÊNCIAS COM LIVRO E CAPÍTULO): Toda afirmação deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
+        11. EMBASAMENTO BÍBLICO FLUÍDO, INTERTEXTUAL E COMPLETO (REFERÊNCIAS COM LIVRO E CAPÍTULO):
+           - Toda afirmação doutrinária, histórica ou exegética deve ser imediatamente amparada por referências bíblicas entre parênteses fluindo no próprio parágrafo (ex: Lv 6:12-13; Hb 13:15).
+           - Conecte os versículos do capítulo estudado com outras passagens bíblicas do MESMO contexto teológico/temático (a Bíblia interpretando a própria Bíblia, respeitando contexto imediato e remoto sem jamais forçar textos fora de contexto).
            - REGRA CRÍTICA PARA CLICABILIDADE: Mesmo ao citar versículos do próprio capítulo que está sendo estudado, dê sempre preferência a referências com o livro e capítulo: '(${book || 'Livro'} ${chapter || '1'}:8)' ou '(${book || 'Livro'} ${chapter || '1'}:9-10)'. Evite referências soltas sem contexto para que a plataforma gere links bíblicos instantâneos com total precisão!
-        11. SELAGEM CRISTOLÓGICA FINAL (ÚNICO APÊNDICE TEMÁTICO): Todo estudo encerra exclusivamente com o apêndice:
+        12. SELAGEM CRISTOLÓGICA FINAL (ÚNICO APÊNDICE TEMÁTICO): Todo estudo encerra exclusivamente com o apêndice:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
            (A antiga seção final de Curiosidades e Arqueologia foi extinta: a arqueologia e a história agora estão inseridas in-loco no corpo do texto).
-        12. FORMATO OBRIGATÓRIO DA TIPOLOGIA (DE 1 A 5 PARALELOS NUMERADOS E CONCISOS):
+        13. FORMATO OBRIGATÓRIO DA TIPOLOGIA (DE 1 A 5 PARALELOS NUMERADOS E CONCISOS):
            - NUNCA escreva a Tipologia como bloco de texto corrido ou parágrafos contínuos sem numeração!
            - Apresente entre 1 e 5 conexões messiânicas numeradas (de acordo com as sombras genuínas que o capítulo permitir, sem forçar alegorias; tipicamente 2 a 4 paralelos).
            - Cada item DEVE começar com o número arábico seguido de ponto: '1. ', '2. ', '3. ', com título do paralelo seguido de dois pontos.
@@ -1279,7 +1314,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         1. TÍTULO PRINCIPAL: # PANORAMA BÍBLICO - ${book ? book.toUpperCase() : 'BÍBLIA'} ${chapter || ''} (PROF. MICHEL FELIX)
         ${introInstruction}
         3. TÓPICOS DO ESTUDO: ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: ${book || 'Livro'} X:Y-Z)
-           - Desenvolva cada tópico com subtópicos ### temáticos descritivos quando necessário, destrinchando os versículos com profundidade, listas enumeradas explicativas, glossários [[Termo|Significado]], Pérolas de Ouro {{Autor|Ref|Comando}}, onomástica hebraica/grega e arqueologia in-loco. A aplicação cristã flui de forma orgânica e implícita no final do tópico.
+           - Desenvolva cada tópico com subtópicos ### temáticos descritivos quando necessário, destrinchando os versículos com profundidade, listas enumeradas explicativas, nomes próprios e lugares clicáveis [[Nome/Lugar|Significado etimológico e contexto]], palavras-chave nos originais clicáveis [[termo original|Significado no hebraico/grego e como os ouvintes originais entendiam]], glossários [[Termo|Significado]], Pérolas de Ouro {{Autor|Ref|Comando}}, referências bíblicas cruzadas do mesmo contexto e arqueologia in-loco. A aplicação cristã flui de forma orgânica e implícita no final do tópico.
         4. SEÇÃO FINAL:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
            1. Título do Paralelo 1: [Explicação concisa em 2 a 3 linhas conectando o paralelo do texto com Cristo e citando as passagens bíblicas]
@@ -1291,8 +1326,11 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         systemInstruction = WRITING_STYLE;
                 if (isUpgrade) {
                     enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]: 
-                    Aplique todas as diretrizes do Professor Michel Felix: matriz hermenêutica do gênero bíblico, onomástica dos nomes com raiz espiritual, decodificação de costumes forenses antigos, arqueologia in-loco no parágrafo do versículo (sem seção de curiosidades no fim), aplicação prática orgânica e 100% implícita (proibido usar rótulos como 'Aplicação Pastoral:'), desarmamento de erros populares de púlpito, costura entre capítulos, glossários [[Termo|Explicação]], fontes {{Autor|Ref|Comando}} e tipologia messiânica estruturada estritamente em 1 a 5 paralelos numerados (1. , 2. , 3. ), cada um com 2 a 3 linhas (proibido texto corrido na seção de Tipologia). Nunca inclua termos de metalinguagem no texto.
-                    INSTRUÇÃO OBRIGATÓRIA (CRUZAMENTO BÍBLICO): Toda afirmação e regra deve estar acompanhada da referência bíblica exata no texto. Você DEVE fazer cruzamentos temáticos com outros textos e livros da Bíblia de forma concisa (2 a 4 linhas por relato).
+                    Aplique todas as diretrizes do Professor Michel Felix:
+                    1. ONOMÁSTICA E TOPONÍMIA CLICÁVEL OBRIGATÓRIA: envolva os nomes próprios de personagens, cidades, montes, rios, vales e lugares no formato clicável [[Nome ou Lugar | Significado no original hebraico/grego e breve contexto geográfico/histórico]], explicando sua conexão com o texto.
+                    2. PALAVRAS-CHAVE NOS ORIGINAIS (INTENÇÃO DO AUTOR E OUVINTES ORIGINAIS): em todos os tópicos principais (##), inclua pelo menos 2 a 3 palavras-chave transliteradas do hebraico/aramaico/grego no formato clicável [[termo | Significado no original, intenção do autor e como os ouvintes originais entendiam]].
+                    3. HERMENÊUTICA, CONTEXTO IMEDIATO/REMOTO E REFERÊNCIAS CRUZADAS: fundamente toda afirmação com referências bíblicas no texto e conecte com outras passagens bíblicas que pertençam genuinamente ao MESMO contexto teológico/histórico (a Bíblia explicando a própria Bíblia, sem forçar conexões fora de contexto e sem cair em contradição).
+                    4. Arqueologia in-loco no parágrafo do versículo (sem seção de curiosidades no fim), aplicação prática orgânica e 100% implícita (proibido usar rótulos como 'Aplicação Pastoral:'), desarmamento de erros populares de púlpito, costura entre capítulos, Pérolas de Ouro concisas {{Autor|Ref|Comando cirúrgico}} em linha nova, e tipologia messiânica estruturada estritamente em 1 a 5 paralelos numerados (1. , 2. , 3. ), cada um com 2 a 3 linhas (proibido texto corrido na seção de Tipologia). Nunca inclua termos de metalinguagem no texto.
                     
                     SOLICITAÇÃO / TEXTO DA AULA PARA ATUALIZAR:
                     """
@@ -1312,11 +1350,13 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     DIRETRIZES FINAIS DE EXECUÇÃO:
                     1. Execute a exegese completa do capítulo solicitado (${book || ''} ${chapter || ''}) obedecendo estritamente a quaisquer instruções e ênfases fornecidas acima.
                     2. Clareza Didática Absoluta: destrinche os versículos de forma profunda e cristalina, explicando a razão de cada detalhe com listas enumeradas explicativas onde for didático. Nunca use rótulos de metalinguagem (como 'Ah! Entendi' ou 'Efeito Ah Entendi').
-                    3. TEXTO CRUZADO E ILUSTRAÇÃO BÍBLICA PRÁTICA (CONCISO): Não se limite ao texto base! Conecte com outros textos bíblicos e ilustre com relatos práticos resumidos em 2 a 4 linhas por caso (sem recontar capítulos inteiros). Para toda afirmação, insira a referência bíblica exata no meio do texto.
-                    4. Aplique o Glossário Interativo [[Termo|Explicação]] em abundância ao longo do texto.
-                    5. Insira as Pérolas de Ouro no formato {{Autor ou Obra | Ref | Comando Oculto}}.
-                    6. Arqueologia e História In-Loco: insira achados e costumes diretamente no parágrafo do versículo (a antiga seção de curiosidades no fim foi extinta). Aplicação prática deve vir 100% implícita e orgânica (proibido usar rótulos como 'Aplicação Pastoral:' ou 'Pergunta para a classe:'). Encerre a aula com um gancho reflexivo para o próximo capítulo e finalize exclusivamente com o apêndice "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" contendo entre 1 e 5 paralelos numerados (1. , 2. , 3. ), cada um com título e explicação concisa de 2 a 3 linhas (nunca texto corrido).
-                    7. ⚠️ RITMO E TRAVA DE VOLUME: Mantenha o tamanho RIGOROSAMENTE entre ${minWords} e ${maxWords} palavras (${pages} páginas). NÃO ultrapasse ${maxWords} palavras sob nenhuma hipótese! Regule o tamanho dos tópicos para terminar dentro desta meta.`;
+                    3. ONOMÁSTICA E TOPONÍMIA CLICÁVEL OBRIGATÓRIA: Sempre que mencionar personagens bíblicos, cidades, aldeias, montes, vales, rios ou regiões, envolva o nome no formato clicável [[Nome ou Lugar | Significado etimológico no hebraico/grego e breve contexto geográfico/histórico]], destacando no texto quando o significado do nome iluminar a mensagem do versículo.
+                    4. PALAVRAS-CHAVE NOS ORIGINAIS (INTENÇÃO DO AUTOR E OUVINTES ORIGINAIS): Em TODOS os tópicos principais (##), apresente pelo menos 2 a 3 palavras-chave ou expressões decisivas no original (Hebraico, Aramaico ou Grego Koiné) transliteradas e clicáveis [[termo original | Significado no original, nuance verbal e impacto nos ouvintes originais]], revelando com fidelidade o que o autor quis transmitir e como os ouvintes originais compreendiam aquilo.
+                    5. HERMENÊUTICA, CONTEXTO IMEDIATO/REMOTO E REFERÊNCIAS BÍBLICAS CRUZADAS: Embase cada afirmação com referências bíblicas no próprio parágrafo e conecte o estudo com outras passagens bíblicas que façam parte genuinamente do MESMO contexto teológico/histórico (a Bíblia explicando a própria Bíblia, respeitando contexto imediato e remoto, sem jamais forçar textos fora de contexto e garantindo total harmonia e não-contradição entre as Escrituras). Ilustre princípios com relatos bíblicos reais e concisos (2 a 4 linhas).
+                    6. Aplique o Glossário Interativo [[Termo|Explicação]] também para termos teológicos ou palavras difíceis.
+                    7. Insira as Pérolas de Ouro concisas (1 a 2 frases em parágrafo próprio) no formato {{Autor ou Obra | Ref | Comando Oculto Cirúrgico}}.
+                    8. Arqueologia e História In-Loco: insira achados e costumes diretamente no parágrafo do versículo (a antiga seção de curiosidades no fim foi extinta). Aplicação prática deve vir 100% implícita e orgânica (proibido usar rótulos como 'Aplicação Pastoral:' ou 'Pergunta para a classe:'). Encerre a aula com um gancho reflexivo para o próximo capítulo e finalize exclusivamente com o apêndice "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" contendo entre 1 e 5 paralelos numerados (1. , 2. , 3. ), cada um com título e explicação concisa de 2 a 3 linhas (nunca texto corrido).
+                    9. ⚠️ RITMO E TRAVA DE VOLUME: Mantenha o tamanho RIGOROSAMENTE entre ${minWords} e ${maxWords} palavras (${pages} páginas). NÃO ultrapasse ${maxWords} palavras sob nenhuma hipótese! Regule o tamanho dos tópicos para terminar dentro desta meta.`;
                 }
             }
 
