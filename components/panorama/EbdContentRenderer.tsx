@@ -988,29 +988,33 @@ export const EbdContentRenderer: React.FC<EbdContentRendererProps> = ({
             /(\*\*PÉROLA DE OURO:\*\*|\*\*PÉROLA DE OURO\*\*|PÉROLA DE OURO:|PÉROLA DE OURO)/i,
           );
           return (
-            <div key={idx} className={`mt-8 mb-3 md:mb-4 ${activeClass}`}>
+            <div
+              key={idx}
+              className={`my-5 p-3.5 md:p-4 rounded-2xl bg-[#C5A059]/10 dark:bg-[#C5A059]/10 border-l-4 border-[#C5A059] shadow-sm ${activeClass}`}
+            >
               {parts.map((p, i) => {
                 if (!p) return null;
                 if (p.toUpperCase().match(/PÉROLA DE OURO/)) {
                   return (
-                    <div
+                    <span
                       key={i}
-                      className="text-[#000000] bg-gradient-to-br from-[#C5A059] to-[#9e8045] px-4 py-3 md:px-6 md:py-3.5 rounded-xl border-l-[6px] border-[#8B0000] shadow-lg font-black mt-2 mb-1 tracking-wider uppercase text-sm md:text-base select-none"
+                      className="inline-flex items-center gap-1.5 text-[#1a1a1a] bg-gradient-to-br from-[#C5A059] to-[#9e8045] px-2.5 py-0.5 rounded-md border-l-2 border-[#8B0000] shadow-sm font-cinzel font-black mr-2 mb-1 tracking-wider uppercase text-[11px] md:text-xs select-none align-middle"
                     >
-                      {p.replace(/\*\*/g, "").trim()}
-                    </div>
+                      <Sparkles className="w-3 h-3 text-[#8B0000] shrink-0" />
+                      {p.replace(/\*\*/g, "").replace(/:$/, "").trim()}
+                    </span>
                   );
                 }
                 const cleanedSub = p.replace(/^[\s\*_.:]+|[\s\*_.:]+$/g, "").trim();
                 if (!cleanedSub) return null;
                 return (
-                  <div
+                  <span
                     key={i}
                     id={`read-block-${idx}`}
-                    className="text-[#C5A059] dark:text-[#EEDC9A] font-serif italic text-base md:text-lg font-bold mt-1.5 mb-2 tracking-wide block outline-none pl-1"
+                    className="text-gray-900 dark:text-[#EEDC9A] font-serif italic text-sm md:text-base font-medium leading-relaxed tracking-wide outline-none align-middle"
                   >
                     {renderLineWithHighlights(idx, parseInline(cleanedSub))}
-                  </div>
+                  </span>
                 );
               })}
             </div>

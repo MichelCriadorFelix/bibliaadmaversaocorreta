@@ -94,14 +94,18 @@ const SEFARIA_BASE = 'https://www.sefaria.org/api';
 
 function parseSourceReferenceFromPrompt(promptText) {
     let text = (promptText || '').trim();
-    const refMatch = text.match(/Refer[êe]ncia:\s*(.+?)(?:\.\s*Instru[çc][ãa]o espec[íi]fica:|$)/i);
-    if (refMatch) text = refMatch[1].trim();
+    let hiddenCommand = '';
+    const refMatch = text.match(/Refer[êe]ncia:\s*(.+?)(?:\.\s*Instru[çc][ãa]o espec[íi]fica:\s*(.+))?$/i);
+    if (refMatch) {
+        text = refMatch[1].trim();
+        if (refMatch[2]) hiddenCommand = refMatch[2].trim();
+    }
     const commaIdx = text.indexOf(',');
     if (commaIdx === -1) return null;
     const source = text.slice(0, commaIdx).trim();
     const reference = text.slice(commaIdx + 1).trim();
     if (!source || !reference) return null;
-    return { source, reference };
+    return { source, reference, hiddenCommand };
 }
 
 function buildSefariaQuery(source, reference) {
@@ -614,66 +618,65 @@ Seja direto, profundo e específico para o tema "${lessonTheme}". Sem saudaçõe
                 const sefariaResult = parsedSourceRef
                     ? await fetchFromSefaria(parsedSourceRef.source, parsedSourceRef.reference)
                     : null;
+                const specificInstruction = parsedSourceRef?.hiddenCommand || '';
 
                 if (sefariaResult) {
-                    // --- CAMINHO COM GROUNDING REAL (Sefaria): a IA só traduz/contextualiza texto
-                    // autêntico já buscado, nunca "lembra" a citação de memória. ---
+                    // --- CAMINHO COM GROUNDING REAL (Sefaria): recorte cirúrgico e verificação de fólio ---
                     systemInstruction = `
-                        ATUE COMO: Tradutor Erudito e Contextualizador do Professor Michel Felix.
+                        ATUE COMO: Tradutor Erudito e Contextualizador Cirúrgico do Professor Michel Felix.
 
-                        VOCÊ RECEBEU O TEXTO ORIGINAL REAL E AUTÊNTICO (via Sefaria.org, referência: ${sefariaResult.ref}) da fonte solicitada, em inglês/hebraico. Sua ÚNICA tarefa é traduzir esse texto FIELMENTE para português do Brasil e adicionar contexto histórico — você NÃO pode inventar, adicionar ou remover conteúdo além do que está no texto fornecido.
+                        VOCÊ RECEBEU O TEXTO ORIGINAL (via Sefaria.org, referência: ${sefariaResult.ref}) da fonte solicitada.
+                        ATENÇÃO CRÍTICA SOBRE TAMANHO E RECORTE CIRÚRGICO:
+                        Um fólio do Talmud, capítulo de Midrash ou seção histórica contém VÁRIOS debates e assuntos diferentes. É TERMINANTEMENTE PROIBIDO traduzir o fólio/capítulo inteiro ou despejar parágrafos sobre assuntos que não têm relação com o ponto citado na aula!
 
                         DIRETRIZES MANDATÓRIAS:
-                        1. FIDELIDADE ABSOLUTA: Traduza exatamente o que está no texto original fornecido. Não invente detalhes, diálogos ou conclusões que não estejam lá.
-                        2. IDIOMA: Toda a resposta em português do Brasil, límpido e didático.
-                        3. SEM SAUDAÇÕES: Comece direto com o título/referência em negrito.
-                        4. ESTRUTURA MARKDOWN:
+                        1. RECORTE CIRÚRGICO E CONCISÃO (MÁXIMO 1 A 2 PARÁGRAFOS CURTOS DE CITAÇÃO):
+                           - Se houver uma "Instrução específica / Assunto da Pérola" na solicitação, localize e traduza APENAS o exato recorte (1 a 2 parágrafos curtos, cerca de 4 a 8 linhas) que trata especificamente desse assunto. Ignore completamente os demais debates do mesmo fólio.
+                           - Se NÃO houver instrução específica, selecione e traduza APENAS o ensinamento principal mais célebre desse trecho em 1 a 2 parágrafos curtos (máximo 8 linhas). NUNCA traduza a página inteira.
+                        2. VERIFICAÇÃO DE PRECISÃO DE FÓLIO/REFERÊNCIA (HONESTIDADE ACADÊMICA):
+                           - Às vezes uma tradição rabínica real pertence a um fólio vizinho ou tratado correlato (ex: a famosa exegese da letra Bet fechada em três lados e aberta para a frente — "não indagues o que está acima, abaixo, antes ou depois" — consta na Mishná Hagigah 2:1 / Talmud Hagigah 11b e Bereshit Rabá 1:10, enquanto Hagigah 12a continua o debate da Criação com Adão e a luz primordial).
+                           - Se a "Instrução específica" pedir um ensino real e autêntico que está no fólio/seção adjacente ou se o texto bruto do Sefaria trouxer a continuação imediata, traduza FIELMENTE a citação exata correspondente ao ensino solicitado na Instrução Específica (indicando entre colchetes a localização exata se for no fólio vizinho, ex: **[Talmud, Tratado Hagigah 12a / Mishná 2:1 (11b)]**), em vez de despejar páginas de outros assuntos aleatórios!
+                        3. IDIOMA E CLAREZA: Toda a resposta em Português do Brasil culto, límpido e didático.
+                        4. SEM SAUDAÇÕES OU METALINGUAGEM: Comece direto com o título/referência em negrito. NUNCA mencione as palavras "Instrução específica", "Comando oculto" ou "Sefaria".
+                        5. ESTRUTURA MARKDOWN COMPACTA E ELEGANTE:
                            - **[Nome da Obra, Referência]**
-                           - **Tradução em Português:** *"[tradução fiel do texto fornecido]"*
-                           - **Contexto Histórico e Aplicação:** (1 a 2 parágrafos concisos ligando ao tema bíblico)
-                        5. COMANDO OCULTO / INSTRUÇÃO ESPECÍFICA: se houver, foque a tradução/contexto no trecho relevante do texto fornecido a esse comando, sem mencioná-lo.
+                           - **Tradução em Português:** *"[Tradução fiel e concisa APENAS do trecho exato do assunto — máximo 1 a 2 parágrafos curtos]"*
+                           - **Contexto Histórico e Aplicação:** (1 único parágrafo conciso de 4 a 6 linhas conectando diretamente esse recorte ao ensino bíblico).
                     `;
-                    enhancedPrompt = `[TRADUÇÃO DE FONTE PRIMÁRIA REAL — TEXTO JÁ VERIFICADO]:
-Referência: "${prompt}"
-Referência resolvida no Sefaria: ${sefariaResult.ref}
+                    enhancedPrompt = `[RECORTE E TRADUÇÃO CIRÚRGICA DE FONTE PRIMÁRIA]:
+Referência solicitada: "${parsedSourceRef.source}, ${parsedSourceRef.reference}"
+${specificInstruction ? `Assunto / Recorte exato solicitado pela Pérola de Ouro (MÁXIMA PRIORIDADE — traduza APENAS o trecho referente a este ponto): "${specificInstruction}"` : 'Extraia e traduza apenas o trecho central mais relevante de forma concisa (1 a 2 parágrafos curtos).'}
 
-TEXTO ORIGINAL REAL (traduza fielmente, não invente nada além disto):
+TEXTO DE REFERÊNCIA (${sefariaResult.ref}):
 """
 ${sefariaResult.text}
 """
 
-Retorne a tradução e contexto no formato Markdown especificado.`;
+Retorne APENAS o recorte exato traduzido (1 a 2 parágrafos curtos) e 1 parágrafo curto de contexto histórico no formato Markdown especificado, sem traduzir assuntos paralelos do fólio.`;
                 } else {
-                    // --- CAMINHO ANTIGO (fallback): fonte não coberta pelo Sefaria (Josefo, Pais da
-                    // Igreja, historiadores clássicos, etc.) — a IA busca/lembra por conta própria. ---
+                    // --- CAMINHO DIRETO: busca cirúrgica focada exatamente no assunto da Pérola ---
                     systemInstruction = `
                         ATUE COMO: Bibliotecário de Fontes Primárias e Tradutor Erudito do Professor Michel Felix.
 
-                        SEU OBJETIVO PRINCIPAL: Localizar a citação histórica, rabínica (Talmud, Mishná, Midrash), clássica (Flávio Josefo, Fílon, historiadores greco-romanos) ou patrística solicitada e fornecer a TRADUÇÃO COMPLETA EM PORTUGUÊS (pt-BR), fiel, límpida e didática, acompanhada do trecho original ou transliteração e do contexto histórico.
+                        SEU OBJETIVO PRINCIPAL: Localizar a citação histórica, rabínica (Talmud, Mishná, Midrash), clássica (Flávio Josefo, Fílon, historiadores greco-romanos) ou patrística solicitada e fornecer a TRADUÇÃO CONCISA EM PORTUGUÊS (pt-BR) APENAS DO TRECHO EXATO citado na Pérola de Ouro.
 
-                        DIRETRIZES MANDATÓRIAS DE CONTEÚDO E IDIOMA:
-                        1. IDIOMA DO LEITOR (CRÍTICO): O usuário e os alunos lêem em Português do Brasil. É TERMINANTEMENTE PROIBIDO retornar a resposta apenas no idioma original (Hebraico, Grego ou Latim) ou em inglês. A TRADUÇÃO COMPLETA EM PORTUGUÊS É O ELEMENTO PRINCIPAL E OBRIGATÓRIO!
-                        2. SEM SAUDAÇÕES OU INTRODUÇÕES META: Inicie DIRETAMENTE com o título da obra e a referência em negrito. É expressamente proibido qualquer introdução ou saudação ("Prezado...", "Olá", etc.).
-                        3. ESTRUTURAÇÃO OBRIGATÓRIA EM MARKDOWN:
-                           - **[Nome do Autor / Obra, Referência Exata]** (Ex: **Talmud de Jerusalém, Tratado Moed Katan 3:5**)
-                           - **Tradução em Português:** *"[Texto integral da citação traduzido com fidelidade e clareza didática]"*
-                           - **Contexto Histórico e Aplicação:** (1 a 2 parágrafos concisos explicando o cenário da época, costumes ou o significado cultural e bíblico do relato)
-                           - NÃO inclua o texto na língua original (hebraico/grego/latim/transliteração) — os alunos de EBD não leem essas línguas, e isso só consome tokens sem ganho pedagógico. A tradução em português já é o elemento completo e final.
-                        4. COMANDO OCULTO / INSTRUÇÃO ESPECÍFICA (MÁXIMA PRIORIDADE): Se a solicitação contiver uma "Instrução específica" (ex: focar na crença dos 3 dias em que a alma paira no túmulo até o 4º dia), você DEVE FOCAR CIRURGICAMENTE exatamente nesse trecho/assunto solicitado. NUNCA repita nem mencione o comando oculto no texto gerado; apenas atenda ao seu conteúdo.
-                        5. MENÇÕES SEM CITAÇÃO: Se a referência for apenas o nome de um autor histórico ou documento sem citação de seção específica, forneça uma síntese biográfica e contextual clara de 1 ou 2 parágrafos didáticos. Formate como: **[Nome / Obra]**: [Síntese contextual].
-                        6. CONCLUSÃO INTEGRAL: Conclua sempre todas as seções sem truncar o texto. Nunca gere resumos de apenas 1 linha sem a tradução em português.
-
-                        PROIBIÇÕES:
-                        - NUNCA retorne o texto sem tradução em português.
-                        - NÃO invente fontes. Se o trecho for fragmentário ou perdido, informe com sobriedade acadêmica.
+                        DIRETRIZES MANDATÓRIAS DE CONCISÃO E PRECISÃO:
+                        1. PROIBIÇÃO DE TEXTOS LONGOS: É TERMINANTEMENTE PROIBIDO traduzir páginas ou capítulos inteiros. Forneça APENAS o recorte específico (1 a 2 parágrafos curtos, cerca de 4 a 8 linhas) que trata do assunto solicitado.
+                        2. FOCO CIRÚRGICO NO ASSUNTO SOLICITADO: Se houver uma "Instrução específica", traduza EXCLUSIVAMENTE a passagem que aborda esse ponto. NUNCA mencione a existência do comando oculto.
+                        3. IDIOMA: 100% em Português do Brasil. NÃO inclua blocos em hebraico, grego ou latim.
+                        4. SEM SAUDAÇÕES: Inicie DIRETAMENTE com o título da obra e a referência em negrito.
+                        5. ESTRUTURAÇÃO OBRIGATÓRIA EM MARKDOWN:
+                           - **[Nome do Autor / Obra, Referência Exata]**
+                           - **Tradução em Português:** *"[Trecho específico traduzido com fidelidade e concisão — 1 a 2 parágrafos curtos]"*
+                           - **Contexto Histórico e Aplicação:** (1 único parágrafo conciso de 4 a 6 linhas explicando como essa citação ilumina o texto bíblico).
                     `;
-                    enhancedPrompt = `[BUSCA E TRADUÇÃO DE FONTE PRIMÁRIA]:
+                    enhancedPrompt = `[BUSCA E TRADUÇÃO CIRÚRGICA DE FONTE PRIMÁRIA]:
 Referência solicitada: "${prompt}"
 
-Retorne estritamente a tradução em português do Brasil e o contexto histórico no formato Markdown, SEM incluir o texto na língua original (os alunos de EBD não leem hebraico/grego/latim):
+Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 parágrafos curtos de tradução do recorte exato + 1 parágrafo curto de contexto):
 **[Título da Obra e Referência]**
-**Tradução em Português:** *"[Texto integral traduzido da citação com fidelidade e clareza]"*
-**Contexto Histórico e Aplicação:** [1 a 2 parágrafos concisos explicando os costumes da época, o cenário histórico e como essa citação elucida o texto bíblico]`;
+**Tradução em Português:** *"[Apenas o recorte exato traduzido com fidelidade e clareza]"*
+**Contexto Histórico e Aplicação:** [1 parágrafo conciso conectando a citação ao texto bíblico]`;
                 }
             }
             // --- LÓGICA ESPECÍFICA PARA MANUAL DO PROFESSOR ---
@@ -1084,13 +1087,14 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
            - Arqueologia e Exegese Bíblica: biblicalarchaeology.org, biblehub.com.
         3. ANTI-FAKE NEWS TEOLÓGICA: É ESTRITAMENTE PROIBIDO utilizar blogs pessoais, fóruns não checados, redes sociais ou fontes amadores sem comprovação documental primária.
         4. DENSIDADE MULTIDIMENSIONAL: Traga a interpretação com contexto histórico, cultural, explicações de expressões, linguística (Hebraico Bíblico / Grego Koiné), tipologia bíblica, geografia, tradição judaica, Manuscritos do Mar Morto e historiadores antigos.
-        5. RIGOR DOCUMENTAL INTERATIVO: É MANDATÓRIO citar fontes periciais para fundamentar as Pérolas de Ouro no formato interativo de 3 partes: {{Autor ou Obra | Referência Visível | Comando Oculto para o Bibliotecário}}.
-           - Exemplo: "...segundo {{Flávio Josefo | Antiguidades 3.8.1 | Traga o relato sobre a consagração do tabernáculo e a ordem do fogo sagrado}}, o sacerdócio..."
-           - Exemplo: "...como elucida o {{Talmud | Tratado Yoma 21b | Traga a discussão sobre os milagres do fogo contínuo sobre o altar}}..."
+        5. RIGOR DOCUMENTAL INTERATIVO (COMANDO OCULTO CIRÚRGICO OBRIGATÓRIO): É MANDATÓRIO citar fontes periciais para fundamentar as Pérolas de Ouro no formato interativo de 3 partes: {{Autor ou Obra | Referência Visível | Comando Oculto para o Bibliotecário}}.
+           - ATENÇÃO CRÍTICA NA 3ª PARTE (COMANDO OCULTO): A 3ª parte NUNCA pode ser vazia ou genérica! Como um fólio do Talmud, Midrash ou capítulo de Josefo trata de dezenas de assuntos diferentes, a 3ª parte DEVE especificar exatamente o assunto citado na frase da Pérola para que o sistema recorte SOMENTE aquele ponto ao clicar.
+           - Exemplo: "...segundo {{Flávio Josefo | Antiguidades 3.8.1 | Traga apenas o relato específico sobre a consagração do tabernáculo e a ordem do fogo sagrado}}, o sacerdócio..."
+           - Exemplo: "...como elucida o {{Talmud | Tratado Yoma 21b | Traga apenas a discussão específica sobre os milagres do fogo contínuo sobre o altar}}..."
         6. MENÇÕES SEM CITAÇÃO: Quando apenas mencionar um autor ou obra histórica sem citação exata, use formato de Glossário: [[Flávio Josefo | Historiador judeu do século I d.C.]].
-        7. INJEÇÃO IN-LINE (PROIBIDO CITAÇÃO SECA): Insira pelo menos 1 a 2 PÉROLAS DE OURO por tópico principal. "**PÉROLA DE OURO:**" NUNCA pode vir sozinho seguido apenas da citação {{...}} — isso é ERRO GRAVE. A citação {{...}} tem que estar DENTRO de uma frase completa que já explica, em português simples, o que essa fonte revela ou confirma, ANTES ou DEPOIS da citação, na MESMA linha.
+        7. INJEÇÃO IN-LINE E CONCISÃO DA PÉROLA (MÁXIMO 1 A 2 FRASES CURTAS — PROIBIDO CITAÇÃO SECA OU PARÁGRAFOS GIGANTES): Insira pelo menos 1 a 2 PÉROLAS DE OURO por tópico principal. A Pérola de Ouro deve ser uma joia concisa e direta (1 a 2 frases curtas, máximo 3 linhas), explicando em português simples o ponto específico que a fonte histórica confirma, com a citação {{Autor | Ref | Assunto exato citado na frase}} integrada na MESMA linha.
            - ERRADO (proibido): "**PÉROLA DE OURO:** {{Talmud | Tratado Shabbat 69a | ...}}"
-           - CERTO: "**PÉROLA DE OURO:** O rabino também reconhecia que um erro cometido sem querer não isenta a pessoa de reparar o mal causado, como mostra {{Talmud | Tratado Shabbat 69a | Traga a discussão sobre responsabilidade por erro involuntário}}."
+           - CERTO: "**PÉROLA DE OURO:** O rabino também reconhecia que um erro cometido sem querer não isenta a pessoa de reparar o mal causado, como mostra {{Talmud | Tratado Shabbat 69a | Traga apenas a discussão específica sobre responsabilidade por erro involuntário}}."
         8. QUEBRA DE PARÁGRAFO OBRIGATÓRIA ANTES DA PÉROLA (ERRO GRAVE SE IGNORADO): "**PÉROLA DE OURO:**" DEVE OBRIGATORIAMENTE começar um parágrafo novo, numa linha própria, separada por quebra de linha do parágrafo anterior. É ESTRITAMENTE PROIBIDO continuar a última frase do parágrafo normal direto para "**PÉROLA DE OURO:**" na mesma linha/parágrafo — isso quebra a renderização visual do sistema (o parágrafo inteiro anterior fica com a formatação da Pérola). A Pérola de Ouro é sempre o INÍCIO de um bloco novo, nunca a continuação de um bloco existente.
         8. GLOSSÁRIO INTERATIVO ABUNDANTE (OBRIGATÓRIO): Para qualquer termo técnico, teológico, hebraico, grego ou palavra pouco usual em português, use obrigatoriamente DOIS COLCHETES: [[Palavra/Termo | Explicação simples e didática para leigo]]. (Exemplo: [[Ontológico | Relativo à natureza essencial do ser]]). JAMAIS use colchete simples [ ] para glossário no meio do texto comum.
         9. PROIBIÇÃO ABSOLUTA DE ESQUEMAS, FLUXOGRAMAS E TABELAS (EM QUALQUER FORMATO, INCLUSIVE
@@ -1279,6 +1283,9 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 config.maxOutputTokens = 3072; // Folga total para citações em hebraico/grego + tradução completa em pt-BR + contexto histórico
                 // Sem thinkingConfig para busca de fontes primárias: operação leve, direta e praticamente instantânea
                 config.temperature = 0.2;
+            } else if (taskType === 'metadata') {
+                config.maxOutputTokens = 1024;
+                config.temperature = 0.2;
             } else if (taskType === 'assistente_chat' || taskType === 'devotional') {
                 // thinkingBudget não é respeitado pelo Gemini 3 (testado); thinkingLevel é o parâmetro
                 // real. Estavam sem nenhum thinkingConfig (HIGH implícito) — testado: LOW ficou 2x a
@@ -1306,13 +1313,14 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
     const functionStartTime = Date.now();
 
     // Teto de tempo por chave, alinhado ao tipo de tarefa.
-    // Para fetch_primary_source, 8s por chave garante failover rápido entre chaves lentas sem travar a thread.
-    const perKeyTimeoutMs = taskType === 'fetch_primary_source' ? 8000 : 280000;
+    // Para fetch_primary_source e metadata (epígrafe), 8s por chave garante failover rápido entre chaves lentas sem travar a thread.
+    const isFastTask = taskType === 'fetch_primary_source' || taskType === 'metadata';
+    const perKeyTimeoutMs = isFastTask ? 8000 : 280000;
 
     for (const apiKey of keysToTryInThisInvocation) {
         const currentHash = hashKey(apiKey);
         // Se estivermos próximos do limite seguro deste ciclo, encerra este lote
-        const maxBatchTime = taskType === 'fetch_primary_source' ? 24000 : 280000;
+        const maxBatchTime = isFastTask ? 24000 : 280000;
         if (Date.now() - functionStartTime > maxBatchTime) {
             console.warn('[Gemini Proxy] Limite de segurança do lote atingido. Delegando para próxima rodada.');
             break;
@@ -1330,9 +1338,9 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 }
             });
             
-            // Para tarefas leves e diretas como fontes primárias, gemini-3.1-flash-lite oferece alta estabilidade duradoura e resposta rápida
+            // Para tarefas leves e diretas como fontes primárias e epígrafes (metadata), gemini-3.1-flash-lite oferece alta estabilidade duradoura e resposta rápida (<1s)
             // Para as tarefas teológicas aprofundadas (aula/quiz/sugestão), gemini-3.6-flash é o modelo principal
-            const TARGET_MODEL = taskType === 'fetch_primary_source' ? 'gemini-3.1-flash-lite' : 'gemini-3.6-flash';
+            const TARGET_MODEL = isFastTask ? 'gemini-3.1-flash-lite' : 'gemini-3.6-flash';
 
             const generatePromise = ai.models.generateContent({
                 model: TARGET_MODEL,
@@ -1461,10 +1469,18 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
             });
         };
 
-        // Rede de segurança: nenhum bloco ```...``` legítimo é esperado neste tipo de conteúdo
-        // (aula de EBD, não código) — qualquer cerca sobrevivente é sempre um esquema/ASCII-art
-        // disfarçado (ex: caixa desenhada com +----+ e |...|), então é removida por completo.
-        const stripCodeFences = (text) => text.replace(/```[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n');
+        // Rede de segurança: nenhum bloco ```...``` de ASCII-art é esperado nas aulas de EBD,
+        // mas blocos ```json ... ``` (quando a tarefa pede JSON com ou sem schema explícito)
+        // DEVEM ter apenas as cercas removidas, preservando o JSON interno!
+        const stripCodeFences = (text) => {
+            if (schema || taskType === 'metadata' || taskType === 'quiz_gen' || taskType === 'get_bible_verses' || taskType === 'assistente_chat' || taskType === 'devotional') {
+                return text.replace(/```(?:json)?\s*([\s\S]*?)```/gi, '$1').trim();
+            }
+            return text
+                .replace(/```json\s*([\s\S]*?)```/gi, '$1')
+                .replace(/```[\s\S]*?```/g, '')
+                .replace(/\n{3,}/g, '\n\n');
+        };
 
         // Rede de segurança: converte qualquer tabela markdown restante (fora de cerca de código,
         // formato | Col1 | Col2 | com linha separadora |---|---|) em lista numerada legível.

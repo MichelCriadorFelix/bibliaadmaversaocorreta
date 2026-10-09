@@ -39,16 +39,25 @@ export const useChapterMetadata = (
         if (isGeneratingMeta) return;
         setIsGeneratingMeta(true);
         const prompt = `ATUE COMO: Teólogo Brasileiro. TAREFA: Gerar metadados para ${book} ${chapter}. IDIOMA DE RESPOSTA: PORTUGUÊS DO BRASIL (pt-BR). FORMATO JSON OBRIGATÓRIO: { "title": "Título Curto (Max 5 palavras)", "subtitle": "Resumo em 1 frase" }. Estilo: Clássico e Conservador.`;
+        const schema = {
+            type: "OBJECT",
+            properties: {
+                title: { type: "STRING" },
+                subtitle: { type: "STRING" }
+            },
+            required: ["title", "subtitle"]
+        };
         try {
-            const rawText = await generateContent(prompt, null);
-            if (rawText) {
-                const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-                const res = JSON.parse(cleanJson);
+            const rawRes = await generateContent(prompt, schema, false, 'metadata', { book, chapter });
+            if (rawRes) {
+                const res = typeof rawRes === 'string'
+                    ? JSON.parse(rawRes.replace(/```json/gi, '').replace(/```/g, '').trim())
+                    : rawRes;
                 if (res && res.title) {
                     const data = { 
                         chapter_key: chapterKey,
                         title: res.title, 
-                        subtitle: res.subtitle 
+                        subtitle: res.subtitle || ''
                     };
                     await db.entities.ChapterMetadata.save(data);
                     setMetadata(data);

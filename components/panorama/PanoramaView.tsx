@@ -428,7 +428,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         return result;
     };
 
-    const parseHistoricalSources = (text: string, keyPrefix: string): React.ReactNode[] => {
+    const parseHistoricalSources = (text: string, keyPrefix: string, fallbackContext?: string): React.ReactNode[] => {
         // Regex para detectar fontes históricas e rabínicas comuns e suas referências
         // Ex: Midrash Rabbah, Levítico Rabá 20:6, Talmud (Tratado Yoma 53a), Flávio Josefo, etc.
         const sourceRegex = /(Talmud|Mishn[áa]|Midrash(?:\s+[A-Z\u00C0-\u00FF][a-z\u00C0-\u00FF]+)?|(?:Gênesis|Êxodo|Levítico|Números|Deuteronômio|Bereshit|Shemot|Vayikra|Bamidbar|Devarim)\s+Rab[áa]|Targum(?:\s+[A-Z\u00C0-\u00FF][a-z\u00C0-\u00FF]+)?|Guemer[áa]|Gemara|Fl[áa]vio\s+Josefo|Josefo|Philo\s+de\s+Alexandria|Philo|Fil[oó]n\s+de\s+Alexandria|Eus[eé]bio\s+de\s+Cesareia|Eusebio|Pais\s+da\s+Igreja|Manuscritos\s+do\s+Mar\s+Morto|Septuaginta|Vulgata)(?:\s*([\(\[][^\]\)]+[\)\]]|,\s*[^,.\n]+(?:,\s*[^,.\n]+)*|\s+\d+:\d+))?/gi;
@@ -445,11 +445,18 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
 
             const fullMatch = match[0];
             const sourceName = match[1];
-            const reference = match[2] ? match[2].trim() : '';
+            const reference = match[2] ? match[2].trim().replace(/^[,\s\(\[]+|[\)\]\s]+$/g, '') : '';
+            const contextHint = (fallbackContext || text).replace(/\*\*/g, '').replace(/\{\{|\}\}|\[\[|\]\]/g, ' ').trim().slice(0, 280);
 
-            // Cria o componente interativo para a fonte histórica
+            // Cria o componente interativo para a fonte histórica passando o contexto da frase para recorte cirúrgico
             parts.push(
-                <PrimarySource key={`${keyPrefix}-ps-${match.index}`} source={sourceName} reference={reference} isAdmin={isAdmin || userProgress?.role === 'admin'}>
+                <PrimarySource
+                    key={`${keyPrefix}-ps-${match.index}`}
+                    source={sourceName}
+                    reference={reference}
+                    hiddenCommand={contextHint ? `Foque especificamente no ponto citado nesta frase: "${contextHint}"` : undefined}
+                    isAdmin={isAdmin || userProgress?.role === 'admin'}
+                >
                     {fullMatch}
                 </PrimarySource>
             );
@@ -466,6 +473,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
     };
 
     const parseInline = (t: string): React.ReactNode => {
+        const cleanContext = t.replace(/\*\*/g, '').replace(/\{\{.*?\|.*?(\|.*?)?\}\}/g, '').replace(/\[\[(.*?)\|.*?\]\]/g, '$1').trim().slice(0, 280);
         const parts = t.split(/(\{\{.*?\|.*?\}\}|\[\[.*?\|.*?\]\]|\*\*(?!\s).*?(?<!\s)\*\*|\*(?!\s).*?(?<!\s)\*)/g);
         return parts.map((part, i) => {
             if (!part) return null;
@@ -475,7 +483,10 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                 const refParts = inner.split('|');
                 const source = refParts[0]?.trim() || '';
                 const reference = refParts[1]?.trim() || '';
-                const hiddenCommand = refParts.slice(2).join('|').trim() || '';
+                const explicitCommand = refParts.slice(2).join('|').trim() || '';
+                const hiddenCommand = explicitCommand
+                    ? (cleanContext ? `${explicitCommand}. (Contexto da aula: "${cleanContext}")` : explicitCommand)
+                    : (cleanContext ? `Foque especificamente no ponto citado nesta frase: "${cleanContext}"` : '');
                 
                 return (
                     <PrimarySource key={`ps-${i}`} source={source} reference={reference} hiddenCommand={hiddenCommand} isAdmin={isAdmin || userProgress?.role === 'admin'}>
@@ -500,7 +511,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
             if (part.startsWith('*') && part.endsWith('*')) {
                 return <em key={i} className="text-[#C5A059] italic font-semibold">{parseInline(part.slice(1, -1))}</em>;
             }
-            return parseHistoricalSources(part, `text-${i}`);
+            return parseHistoricalSources(part, `text-${i}`, cleanContext);
         });
     };
 

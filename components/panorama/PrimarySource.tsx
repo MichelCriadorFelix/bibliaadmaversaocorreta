@@ -69,11 +69,13 @@ export const PrimarySource: React.FC<PrimarySourceProps> = ({ source, reference,
                     const existing = await db.entities.PrimarySources.get(sourceId);
                     if (existing && existing.text) {
                         const trimmed = existing.text.trim();
-                        // Validação de qualidade: descarta cache corrompido, incompleto (< 50 caracteres)
-                        // ou sem tradução em português (apenas caracteres em hebraico/aramaico/grego)
+                        // Validação de qualidade: descarta cache corrompido, incompleto (< 50 caracteres),
+                        // sem tradução em português, ou despejos antigos gigantes (> 1300 caracteres)
+                        // que traduziam o fólio inteiro em vez do recorte cirúrgico da Pérola.
                         const hasLatinLetters = /[a-zA-ZÀ-ÿ]/.test(trimmed);
                         const isTooShort = trimmed.length < 50;
-                        if (hasLatinLetters && !isTooShort) {
+                        const isOversizedDump = trimmed.length > 1300;
+                        if (hasLatinLetters && !isTooShort && !isOversizedDump) {
                             setContent(existing.text);
                             setIsLoading(false);
                             return;
