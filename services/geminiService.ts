@@ -153,7 +153,7 @@ export const generateContent = async (
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 295000); // 295s
             
-            // Enviamos batchSize: 5 para o servidor testar em lote internamente com failover instantâneo
+            // Enviamos batchSize amplo (15 chaves por ciclo serverless) para o servidor rotacionar imediatamente entre todas as chaves disponíveis
             const response = await fetch('/api/gemini', {
                 method: 'POST',
                 signal: controller.signal,
@@ -176,7 +176,7 @@ export const generateContent = async (
                     thinkingLevel: context?.thinkingLevel,
                     relevanceWeight: context?.relevanceWeight,
                     excludedKeyHashes: Array.from(attemptedHashes),
-                    batchSize: 5
+                    batchSize: 15
                 })
             });
             clearTimeout(timeoutId);
@@ -250,9 +250,9 @@ export const generateContent = async (
             lastErrorMessage = data?.error || `Erro HTTP ${response.status}`;
             console.warn(`[Gemini Router] Ciclo #${cycle} concluído sem sucesso (${data?.rotationLog?.length || 0} chaves tentadas). Buscando próximo lote do pool...`);
 
-            if (data?.canClientRetry === false || (data?.remainingKeysCount === 0 && cycle > 2)) {
-                // Se o servidor avisar que não há mais chaves disponíveis no pool, encerra
-                break;
+            if (data?.canClientRetry === false && attemptedHashes.size >= (data?.poolTotal || 43)) {
+                // Se já testou todas as chaves do pool na rodada atual, limpa o filtro de tentadas para permitir nova volta se ainda restarem ciclos
+                attemptedHashes.clear();
             }
 
             // Pequeno intervalo antes do próximo ciclo para evitar rajada
@@ -303,12 +303,12 @@ export const fetchPrimarySourceText = async (
     const cachedExhausted = getCachedExhaustedHashes();
     const attemptedHashes = new Set<string>(cachedExhausted);
     let lastError = "Falha ao consultar fonte primária no momento.";
-    const maxCycles = 3; // Até 3 ciclos com rotação automática de chaves
+    const maxCycles = 5; // Até 5 ciclos cobrindo todo o pool de chaves com rotação automática
 
     for (let cycle = 1; cycle <= maxCycles; cycle++) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s para absorver latência de rede com folga
+            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s para absorver failover de múltiplas chaves
 
             const response = await fetch('/api/gemini', {
                 method: 'POST',
@@ -320,7 +320,7 @@ export const fetchPrimarySourceText = async (
                     taskType: 'fetch_primary_source',
                     prompt: promptText,
                     excludedKeyHashes: Array.from(attemptedHashes),
-                    batchSize: 4
+                    batchSize: 12
                 })
             });
             clearTimeout(timeoutId);

@@ -446,12 +446,13 @@ export default async function handler(request, response) {
         candidateKeys = shuffleArray(uniqueKeys);
     }
 
-    // FAST-FAILOVER INTELIGENTE NO SERVIDOR:
-    // Em vez de testar apenas 1 chave e devolver erro para o navegador a cada 429,
-    // o servidor testa até 5 chaves saudáveis internamente. Como um erro 429 responde
-    // em ~200ms, o servidor pula para a próxima chave instantaneamente sem roundtrips de rede!
-    const defaultBatchSize = taskType === 'fetch_primary_source' ? 4 : 5;
-    const maxKeysInBatch = Math.max(1, Math.min(Number(batchSize) || defaultBatchSize, 8));
+    // FAST-FAILOVER INTELIGENTE NO SERVIDOR (ROTAÇÃO DE TODO O POOL):
+    // Percorre todas as chaves disponíveis na fila de candidatos (ou o batchSize solicitado),
+    // garantindo que nenhuma chave saudável do pool deixe de ser utilizada caso as primeiras falhem.
+    const defaultBatchSize = candidateKeys.length;
+    const maxKeysInBatch = requestedBatchSize !== undefined 
+        ? Math.max(1, Math.min(Number(requestedBatchSize) || defaultBatchSize, candidateKeys.length))
+        : candidateKeys.length;
     const keysToTryInThisInvocation = candidateKeys.slice(0, maxKeysInBatch);
 
             let systemInstruction = "Você é o Professor Michel Felix, teólogo Pentecostal Clássico e Erudito.";
@@ -1443,15 +1444,18 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
     const failedHashes = [];
     const functionStartTime = Date.now();
 
-    // Teto de tempo por chave, alinhado ao tipo de tarefa.
-    // Para fetch_primary_source e metadata (epígrafe), 8s por chave garante failover rápido entre chaves lentas sem travar a thread.
+    // Teto de tempo por chave, alinhado ao tipo de tarefa:
+    // - Tarefas rápidas (fontes primárias e epígrafes/metadata): 10s por chave
+    // - Tarefas intermediárias (quiz, sugestões, dicionário, comentário, chat): 45s por chave
+    // - Tarefas longas (EBD Panorama, Guia do Mestre, Apostila Temática): 110s por chave (permite testar múltiplas chaves dentro da mesma janela de 290s se uma chave travar)
     const isFastTask = taskType === 'fetch_primary_source' || taskType === 'metadata';
-    const perKeyTimeoutMs = isFastTask ? 8000 : 280000;
+    const isHeavyLessonTask = ['ebd', 'teacher_ebd', 'thematic_ebd', 'upgrade_ebd', 'upgrade_teacher_ebd', 'upgrade_thematic_ebd'].includes(taskType);
+    const perKeyTimeoutMs = isFastTask ? 10000 : (isHeavyLessonTask ? 110000 : 45000);
+    const maxBatchTime = isFastTask ? 40000 : 280000;
 
     for (const apiKey of keysToTryInThisInvocation) {
         const currentHash = hashKey(apiKey);
-        // Se estivermos próximos do limite seguro deste ciclo, encerra este lote
-        const maxBatchTime = isFastTask ? 24000 : 280000;
+        // Se estivermos próximos do limite seguro deste ciclo serverless, encerra este lote para o cliente continuar nas demais chaves
         if (Date.now() - functionStartTime > maxBatchTime) {
             console.warn('[Gemini Proxy] Limite de segurança do lote atingido. Delegando para próxima rodada.');
             break;
