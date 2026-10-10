@@ -427,13 +427,33 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         return () => clearTimeout(timer);
     }, [book, chapter, isAdmin, activeTab, studentContentText, thematicViewMode, activeLesson, loadOrGenerateFocusSuggestion, loadOrGenerateThematicFocusSuggestion]);
 
+    const extractVisibleWordsText = useCallback((rawText: string) => {
+        if (!rawText) return '';
+        return rawText
+            .replace(/<[^>]*>/g, '')
+            .replace(/__CONTINUATION_MARKER__/g, '')
+            // Em [[Termo | Explicação oculta]], mantém apenas o "Termo" visível na leitura
+            .replace(/\[\[([^\]|]+?)\|[^\]]*?\]\]/g, '$1')
+            // Em {{Autor | Ref | Comando oculto}}, mantém apenas "Autor Ref" visíveis na leitura
+            .replace(/\{\{([^}|]+?)\|([^}|]+?)(?:\|[^}]*?)?\}\}/g, '$1 $2')
+            // Remove marcadores puros de formatação markdown
+            .replace(/^[#*>\-\s]+/gm, '')
+            .replace(/[*_`~]/g, '');
+    }, []);
+
+    const countVisibleWords = useCallback((rawText: string) => {
+        const visible = extractVisibleWordsText(rawText).trim();
+        if (!visible) return 0;
+        return visible.split(/\s+/).filter(w => w.length > 0).length;
+    }, [extractVisibleWordsText]);
+
     const calculateStats = useCallback((text: string) => {
         if (!text) return;
-        const cleanText = text.replace(/<[^>]*>/g, '').replace(/__CONTINUATION_MARKER__/g, '');
-        const words = cleanText.trim().split(/\s+/).length;
-        const estPages = Math.ceil(words / 600); 
-        setStats({ wordCount: words, charCount: cleanText.length, estimatedPages: estPages });
-    }, []);
+        const visibleClean = extractVisibleWordsText(text).trim();
+        const words = visibleClean ? visibleClean.split(/\s+/).filter(w => w.length > 0).length : 0;
+        const estPages = Math.max(1, Math.round(words / 600));
+        setStats({ wordCount: words, charCount: visibleClean.length, estimatedPages: estPages });
+    }, [extractVisibleWordsText]);
 
     const processAndPaginate = useCallback((html: string) => {
         if (!html || html === 'undefined') { setPages([]); return; }
@@ -459,7 +479,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
 
         for (let i = 0; i < blocks.length; i++) {
             const block = blocks[i];
-            const wordsInBlock = block.split(/\s+/).filter(w => w.length > 0).length;
+            const wordsInBlock = countVisibleWords(block);
             
             if (currentWordCount + wordsInBlock > (TARGET_WORDS_PER_PAGE * 1.15) && currentBuffer.length > 0) {
                 let headingsToMove: string[] = [];
@@ -469,7 +489,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 
                 finalPages.push(currentBuffer.join('\n\n'));
                 currentBuffer = [...headingsToMove, block];
-                currentWordCount = currentBuffer.reduce((acc, b) => acc + b.split(/\s+/).filter(w => w.length > 0).length, 0);
+                currentWordCount = currentBuffer.reduce((acc, b) => acc + countVisibleWords(b), 0);
             } else {
                 currentBuffer.push(block);
                 currentWordCount += wordsInBlock;
@@ -483,12 +503,18 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                 
                 finalPages.push(currentBuffer.join('\n\n'));
                 currentBuffer = [...headingsToMove];
-                currentWordCount = currentBuffer.reduce((acc, b) => acc + b.split(/\s+/).filter(w => w.length > 0).length, 0);
+                currentWordCount = currentBuffer.reduce((acc, b) => acc + countVisibleWords(b), 0);
             }
         }
-        if (currentBuffer.length > 0) finalPages.push(currentBuffer.join('\n\n'));
+        if (currentBuffer.length > 0) {
+            if (finalPages.length > 0 && currentWordCount < 150) {
+                finalPages[finalPages.length - 1] = `${finalPages[finalPages.length - 1]}\n\n${currentBuffer.join('\n\n')}`;
+            } else {
+                finalPages.push(currentBuffer.join('\n\n'));
+            }
+        }
         setPages(finalPages.length > 0 ? finalPages : [html.trim()]);
-    }, []);
+    }, [countVisibleWords]);
 
     useEffect(() => {
         if (activeTab === 'thematic') {
