@@ -5,9 +5,15 @@ const CONTENT_STORE = 'adma_content_store';
 const SYNC_QUEUE_STORE = 'sync_queue';
 const DB_VERSION = 4;
 
+let dbInstance: IDBDatabase | null = null;
+let dbOpenPromise: Promise<IDBDatabase> | null = null;
+
 const openDB = (): Promise<IDBDatabase> => {
     if (typeof window === 'undefined') return Promise.reject("No window context");
-    return new Promise((resolve, reject) => {
+    if (dbInstance) return Promise.resolve(dbInstance);
+    if (dbOpenPromise) return dbOpenPromise;
+
+    dbOpenPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onupgradeneeded = (event: any) => {
             const db = event.target.result;
@@ -21,9 +27,26 @@ const openDB = (): Promise<IDBDatabase> => {
                 db.createObjectStore(SYNC_QUEUE_STORE, { keyPath: 'id' });
             }
         };
-        request.onsuccess = (event: any) => resolve(event.target.result);
-        request.onerror = (event: any) => reject(event.target.error);
+        request.onsuccess = (event: any) => {
+            const db: IDBDatabase = event.target.result;
+            dbInstance = db;
+            dbOpenPromise = null;
+            db.onclose = () => {
+                dbInstance = null;
+            };
+            db.onversionchange = () => {
+                db.close();
+                dbInstance = null;
+            };
+            resolve(db);
+        };
+        request.onerror = (event: any) => {
+            dbOpenPromise = null;
+            reject(event.target.error);
+        };
     });
+
+    return dbOpenPromise;
 };
 
 const idbManager = {

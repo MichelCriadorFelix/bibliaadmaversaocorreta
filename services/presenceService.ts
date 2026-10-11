@@ -73,6 +73,18 @@ class PresenceManager {
                     }
                 };
             }
+
+            // Ao voltar do segundo plano no celular, reativa presença imediatamente
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && this.currentTrackData) {
+                    this.currentTrackData.timestamp = Date.now();
+                    if (this.channel && this.isSubscribed) {
+                        this.channel.track(this.currentTrackData).catch(() => {});
+                    }
+                    this.lastHttpPingAt = Date.now();
+                    this.sendHttpHeartbeat(this.currentTrackData);
+                }
+            });
         }
     }
 
@@ -190,32 +202,51 @@ class PresenceManager {
             }
         }
 
-        // 3. Fallback via API / Supabase DB (Heartbeat de segurança)
-        this.sendHttpHeartbeat(this.currentTrackData);
+        // 3. Fallback via API / Supabase DB (Heartbeat de segurança controlado)
+        const now = Date.now();
+        if (!this.lastHttpPingAt || now - this.lastHttpPingAt > 25000) {
+            this.lastHttpPingAt = now;
+            this.sendHttpHeartbeat(this.currentTrackData);
+        }
 
         if (!this.pingInterval) {
             this.pingInterval = setInterval(() => {
+                if (typeof document !== 'undefined' && document.hidden) return;
                 if (this.currentTrackData) {
+                    this.currentTrackData.timestamp = Date.now();
                     if (this.channel && this.isSubscribed) {
                         this.channel.track(this.currentTrackData).catch(() => {});
                     }
                     if (localBus) {
-                        localBus.postMessage({ type: 'PING', user: this.currentTrackData });
+                        try {
+                            localBus.postMessage({ type: 'PING', user: this.currentTrackData });
+                        } catch (e) {}
                     }
+                    this.lastHttpPingAt = Date.now();
                     this.sendHttpHeartbeat(this.currentTrackData);
                 }
-            }, 10000); // a cada 10s
+            }, 30000); // a cada 30s (evita sobrecarga de memória/rede no celular)
         }
     }
 
+    private lastHttpPingAt = 0;
+
     private async sendHttpHeartbeat(data: any) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
         try {
             await fetch('/api/presence', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
+                signal: controller.signal
             });
-        } catch (e) {}
+        } catch (e) {
+            // Silencioso para não acumular erros em conexões móveis instáveis
+        } finally {
+            clearTimeout(timeout);
+        }
     }
 
     // Atualiza a atividade atual (ex: mudou de capítulo ou tela)

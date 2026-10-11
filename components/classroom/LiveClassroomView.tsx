@@ -262,12 +262,16 @@ export default function LiveClassroomView({
     }
   }, [studyKey]);
 
-  // Carregar ao mudar de aula e fazer polling suave a cada 3 segundos
+  // Carregar ao mudar de aula e fazer polling inteligente (pausa em background e reduz frequência com chat fechado)
   useEffect(() => {
     loadClassroomMessages();
-    const interval = setInterval(loadClassroomMessages, 3500);
+    const pollDelay = showSidePanel ? 5000 : 15000;
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadClassroomMessages();
+    }, pollDelay);
     return () => clearInterval(interval);
-  }, [loadClassroomMessages]);
+  }, [loadClassroomMessages, showSidePanel]);
 
   // Efeito do Cronômetro
   useEffect(() => {

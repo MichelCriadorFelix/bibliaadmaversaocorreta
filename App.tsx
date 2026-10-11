@@ -160,56 +160,89 @@ export default function App() {
       document.documentElement.style.fontSize = `${newScale}%`;
   };
 
-  // Heartbeat de Presença em Tempo Real (Apenas quem está com a Bíblia/App aberta)
+  // Mantém a tela ativa (Screen Wake Lock) enquanto o app estiver aberto em leitura/estudo
+  // evitando que o celular desligue/feche o app durante a leitura silenciosa.
   useEffect(() => {
-    const getActiveEmail = () => {
-      if (user?.email) return user.email;
-      if (user?.user_email) return user.user_email;
-      if (userProgress?.user_email) return userProgress.user_email;
+    if (!isAuthenticated) return;
+    let wakeLockSentinel: any = null;
+    let isMounted = true;
+
+    const acquireWakeLock = async () => {
+      if (!isMounted || typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+      if ('wakeLock' in navigator && !wakeLockSentinel) {
+        try {
+          wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
+          wakeLockSentinel.addEventListener('release', () => {
+            wakeLockSentinel = null;
+          });
+        } catch (e) {
+          // Silencioso caso o navegador exija gesto do usuário ou esteja em economia extrema de bateria
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        acquireWakeLock();
+      }
+    };
+
+    acquireWakeLock();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLockSentinel) {
+        try { wakeLockSentinel.release(); } catch (e) {}
+        wakeLockSentinel = null;
+      }
+    };
+  }, [isAuthenticated]);
+
+  // Presença em Tempo Real (Gerenciado pelo singleton presenceService a cada 30s sem duplicar timers)
+  const userEmailForPresence = user?.email || user?.user_email || userProgress?.user_email || '';
+  const userNameForPresence = user?.name || user?.user_name || userProgress?.user_name || '';
+  const userLevelForPresence = userProgress?.level || 1;
+  const userRankForPresence = userProgress?.rankTitle || 'Estudante da Bíblia';
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let email = userEmailForPresence;
+    if (!email) {
       try {
         const saved = localStorage.getItem('adma_user');
         if (saved) {
           const parsed = JSON.parse(saved);
-          return parsed.email || parsed.user_email || null;
+          email = parsed.email || parsed.user_email || '';
         }
       } catch (e) {}
-      return null;
-    };
-
-    const email = getActiveEmail();
+    }
     if (!email) return;
 
-    const name = user?.name || user?.user_name || userProgress?.user_name || (email.split('@')[0]);
-    const level = userProgress?.level || 1;
-    const rankTitle = userProgress?.rankTitle || 'Estudante da Bíblia';
+    const name = userNameForPresence || email.split('@')[0];
+    const activity = view === 'reader' ? 'Com a Bíblia Aberta' : view === 'panorama' ? 'Estudando na EBD' : 'No Aplicativo';
 
-    const sendPing = () => {
-      const activity = view === 'bible' ? 'Com a Bíblia Aberta' : 'No Aplicativo';
-      challengeService.heartbeatPresence({
-        email,
-        name,
-        level,
-        rankTitle,
-        activity
-      });
-    };
+    challengeService.heartbeatPresence({
+      email,
+      name,
+      level: userLevelForPresence,
+      rankTitle: userRankForPresence,
+      activity
+    });
 
-    sendPing();
-    const interval = setInterval(sendPing, 5000); // Heartbeat a cada 5 segundos
-
-    // Também limpa presença ao fechar aba
     const handleUnload = () => {
       try {
-        navigator.sendBeacon('/api/presence', JSON.stringify({ email }));
+        navigator.sendBeacon('/api/presence', JSON.stringify({ email, action: 'leave' }));
       } catch (e) {}
     };
     window.addEventListener('beforeunload', handleUnload);
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('beforeunload', handleUnload);
     };
-  }, [isAuthenticated, user, userProgress, view]);
+  }, [isAuthenticated, userEmailForPresence, userNameForPresence, userLevelForPresence, userRankForPresence, view]);
 
   // ÚNICO canal pessoal por usuário — escuta TODOS os eventos de duelo.
   // Depende apenas do e-mail (string primitiva), não do objeto inteiro,

@@ -1,5 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 
+let cachedSupabase = null;
+let cachedSupabaseKey = null;
+
+function getServerSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
+                      process.env.SUPABASE_SECRET_KEY ||
+                      process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) return null;
+  if (!cachedSupabase || cachedSupabaseKey !== supabaseKey) {
+    cachedSupabase = createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false }
+    });
+    cachedSupabaseKey = supabaseKey;
+  }
+  return cachedSupabase;
+}
+
 export default async function handler(request, response) {
   // --- HEADERS CORS PADRÃO ---
   response.setHeader('Access-Control-Allow-Credentials', true);
@@ -16,19 +35,15 @@ export default async function handler(request, response) {
   }
 
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
-                        process.env.SUPABASE_SECRET_KEY ||
-                        process.env.SUPABASE_ANON_KEY;
+    const supabase = getServerSupabase();
 
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabase) {
         console.error("Presence Error: Credenciais Supabase ausentes.");
         return response.status(200).json({ onlineUsers: [], totalOnline: 0 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const COLLECTION = 'user_presence';
-    const TTL_MS = 60 * 1000; // 60 segundos de tolerância
+    const TTL_MS = 95 * 1000; // 95 segundos de tolerância para heartbeat móvel de 30s
 
     // 1. POST - Heartbeat do usuário
     if (request.method === 'POST') {
@@ -41,13 +56,23 @@ export default async function handler(request, response) {
             }
         }
 
-        const { email, name, level, rankTitle, activity } = body || {};
+        const { email, name, level, rankTitle, activity, action } = body || {};
         if (!email) {
             return response.status(400).json({ error: 'Email é obrigatório' });
         }
 
         const cleanEmail = String(email).toLowerCase().trim();
         const safeId = 'pres_' + cleanEmail.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        if (action === 'leave') {
+            await supabase
+                .from('adma_content')
+                .delete()
+                .eq('id', safeId)
+                .eq('collection', COLLECTION);
+            return response.status(200).json({ status: 'left', email: cleanEmail });
+        }
+
         const now = Date.now();
 
         const presenceData = {
