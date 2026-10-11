@@ -257,74 +257,54 @@ function buildPageBudgetPlan(rawTargetPages, defaultPages = 4) {
   const pages = Number.isFinite(parsed) ? Math.max(2, Math.min(10, parsed)) : defaultPages;
   const baseWordCount = pages * 600;
   const maxWords = baseWordCount;
-  const minWords = pages <= 4
-    ? Math.round(baseWordCount * 0.85)
-    : Math.round(baseWordCount * 0.82);
+  const minWords = Math.round(baseWordCount * 0.85);
   const idealWords = Math.round((minWords + maxWords) / 2);
   const wordCountTarget = `${minWords} a ${maxWords}`;
 
   let numTopicsMin = 3;
-  let numTopicsMax = 4;
-  let paragraphsPerTopic = '2 a 3 parágrafos';
+  let numTopicsMax = 5;
   let introWordsMin = 150;
-  let introWordsMax = 200;
-  let closingWordsMin = 140;
-  let closingWordsMax = 190;
+  let introWordsMax = 220;
+  let closingWordsMin = 130;
+  let closingWordsMax = 180;
 
   if (pages === 2) {
     numTopicsMin = 3; numTopicsMax = 3;
-    paragraphsPerTopic = '2 parágrafos curtos';
-    introWordsMin = 120; introWordsMax = 150;
-    closingWordsMin = 110; closingWordsMax = 140;
+    introWordsMin = 120; introWordsMax = 160;
+    closingWordsMin = 100; closingWordsMax = 140;
   } else if (pages === 3) {
     numTopicsMin = 3; numTopicsMax = 4;
-    paragraphsPerTopic = '2 a 3 parágrafos';
-    introWordsMin = 150; introWordsMax = 190;
-    closingWordsMin = 130; closingWordsMax = 170;
+    introWordsMin = 140; introWordsMax = 190;
+    closingWordsMin = 120; closingWordsMax = 160;
   } else if (pages === 4) {
-    numTopicsMin = 4; numTopicsMax = 4;
-    paragraphsPerTopic = '3 parágrafos';
-    introWordsMin = 180; introWordsMax = 220;
-    closingWordsMin = 140; closingWordsMax = 180;
+    numTopicsMin = 3; numTopicsMax = 5;
+    introWordsMin = 160; introWordsMax = 220;
+    closingWordsMin = 130; closingWordsMax = 180;
   } else if (pages === 5) {
     numTopicsMin = 4; numTopicsMax = 5;
-    paragraphsPerTopic = '3 parágrafos médios';
-    introWordsMin = 180; introWordsMax = 220;
-    closingWordsMin = 150; closingWordsMax = 190;
+    introWordsMin = 180; introWordsMax = 240;
+    closingWordsMin = 150; closingWordsMax = 200;
   } else if (pages === 6) {
-    numTopicsMin = 5; numTopicsMax = 5;
-    paragraphsPerTopic = '3 a 4 parágrafos médios';
-    introWordsMin = 200; introWordsMax = 240;
-    closingWordsMin = 160; closingWordsMax = 200;
-  } else if (pages === 7) {
+    numTopicsMin = 4; numTopicsMax = 6;
+    introWordsMin = 200; introWordsMax = 260;
+    closingWordsMin = 160; closingWordsMax = 220;
+  } else if (pages <= 8) {
     numTopicsMin = 5; numTopicsMax = 6;
-    paragraphsPerTopic = '4 parágrafos médios';
-    introWordsMin = 210; introWordsMax = 250;
-    closingWordsMin = 170; closingWordsMax = 210;
-  } else if (pages === 8) {
-    numTopicsMin = 6; numTopicsMax = 6;
-    paragraphsPerTopic = '4 parágrafos médios';
-    introWordsMin = 220; introWordsMax = 260;
-    closingWordsMin = 180; closingWordsMax = 220;
-  } else if (pages === 9) {
-    numTopicsMin = 6; numTopicsMax = 7;
-    paragraphsPerTopic = '4 a 5 parágrafos médios';
-    introWordsMin = 230; introWordsMax = 270;
-    closingWordsMin = 190; closingWordsMax = 230;
+    introWordsMin = 220; introWordsMax = 280;
+    closingWordsMin = 180; closingWordsMax = 240;
   } else {
-    numTopicsMin = 7; numTopicsMax = 7;
-    paragraphsPerTopic = '5 parágrafos médios';
-    introWordsMin = 240; introWordsMax = 280;
-    closingWordsMin = 200; closingWordsMax = 240;
+    numTopicsMin = 5; numTopicsMax = 7;
+    introWordsMin = 240; introWordsMax = 300;
+    closingWordsMin = 200; closingWordsMax = 260;
   }
 
   const avgTopics = (numTopicsMin + numTopicsMax) / 2;
   const fixedOverhead = ((introWordsMin + introWordsMax) / 2) + ((closingWordsMin + closingWordsMax) / 2);
   const bodyBudget = Math.max(600, idealWords - fixedOverhead);
   const wordsPerTopicAvg = Math.round(bodyBudget / avgTopics);
-  const wordsPerTopicMin = Math.max(180, Math.round(wordsPerTopicAvg * 0.88));
-  const wordsPerTopicMax = Math.round(wordsPerTopicAvg * 1.05);
-  const numTopicsLabel = numTopicsMin === numTopicsMax ? `exatamente ${numTopicsMax}` : `${numTopicsMin} a ${numTopicsMax}`;
+  const wordsPerTopicMin = Math.max(200, Math.round(wordsPerTopicAvg * 0.88));
+  const wordsPerTopicMax = Math.round(wordsPerTopicAvg * 1.08);
+  const numTopicsLabel = numTopicsMin === numTopicsMax ? `${numTopicsMax}` : `${numTopicsMin} a ${numTopicsMax}`;
 
   return {
     pages,
@@ -336,7 +316,6 @@ function buildPageBudgetPlan(rawTargetPages, defaultPages = 4) {
     numTopicsMin,
     numTopicsMax,
     numTopicsLabel,
-    paragraphsPerTopic,
     introRange: `${introWordsMin} a ${introWordsMax}`,
     closingRange: `${closingWordsMin} a ${closingWordsMax}`,
     topicWordRange: `${wordsPerTopicMin} a ${wordsPerTopicMax}`,
@@ -785,7 +764,7 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                 const isUpgrade = taskType === 'upgrade_teacher_ebd';
                 let depthInstruction = "";
                 const pageBudget = buildPageBudgetPlan(targetPages, 3);
-                const { pages, baseWordCount, minWords, maxWords, wordCountTarget, paragraphsPerTopic, topicWordRange } = pageBudget;
+                const { pages, baseWordCount, minWords, maxWords, wordCountTarget, topicWordRange } = pageBudget;
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial, fornecendo orientações práticas e diretas ao ponto.";
@@ -797,9 +776,9 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
 
                 let volumeInstruction = "";
                 if (isUpgrade) {
-                    volumeInstruction = `MANDATO DE VOLUME CIRÚRGICO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL | TETO INVIOLÁVEL: ${maxWords} PALAVRAS): O usuário solicitou rigorosamente ${pages} páginas (~${baseWordCount} palavras). Cada uma das 5 seções do Guia deve ter cerca de ${topicWordRange} palavras (${paragraphsPerTopic}). NÃO ultrapasse ${maxWords} palavras sob nenhuma hipótese. Se o texto existente for longo, COMPACTE e resuma para se adequar a esta meta.`;
+                    volumeInstruction = `MANDATO DE VOLUME CIRÚRGICO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL): O usuário solicitou rigorosamente ${pages} páginas (~${baseWordCount} palavras). Cada seção principal deve ter cerca de ${topicWordRange} palavras. NÃO ultrapasse ${maxWords} palavras.`;
                 } else {
-                    volumeInstruction = `MANDATO DE VOLUME RIGOROSO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL | TETO INVIOLÁVEL: ${maxWords} PALAVRAS): Enquadre o resumo e roadmap rigorosamente na meta de ${pages} páginas (~${baseWordCount} palavras), entre ${minWords} e ${maxWords} palavras totais (cerca de ${topicWordRange} palavras / ${paragraphsPerTopic} por seção principal). NUNCA exceda ${maxWords} palavras!`;
+                    volumeInstruction = `MANDATO DE VOLUME RIGOROSO (ALVO EXATO: ${wordCountTarget} PALAVRAS TOTAL): Enquadre o resumo e roadmap rigorosamente na meta de ${pages} páginas (~${baseWordCount} palavras), entre ${minWords} e ${maxWords} palavras totais (cerca de ${topicWordRange} palavras por seção principal). NUNCA exceda ${maxWords} palavras!`;
                 }
 
                 // Detecta se há uma aula extensa colada no prompt (como texto da lição do aluno)
@@ -1077,15 +1056,15 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
             else if (taskType === 'thematic_ebd' || taskType === 'upgrade_thematic_ebd') {
                 let depthInstruction = "";
                 const pageBudget = buildPageBudgetPlan(targetPages, 4);
-                const { pages, baseWordCount, minWords, maxWords, wordCountTarget, numTopicsLabel, paragraphsPerTopic, introRange, closingRange, topicWordRange, wordsPerTopicMax } = pageBudget;
+                const { pages, baseWordCount, minWords, maxWords, wordCountTarget, numTopicsLabel, introRange, closingRange, topicWordRange } = pageBudget;
                 const isUpgrade = taskType === 'upgrade_thematic_ebd';
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto, mas SEMPRE incluindo as palavras-chave nos originais (hebraico/grego), o significado clicável dos nomes/lugares e referências bíblicas cruzadas do mesmo contexto.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça mais contexto histórico, palavras-chave nos idiomas originais (hebraico/aramaico/grego), significado clicável de nomes e lugares, referências cruzadas e explicações detalhadas para cada ponto, respeitando estritamente o limite de palavras por tópico.";
+                    depthInstruction = "Forneça mais contexto histórico, palavras-chave nos idiomas originais (hebraico/aramaico/grego), significado clicável de nomes e lugares, referências cruzadas e explicações detalhadas para cada ponto.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "Análise teológica, exegética e histórica profunda, explorando palavras-chave no hebraico/grego, recepção dos ouvintes originais, onomástica/toponímia clicável e harmonia canônica com alta erudição, respeitando rigorosamente a escala de páginas e o teto de palavras solicitados.";
+                    depthInstruction = "Análise teológica, exegética e histórica profunda, explorando palavras-chave no hebraico/grego, recepção dos ouvintes originais, onomástica/toponímia clicável e harmonia canônica com alta erudição, respeitando rigorosamente a escala de páginas solicitada.";
                 }
 
                 systemInstruction = `
@@ -1099,22 +1078,21 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                     --- DIRETRIZ DE LINGUAGEM, GLOSSÁRIO INTERATIVO, ONOMÁSTICA E ORIGINAIS (MUITO IMPORTANTE) ---
                     1. PÚBLICO-ALVO E DIDÁTICA: Alunos leigos de EBD. Use linguagem CLARA, SIMPLES e ACESSÍVEL, explicando conceitos complexos com analogias do cotidiano, mas SEM JAMAIS omitir a riqueza dos idiomas originais e dos significados dos nomes e lugares.
                     2. GLOSSÁRIO INTERATIVO CLICÁVEL OBRIGATÓRIO PARA TERMOS TÉCNICOS, NOMES DE PESSOAS, LUGARES E PALAVRAS NOS ORIGINAIS:
-                       Sempre que mencionar pela PRIMEIRA VEZ na aula:
+                       Sempre que mencionar:
                        (a) um **nome próprio de personagem bíblico** (antropônimo),
                        (b) um **nome de lugar, cidade, região, monte, vale, rio ou povo** (topônimo/etnônimo),
                        (c) uma **palavra-chave nos originais (Hebraico, Aramaico ou Grego Koiné)**, ou
                        (d) um **termo técnico, teológico ou palavra difícil em português**,
-                       você DEVE OBRIGATORIAMENTE envolver a palavra no formato clicável: [[Termo ou Nome | Explicação curta e direta de 8 a 15 palavras]].
-                       - REGRA ANTI-REPETIÇÃO E CONCISÃO DO BALÃO: Aplique o colchete duplo [[Nome | Explicação]] APENAS NA PRIMEIRA OCORRÊNCIA de cada nome/lugar/termo na aula (nunca repita o balão para o mesmo nome várias vezes). Mantenha a explicação interna curta (8 a 15 palavras no máximo) para não inflar o tamanho do arquivo.
+                       você DEVE OBRIGATORIAMENTE envolver a palavra no formato clicável: [[Termo ou Nome | Explicação simples, clara e didática]].
                        - Exemplos de Nomes e Lugares (Onomástica e Toponímia Clicável):
-                         * "...quando Jacó chegou a [[Betel | Do hebraico Beit-El, 'Casa de Deus', antiga cidade de Luz (Gn 28:19)]]..."
-                         * "...o sacerdócio de [[Melquisedeque | Do hebraico Malki-Tzedeq, 'Rei de Justiça', rei de Salém e sacerdote do Altíssimo]]..."
-                         * "...no monte [[Moriá | Do hebraico Moriyyah, 'Escolhido pelo Senhor', monte do sacrifício de Isaque e do Templo]]..."
+                         * "...quando Jacó chegou a [[Betel | Do hebraico Beit-El, que significa 'Casa de Deus', antigo nome da cidade cananeia de Luz (Gn 28:19)]]..."
+                         * "...o sacerdócio de [[Melquisedeque | Do hebraico Malki-Tzedeq, que significa 'Rei de Justiça', rei de Salém ('Paz') e sacerdote do Deus Altíssimo]]..."
+                         * "...no monte [[Moriá | Do hebraico Moriyyah, 'Visto/Escolhido pelo Senhor', local do sacrifício de Isaque e futuro monte do Templo]]..."
                        - Exemplos de Palavras-Chave nos Originais (Intenção do Autor e Ouvintes Originais):
-                         * "...Deus demonstra Sua [[hesed | Hebraico: amor leal e fidelidade pactual inquebrável de Deus para com Seu povo]]..."
-                         * "...Cristo bradou [[tetelestai | Grego: 'Está consumado/pago integralmente', termo usado para quitar dívidas para sempre]]..."
+                         * "...Deus demonstra Sua [[hesed | Palavra hebraica para amor leal, misericórdia fiel e compromisso inquebrável de aliança]]..."
+                         * "...Cristo bradou [[tetelestai | Termo comercial grego que significa 'Está consumado/pago integralmente', carimbado em recibos de dívidas quitadas]]..."
                     3. EXEGESE DAS PALAVRAS-CHAVE NOS ORIGINAIS (INTENÇÃO DO AUTOR E COMPREENSÃO DOS OUVINTES ORIGINAIS):
-                       Em todos os tópicos principais (##), traga à luz 1 a 2 palavras-chave decisivas no Hebraico, Aramaico ou Grego Koiné (transliteradas e clicáveis via [[... | ...]]), explicando com simplicidade e concisão (em 1 a 2 frases integradas ao parágrafo) o que o autor inspirado quis transmitir e como os ouvintes originais da época entendiam aquela expressão.
+                       Em todos os tópicos principais, traga à luz as palavras-chave decisivas no Hebraico, Aramaico ou Grego Koiné (transliteradas e clicáveis via [[... | ...]]), explicando com simplicidade: (1) o que o autor inspirado realmente quis transmitir com aquela palavra específica e (2) como os ouvintes originais da época entendiam aquela expressão em sua cultura e contexto histórico.
 
                     --- HERMENÊUTICA BÍBLICA, CONTEXTO IMEDIATO/REMOTO E EMBASAMENTO BÍBLICO (CRÍTICO) ---
                     1. EMBASAMENTO NO CORPO DO TEXTO: Toda afirmação teológica, doutrinária ou histórica DEVE ser imediatamente seguida de sua base bíblica entre parênteses no meio do texto (ex: Tiago 2:26; Eclesiastes 12:7). NUNCA crie listas soltas de referências no final dos tópicos.
@@ -1132,21 +1110,14 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                     6. RIGOR HISTÓRICO E HONESTIDADE INTELECTUAL (CRÍTICO): Use as fontes primárias APENAS para elucidar o contexto histórico, cultural ou linguístico. É ESTRITAMENTE PROIBIDO forçar a fonte a endossar a sua teologia ou usar anacronismos (ex: dizer que Josefo refutava o gnosticismo). Deixe a fonte falar por si mesma, mesmo que a visão dela seja diferente da nossa. A Pérola de Ouro serve para trazer robustez histórica, não para validar forçadamente o seu argumento.
                     7. MENÇÕES SEM CITAÇÃO: Se você for APENAS MENCIONAR um autor ou obra, sem fazer uma citação específica de um texto, NÃO use o formato {{ }}. Em vez disso, use o formato de Glossário: [[Flávio Josefo | Historiador judeu do século I...]].
 
-                    --- MANDATO CRÍTICO DE VOLUME E RITMO DE ESCRITA (${pages} PÁGINAS = ${wordCountTarget} PALAVRAS | TETO MÁXIMO: ${maxWords} PALAVRAS) ---
-                    1. META OBRIGATÓRIA E TETO INVIOLÁVEL: O texto FINAL deve ter RIGOROSAMENTE ENTRE ${wordCountTarget} PALAVRAS para preencher EXATAMENTE as ${pages} páginas solicitadas (1 página = 600 palavras).
-                    2. TETO MÁXIMO ABSOLUTO: NUNCA EXCEDA ${maxWords} PALAVRAS e NÃO produza menos que ${minWords} palavras. Ultrapassar ${maxWords} palavras é expressamente PROIBIDO e constitui falha grave de metragem.
-                    3. FÓRMULA MATEMÁTICA DE DISTRIBUIÇÃO POR SEÇÃO PARA ${pages} PÁGINAS (SIGA À RISCA):
-                       - Introdução: ${introRange} palavras (1 a 2 parágrafos curtos).
-                       - Desenvolvimento dos tópicos principais (##): estruture em ${numTopicsLabel} tópicos principais (ou siga os tópicos da ementa). Cada tópico principal (##) INTEIRO (somando todos os seus subtópicos ###, listas numeradas e Pérola de Ouro) DEVE ter entre ${topicWordRange} palavras (${paragraphsPerTopic} no total por tópico — JAMAIS ultrapasse ${wordsPerTopicMax} palavras em um único tópico ##!).
-                       - Se a aula tiver muitos subtópicos (ementa extensa com 8 a 25 subtópicos ###): sintetize cada subtópico (###) em 1 único parágrafo curto e cirúrgico de 90 a 140 palavras para que a soma de toda a aula jamais passe de ${maxWords} palavras!
+                    --- MANDATO CRÍTICO DE VOLUME E RITMO DE ESCRITA (${pages} PÁGINAS = ENTRE ${minWords} E ${maxWords} PALAVRAS) ---
+                    1. META OBRIGATÓRIA: O texto FINAL deve ter RIGOROSAMENTE ENTRE ${minWords} e ${maxWords} PALAVRAS para preencher as ${pages} páginas solicitadas (1 página = 600 palavras).
+                    2. PROIBIÇÃO DE RESUMO EXCESSIVO OU ESTOURO DE PÁGINAS: NÃO produza menos que ${minWords} palavras e NUNCA ultrapasse ${maxWords} palavras.
+                    3. FÓRMULA DE RITMO POR SEÇÃO PARA ${pages} PÁGINAS (PARA ATINGIR A META COM PRECISÃO):
+                       - Introdução: ${introRange} palavras.
+                       - Desenvolvimento (dividido em ${numTopicsLabel} tópicos principais): cada tópico principal (##) deve ter entre ${topicWordRange} palavras.
                        - Aplicação Prática e Conclusão: ${closingRange} palavras no total.
-                    4. CONTROLE DE TAMANHO EM ILUSTRAÇÕES, LISTAS E FONTES:
-                       - Se usar listas numeradas (1., 2., 3.) dentro de um tópico, cada item numerado deve ter APENAS 2 a 3 linhas (40 a 65 palavras), contando dentro do limite de ${wordsPerTopicMax} palavras daquele tópico.
-                       - Relatos bíblicos práticos e conexões históricas devem ser concisos (2 a 3 linhas no máximo). Não reconte a narrativa bíblica inteira.
-                       - Profundidade teológica NÃO significa prolixidade. Significa densidade exegética explicada com simplicidade e precisão dentro da cota exata de palavras.
-                    5. NO MODO UPGRADE (ATUALIZAÇÃO DE AULA EXISTENTE):
-                       - Preserve integralmente todos os tópicos (##) e subtópicos (###) existentes na ementa.
-                       - COMPACTE e RESUMA trechos prolixos do texto original. A soma total da aula atualizada DEVE ficar estritamente entre ${minWords} e ${maxWords} palavras (JAMAIS acima de ${maxWords} palavras).
+                    4. CONTROLE DE ERUDIÇÃO: Profundidade teológica NÃO significa prolixidade. Significa densidade de informação explicada com simplicidade.
 
                     --- DIRETRIZES DE LINGUAGEM E TOM (CRÍTICO - CLAREZA TOTAL) ---
                     1. PROIBIÇÃO DE ARCAÍSMOS E PALAVRAS DIFÍCEIS: É ESTRITAMENTE PROIBIDO usar palavras antigas, pouco usuais, jargões acadêmicos desnecessários ou frases cerimoniais.
@@ -1177,7 +1148,7 @@ Retorne de forma concisa e cirúrgica em Português do Brasil (máximo 1 a 2 par
                         ? `\n--- MANDATO CRÍTICO: PRESERVAÇÃO TOTAL DA EMENTA E DOS TÓPICOS EXISTENTES ---\nA aula já possui uma ementa curricular estabelecida com os seguintes tópicos e subtópicos doutrinários:\n"""\n${existingHeadings.join('\n')}\n"""\nÉ TERMINANTEMENTE PROIBIDO excluir, aglutinar, reordenar ou substituir qualquer um desses tópicos (##) e subtópicos (###). Todos eles DEVEM OBRIGATORIAMENTE constar no texto final atualizado, enriquecidos com maior profundidade bíblica, fontes primárias e glossário didático.\n`
                         : '';
 
-                    enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]:
+                    enhancedPrompt = `[PROTOCOLO DE UPGRADE DE APOSTILA TEMÁTICA SÉRIE OURO - META EXATA: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
 TEMA DA AULA: "${lessonTheme}"${moduleTitle ? ` (Matéria/Módulo: "${moduleTitle}")` : ''}
 ${headingsPreservationBlock}
 ${customInstrBlock}
@@ -1192,49 +1163,47 @@ ${baseContent}
 INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
 - Comece com o TÍTULO DA AULA em letras maiúsculas (Use # ${lessonTheme.toUpperCase()}).
 - Mantenha como base estrutural o conteúdo que já existe nesta aula, preservando integralmente todos os tópicos (##) e subtópicos (###) existentes.
-- SINTETIZE COM PRECISÃO: Para que todos os tópicos caibam na meta de ${pages} páginas (~${baseWordCount} palavras), limite cada subtópico a 1 único parágrafo denso e direto (100 a 160 palavras). NUNCA exceda ${maxWords} palavras no total!
 ${customInstructions ? '- Incorpore rigorosamente as diretrizes e sugestões do professor fornecidas acima.' : ''}
-- Sempre que houver alguma doutrina, mandamento ou princípio, traga 1 relato prático das Escrituras resumido em 2 a 4 linhas (sem recontar histórias inteiras), com RIGOR CONTEXTUAL E HISTÓRICO REAL.
+- Sempre que houver alguma doutrina, mandamento ou princípio, traga um exemplo ou relato prático das Escrituras (onde essa verdade foi vivida, quebrada ou cumprida na história bíblica), com RIGOR CONTEXTUAL E HISTÓRICO REAL (proibido forçar conexões fora de contexto ou inventar histórias).
 - Aplique o Glossário Didático no formato [[Palavra|Explicação simples e didática]] para termos técnicos e teológicos.
 - Insira referências bíblicas no corpo do texto (sem listas soltas).
 - Inclua Fontes Primárias {{Autor | Obra | Comando}} e conexões históricas pertinentes ao tema.
 - NÃO USE SAUDAÇÕES OU INTRODUÇÕES META. VÁ DIRETO AO CONTEÚDO DA AULA.
-- ⚠️ TRAVA DE SEGURANÇA E PACING FINAL: O texto FINAL DEVE ter rigorosamente entre ${minWords} e ${maxWords} palavras (${pages} páginas). Jamais passe de ${maxWords} palavras (não estoure para 5.000 palavras)! Conclua o texto antes de ultrapassar ${maxWords} palavras.`;
+- ⚠️ TRAVA DE SEGURANÇA FINAL: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras (${pages} páginas). NÃO ultrapasse ${maxWords} palavras.`;
                 } else {
                     const lessonTheme = themeTitle || book || prompt;
                     const customInstrBlock = customInstructions && customInstructions.trim().length > 0
                         ? `\n--- DIRETRIZES ESPECÍFICAS / EMENTA DE TÓPICOS SUGERIDA PELO PROFESSOR (SEGUIR RIGOROSAMENTE) ---\n"""\n${customInstructions.trim()}\n"""\n`
                         : (prompt !== lessonTheme ? `\n--- DIRETRIZES ESPECÍFICAS / SUGESTÕES DO PROFESSOR ---\n"""\n${prompt}\n"""\n` : '');
 
-                    enhancedPrompt = `[GERAR APOSTILA DIDÁTICA TEMÁTICA SÉRIE OURO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]:
+                    enhancedPrompt = `[GERAR APOSTILA DIDÁTICA TEMÁTICA SÉRIE OURO - META EXATA: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
 TEMA DA AULA: "${lessonTheme}"${moduleTitle ? ` (Matéria/Módulo: "${moduleTitle}")` : ''}
 ${customInstrBlock}
 
 INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
 - Comece com o TÍTULO DA AULA em letras maiúsculas (Use # ${lessonTheme.toUpperCase()}).
 - Se houver uma ementa de tópicos (##) e subtópicos (###) definida nas instruções acima, siga-a RIGOROSAMENTE do início ao fim, desenvolvendo cada ponto com profundidade teológica de nível PhD e didática acessível de EBD, OBRIGATORIAMENTE RESTRITA AO INTERVALO DE ${wordCountTarget} PALAVRAS (${pages} páginas).
-- PACING E DISTRIBUIÇÃO: Estruture em ${numTopicsLabel} tópicos principais (##), regulando cada tópico principal inteiro para ter entre ${topicWordRange} palavras (${paragraphsPerTopic} no máximo por tópico ##), ou 90 a 140 palavras por subtópico se a ementa tiver mais de 8 subtópicos.
-- Sempre que houver alguma doutrina, mandamento ou princípio, traga 1 relato prático das Escrituras resumido em 2 a 3 linhas com rigor contextual.
-- Aplique o Glossário Didático no formato [[Palavra|Explicação curta de 8 a 15 palavras]] apenas na primeira menção de cada nome, lugar ou termo.
+- Sempre que houver alguma doutrina, mandamento ou princípio, traga um exemplo ou relato prático das Escrituras (onde essa verdade foi vivida, quebrada ou cumprida na história bíblica), com RIGOR CONTEXTUAL E HISTÓRICO REAL (proibido forçar conexões fora de contexto ou inventar histórias).
+- Aplique o Glossário Didático no formato [[Palavra|Explicação simples e didática]].
 - Insira referências bíblicas no corpo do texto.
 - Inclua Fontes Primárias {{Autor | Obra | Comando}} e contexto histórico/teológico.
 - NÃO USE SAUDAÇÕES. VÁ DIRETO AO CONTEÚDO.
-- ⚠️ TRAVA DE SEGURANÇA FINAL: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras (${pages} páginas). NUNCA exceda ${maxWords} palavras sob nenhuma hipótese!`;
+- ⚠️ TRAVA DE SEGURANÇA FINAL: O texto FINAL DEVE ter entre ${minWords} e ${maxWords} palavras (${pages} páginas). NÃO exceda ${maxWords} palavras.`;
                 }
             }
             // --- LÓGICA PARA CONTEÚDO DO ALUNO (PADRÃO - EBD PANORAMA) ---
             else if (taskType === 'ebd' || taskType === 'upgrade_ebd') {
                 let depthInstruction = "";
                 const pageBudget = buildPageBudgetPlan(targetPages, 3);
-                const { pages, baseWordCount, minWords, maxWords, wordCountTarget, numTopicsLabel, paragraphsPerTopic, introRange, closingRange, topicWordRange, wordsPerTopicMax } = pageBudget;
+                const { pages, baseWordCount, minWords, maxWords, wordCountTarget, numTopicsLabel, introRange, closingRange, topicWordRange } = pageBudget;
                 const isUpgrade = taskType === 'upgrade_ebd';
                 
                 if (depthLevel === 'padrao') {
                     depthInstruction = "Mantenha o foco no essencial e direto ao ponto, mas SEMPRE incluindo em todos os tópicos: (1) o significado clicável [[Nome|Significado...]] dos nomes próprios, cidades, montes e lugares, (2) palavras-chave decisivas nos idiomas originais (hebraico/aramaico/grego) mostrando o que o autor quis transmitir e como os ouvintes originais entendiam, e (3) referências bíblicas cruzadas do mesmo contexto.";
                 } else if (depthLevel === 'estendido') {
-                    depthInstruction = "Forneça contexto histórico, palavras-chave nos idiomas originais (hebraico/aramaico/grego) com a percepção dos ouvintes originais, significado clicável de todos os nomes e lugares relevantes, referências bíblicas cruzadas sob boa hermenêutica e explicações detalhadas para cada grupo de versículos, respeitando rigorosamente o limite de palavras por tópico.";
+                    depthInstruction = "Forneça contexto histórico, palavras-chave nos idiomas originais (hebraico/aramaico/grego) com a percepção dos ouvintes originais, significado clicável de todos os nomes e lugares relevantes, referências bíblicas cruzadas sob boa hermenêutica e explicações detalhadas para cada grupo de versículos.";
                 } else if (depthLevel === 'profundo') {
-                    depthInstruction = "Análise exegética e teológica aprofundada com uso de palavras-chave nos idiomas originais (hebraico/aramaico/grego), intenção autoral e recepção dos ouvintes originais, onomástica e toponímia clicável, debates teológicos, harmonia canônica e contexto histórico detalhado, dimensionada com precisão cirúrgica para cobrir o capítulo dentro do teto estrito de palavras solicitado.";
+                    depthInstruction = "Análise exegética e teológica aprofundada com uso abundante de palavras-chave nos idiomas originais (hebraico/aramaico/grego), intenção autoral e recepção dos ouvintes originais, onomástica e toponímia clicável, debates teológicos, harmonia canônica e contexto histórico detalhado, dimensionada para cobrir o capítulo dentro do limite de páginas solicitado.";
                 }
 
                 const introInstruction = (chapter === 1) 
@@ -1309,17 +1278,18 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
            - FILTRO ANTI-MITOS DE PÚLPITO: Apenas cite fatos arqueológicos e históricos DOCUMENTADOS e COMPROVADOS. É expressamente proibido citar lendas urbanas de púlpito (como a corda na perna do sumo sacerdote ou o buraco da agulha em Jerusalém).
         11. ONOMÁSTICA E TOPONÍMIA BÍBLICA INTERATIVA CLICÁVEL (SIGNIFICADO DE NOMES DE PESSOAS, LUGARES, CIDADES, MONTES, RIOS E POVOS — OBRIGATÓRIO):
            - Na mentalidade bíblica, nomes próprios de pessoas (antropônimos) e nomes de lugares, cidades, aldeias, montes, vales, rios e regiões (topônimos) carregam revelações profundas, profecias, juízos, promessas e memória histórica.
-           - REGRA OBRIGATÓRIA DE CLICABILIDADE (APENAS NA 1ª OCORRÊNCIA E COM BALÃO CURTO): Sempre que um personagem bíblico, cidade, região, monte, vale, rio ou povo relevante aparecer PELA PRIMEIRA VEZ na aula, você DEVE torná-lo clicável usando o formato de dois colchetes com explicação enxuta (8 a 15 palavras): [[Nome ou Lugar | Significado etimológico no hebraico/aramaico/grego e breve contexto]].
-           - PROIBIÇÃO DE REPETIÇÃO DE BALÕES: NUNCA aplique [[...]] repetidas vezes para o mesmo nome ou lugar ao longo do capítulo (envolva apenas na primeira menção!). Isso evita inflar artificialmente o volume de palavras.
-           - Exemplos de aplicação enxuta:
-             * Personagens: [[Abrão | Do hebraico Avram, "Pai exaltado", mudado para Abraão, "Pai de multidões" (Gn 17:5)]], [[Melquisedeque | Do hebraico Malki-Tzedeq, "Rei de Justiça", rei de Salém ("Paz")]], [[Barnabé | Do aramaico Bar-Navah, "Filho da Consolação" ou "Exortação" (At 4:36)]].
-             * Cidades e Lugares: [[Betel | Do hebraico Beit-El, "Casa de Deus", antiga cidade de Luz (Gn 28:19)]], [[Belém | Do hebraico Beit-Lechem, "Casa do Pão", cidade de Davi na Judeia]], [[Moriá | Do hebraico Moriyyah, "Visto/Escolhido pelo Senhor", monte do Templo (2 Cr 3:1)]].
-        12. PALAVRAS-CHAVE NOS ORIGINAIS (HEBRAICO, ARAMAICO E GREGO KOINÉ) — INTENÇÃO DO AUTOR E COMPREENSÃO DOS OUVINTES ORIGINAIS (OBRIGATÓRIO EM TODOS OS TÓPICOS):
-           - Em TODOS os tópicos principais (##) da aula, você DEVE obrigatoriamente destacar 1 a 2 palavras-chave, verbos ou expressões decisivas no idioma original do texto (Hebraico/Aramaico no AT; Grego Koiné no NT).
-           - Cada palavra-chave original DEVE ser apresentada transliterada e envolvida no formato clicável [[termo original | Do hebraico/grego: significado literal e nuance para os ouvintes originais (8 a 15 palavras)]], explicando de forma concisa e fluida dentro do próprio parágrafo: (a) o que o autor inspirado quis passar com aquela palavra e (b) como os ouvintes originais entendiam aquilo em sua cultura.
+           - REGRA OBRIGATÓRIA DE CLICABILIDADE: Sempre que um personagem bíblico, cidade, região, monte, vale, rio ou povo relevante aparecer na aula, você DEVE explicar seu significado etimológico e geográfico/histórico tornando o nome clicável usando o formato de dois colchetes: [[Nome ou Lugar | Significado etimológico no hebraico/aramaico/grego e breve contexto histórico/geográfico]].
            - Exemplos de aplicação:
-             * "...o texto diz que Deus sentiu íntima compaixão, usando o verbo grego [[splagchnizomai | Do grego splanchna (entranhas): compaixão visceral, o grau mais profundo de misericórdia]], mostrando aos leitores originais que Jesus não sentiu apenas pena superficial..."
-             * "...no original hebraico, a palavra traduzida por benignidade é [[hesed | Do hebraico chesed: amor leal e fidelidade inquebrável de aliança]], que para o israelita significava que Deus jamais abandona Seu pacto..."
+             * Personagens: [[Abrão | Do hebraico Avram, "Pai exaltado", mudado por Deus para Abraão (Avraham), "Pai de uma multidão" (Gn 17:5)]], [[Melquisedeque | Do hebraico Malki-Tzedeq, "Rei de Justiça", rei de Salém ("Paz")]], [[Barnabé | Do aramaico Bar-Navah, "Filho da Consolação" ou "Filho da Exortação" (At 4:36)]].
+             * Cidades e Lugares: [[Betel | Do hebraico Beit-El, "Casa de Deus", antigo nome da cidade cananeia de Luz (Gn 28:19)]], [[Belém | Do hebraico Beit-Lechem, "Casa do Pão", cidade natal de Davi e de Cristo na Judeia]], [[Moriá | Do hebraico Moriyyah, "Visto/Escolhido pelo Senhor", monte do sacrifício de Isaque e da edificação do Templo (2 Cr 3:1)]], [[Cafarnaum | Do hebraico Kfar-Nachum, "Aldeia de Naum (Aldeia da Consolação)", base do ministério de Jesus na Galileia]].
+        12. PALAVRAS-CHAVE NOS ORIGINAIS (HEBRAICO, ARAMAICO E GREGO KOINÉ) — INTENÇÃO DO AUTOR E COMPREENSÃO DOS OUVINTES ORIGINAIS (OBRIGATÓRIO EM TODOS OS TÓPICOS):
+           - Em TODOS os tópicos principais (##) da aula, você DEVE obrigatoriamente destacar pelo menos 2 a 3 palavras-chave, verbos ou expressões decisivas no idioma original do texto (Hebraico/Aramaico no Antigo Testamento; Grego Koiné no Novo Testamento).
+           - Cada palavra-chave original DEVE ser apresentada transliterada e envolvida no formato clicável [[termo original | Do hebraico/grego: significado literal, nuance exegética e como os ouvintes originais entendiam]], além de ser explicada de forma fluida e didática dentro do próprio parágrafo para revelar:
+             (a) O que o autor inspirado realmente quis passar ao escolher aquela palavra específica;
+             (b) Como os ouvintes ou leitores originais entendiam aquela expressão na cultura, no direito e no cotidiano da época.
+           - Exemplos de aplicação:
+             * "...o texto diz que Deus sentiu íntima compaixão, usando o verbo grego [[splagchnizomai | Do grego splanchna (entranhas/vísceras): sentir compaixão visceral que move as entranhas, o grau mais profundo de amor e misericórdia]], mostrando aos leitores originais que Jesus não sentiu apenas uma pena superficial, mas uma dor profunda no íntimo..."
+             * "...no original hebraico, a palavra traduzida por benignidade é [[hesed | Do hebraico chesed: amor leal, fidelidade pactual inquebrável e misericórdia comprometida com a aliança]], que para o israelita significava que Deus jamais abandona a aliança que jurou..."
         13. DECODIFICAÇÃO DE EXPRESSÕES IDIOMÁTICAS E COSTUMES FORENSES DE CHOQUE:
            - Expressões e metáforas antigas ou práticas jurídicas/forenses que soam obscuras ou amenas ao leitor do século XXI (ex: o "corpo de morte" de Rm 7:24, "cortar aliança" entre animais em Gn 15, tirar a sandália em Rt 4, rasgar vestes) devem ser explicadas em sua realidade histórica crua, para que a classe sinta o mesmo impacto e choque dos ouvintes originais.
         14. DESARMAMENTO DE ERROS COMUNS E MITOS DE PÚLPITO:
@@ -1386,24 +1356,21 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
              1. O Sacerdote Perfeito e Puro: O sumo sacerdote terreno estava sujeito a contrair impurezas rituais que o impediam temporariamente de ministrar (${book || 'Lv'} ${chapter || '22'}:3-4). Jesus Cristo, contudo, é o nosso perfeito Sumo Sacerdote que permaneceu santo e imaculado, mediando eternamente por nós diante do Pai (Hb 7:26; 9:14).
              2. O Sacrifício Sem Defeito: A exigência de animais machos sem qualquer defeito físico (${book || 'Lv'} ${chapter || '22'}:19-20) prefigura a perfeição moral e espiritual de Jesus Cristo, o verdadeiro Cordeiro sem defeito e sem mácula cujo sangue precioso nos resgatou (1 Pe 1:18-19).
 
-        --- MANDATO CRÍTICO DE VOLUME E RITMO DE ESCRITA (${pages} PÁGINAS = ${wordCountTarget} PALAVRAS | TETO ABSOLUTO: ${maxWords} PALAVRAS) ---
-        ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): O usuário definiu rigorosamente ${pages} páginas (${baseWordCount} palavras de teto máximo). Não expanda desenfreadamente.
+        --- MANDATO CRÍTICO DE VOLUME E RITMO DE ESCRITA (${pages} PÁGINAS = ENTRE ${minWords} E ${maxWords} PALAVRAS) ---
+        ${isUpgrade ? `1. VOLUME RIGOROSO NO UPGRADE (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): O usuário definiu rigorosamente ${pages} páginas (~${baseWordCount} palavras). Não expanda desenfreadamente.
         2. ATUALIZAÇÃO CIRÚRGICA E COMPACTAÇÃO: Mantenha a essência do texto e enriqueça com os elementos que faltam. Se a aula já for longa, COMPACTE parágrafos redundantes para manter o tamanho estritamente dentro da faixa de ${wordCountTarget} palavras.` : `1. VOLUME RIGOROSO NA CRIAÇÃO (ALVO ABSOLUTO: ENTRE ${minWords} E ${maxWords} PALAVRAS): Planeje o tamanho do texto estruturalmente para respeitar este limite com precisão cirúrgica (1 página = 600 palavras).`}
-        2. TETO MÁXIMO INVIOLÁVEL: NUNCA ultrapasse ${maxWords} palavras! Em uma aula solicitada para ${pages} páginas (teto de ${maxWords} palavras), ultrapassar ${maxWords} palavras é expressamente PROIBIDO e constitui erro grave de extrapolação.
-        3. FÓRMULA MATEMÁTICA DE RITMO E DISTRIBUIÇÃO POR SEÇÃO PARA ${pages} PÁGINAS (SIGA EXATAMENTE ESTA CONTA):
-           - Introdução do capítulo: ${introRange} palavras (1 a 2 parágrafos curtos, com ponte viva conectando ao capítulo anterior).
-           - Quantidade exata de Tópicos Principais (##): divida os versículos do capítulo em ${numTopicsLabel} tópicos principais (##). NUNCA crie mais do que ${pageBudget.numTopicsMax} tópicos principais (##)!
-           - Limite Global por Tópico Principal (##): CADA tópico principal (##) INTEIRO — já somando eventuais subtópicos (###), listas numeradas (1., 2., 3.) e a Pérola de Ouro daquele tópico — DEVE conter entre ${topicWordRange} palavras (${paragraphsPerTopic} no total por tópico ##). JAMAIS ultrapasse ${wordsPerTopicMax} palavras em um mesmo tópico (##)!
-           - Controle de Subtópicos (###) e Listas Numeradas: NÃO multiplique subtópicos ### dentro de cada tópico ##. Quando usar lista numerada (1., 2., 3.) para explicar versículos ou detalhes, cada item numerado deve ter APENAS 2 a 3 linhas (40 a 65 palavras por item), contando dentro do orçamento de ${wordsPerTopicMax} palavras daquele tópico ##.
-           - Relatos bíblicos práticos cruzados: mencione o caso prático em 2 a 3 linhas no máximo, sem narrar o capítulo inteiro da história cruzada.
-           - Seção final de Tipologia Cristológica: entre 2 e 4 conexões numeradas concisas (cada uma em 2 a 3 linhas, totalizando ${closingRange} palavras no total), sem inflar o texto.
+        2. PROIBIÇÃO DE RESUMO OU ESTOURO: NÃO produza menos que ${minWords} palavras e NUNCA ultrapasse ${maxWords} palavras.
+        3. FÓRMULA DE RITMO POR SEÇÃO PARA ${pages} PÁGINAS (PARA ATINGIR A META COM PRECISÃO):
+           - Introdução do capítulo: ${introRange} palavras.
+           - Divisão dos versículos em ${numTopicsLabel} tópicos principais (##): cada tópico principal deve ter entre ${topicWordRange} palavras (incluindo seus subtópicos e explicações enumeradas 1., 2., 3...).
+           - Seção final de Tipologia Cristológica: 2 a 4 conexões numeradas concisas (2 a 3 linhas cada, cerca de ${closingRange} palavras no total), sem inflar o texto.
         4. CONTROLE DE ERUDIÇÃO: Profundidade teológica significa rigor exegético e clareza didática, NÃO prolixidade. Mantenha o texto fluido e denso sem divagações secundárias.
 
         --- ESTRUTURA VISUAL OBRIGATÓRIA ---
         1. TÍTULO PRINCIPAL: # PANORAMA BÍBLICO - ${book ? book.toUpperCase() : 'BÍBLIA'} ${chapter || ''} (PROF. MICHEL FELIX)
         ${introInstruction}
-        3. TÓPICOS DO ESTUDO (${numTopicsLabel} tópicos ##, máximo ${wordsPerTopicMax} palavras por tópico): ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: ${book || 'Livro'} X:Y-Z)
-           - Desenvolva cada tópico dentro do teto estrito de ${paragraphsPerTopic} (${topicWordRange} palavras por tópico ##), destrinchando os versículos com clareza, nomes próprios e lugares clicáveis na 1ª menção [[Nome/Lugar|Significado curto de 8 a 15 palavras]], 1 a 2 palavras-chave nos originais clicáveis [[termo original|Significado curto no hebraico/grego]], glossários [[Termo|Significado]], 1 Pérola de Ouro {{Autor|Ref|Comando}} concisa (1 a 2 frases), referências bíblicas cruzadas do mesmo contexto e arqueologia in-loco. A aplicação cristã flui de forma orgânica e implícita no final do tópico.
+        3. TÓPICOS DO ESTUDO: ## 1. TÍTULO DO TÓPICO EM MAIÚSCULO (Referência: ${book || 'Livro'} X:Y-Z)
+           - Desenvolva os subtópicos e a análise exegética versículo por versículo (com listas enumeradas 1., 2., 3... claras quando explicar sequências de versículos, mandamentos ou elementos), nomes próprios e lugares clicáveis [[Nome/Lugar|Significado...]], palavras-chave nos originais clicáveis [[termo original|Significado...]], glossários [[Termo|Significado]], Pérolas de Ouro {{Autor|Ref|Comando}}, referências bíblicas cruzadas do mesmo contexto e arqueologia in-loco. A aplicação cristã deve fluir de forma orgânica e implícita no final do tópico, sem subtítulo próprio.
         4. SEÇÃO FINAL:
            ### TIPOLOGIA: CONEXÃO COM JESUS CRISTO
            1. Título do Paralelo 1: [Explicação concisa em 2 a 3 linhas conectando o paralelo do texto com Cristo e citando as passagens bíblicas]
@@ -1414,9 +1381,9 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         `;
         systemInstruction = WRITING_STYLE;
                 if (isUpgrade) {
-                    enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]: 
+                    enhancedPrompt = `[UPGRADE CIRÚRGICO RESTRITO - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]: 
                     Aplique todas as diretrizes do Professor Michel Felix:
-                    1. ONOMÁSTICA E TOPONÍMIA CLICÁVEL OBRIGATÓRIA: envolva os nomes próprios de personagens, cidades, montes, rios, vales e lugares no formato clicável [[Nome ou Lugar | Significado no original hebraico/grego e breve contexto geográfico/histórico]], explicando sua conexão com o texto.
+                    1. ONOMÁSTICA E TOPONÍMIA CLICÁVEL OBRIGATÓRIA: envolva todos os nomes próprios de personagens, cidades, montes, rios, vales e lugares no formato clicável [[Nome ou Lugar | Significado no original hebraico/grego e breve contexto geográfico/histórico]], explicando sua conexão com o texto.
                     2. PALAVRAS-CHAVE NOS ORIGINAIS (INTENÇÃO DO AUTOR E OUVINTES ORIGINAIS): em todos os tópicos principais (##), inclua pelo menos 2 a 3 palavras-chave transliteradas do hebraico/aramaico/grego no formato clicável [[termo | Significado no original, intenção do autor e como os ouvintes originais entendiam]].
                     3. HERMENÊUTICA, CONTEXTO IMEDIATO/REMOTO E REFERÊNCIAS CRUZADAS: fundamente toda afirmação com referências bíblicas no texto e conecte com outras passagens bíblicas que pertençam genuinamente ao MESMO contexto teológico/histórico (a Bíblia explicando a própria Bíblia, sem forçar conexões fora de contexto e sem cair em contradição).
                     4. Arqueologia in-loco no parágrafo do versículo (sem seção de curiosidades no fim), aplicação prática orgânica e 100% implícita (proibido usar rótulos como 'Aplicação Pastoral:'), desarmamento de erros populares de púlpito, costura entre capítulos, Pérolas de Ouro concisas {{Autor|Ref|Comando cirúrgico}} em linha nova, e tipologia messiânica estruturada estritamente em 1 a 5 paralelos numerados (1. , 2. , 3. ), cada um com 2 a 3 linhas (proibido texto corrido na seção de Tipologia). Nunca inclua termos de metalinguagem no texto.
@@ -1426,10 +1393,10 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     ${prompt}
                     """
                     
-                    Reescreva e aprimore o conteúdo acima garantindo o rigor, a didática e o tamanho exato de ${wordCountTarget} palavras (${pages} páginas: Introdução de ${introRange} palavras + ${numTopicsLabel} tópicos ## de ${topicWordRange} palavras cada + Tipologia de ${closingRange} palavras).
-                    ⚠️ TRAVA DE SEGURANÇA FINAL: O texto DEVE ter entre ${minWords} e ${maxWords} palavras totais (${pages} páginas). NÃO ultrapasse ${maxWords} palavras sob hipótese alguma! Compacte trechos prolixos do texto original para caber rigorosamente na meta exata.`;
+                    Reescreva e aprimore o conteúdo acima garantindo o rigor, a didática (incluindo explicações enumeradas 1., 2., 3... onde houver sequências de versículos ou elementos) e o tamanho exato de ${wordCountTarget} palavras (${pages} páginas).
+                    ⚠️ TRAVA DE SEGURANÇA FINAL: O texto DEVE ter entre ${minWords} e ${maxWords} palavras totais (${pages} páginas). NÃO ultrapasse ${maxWords} palavras sob hipótese alguma.`;
                 } else {
-                    enhancedPrompt = `[GERAÇÃO DE PANORAMA BÍBLICO MAGNUM OPUS - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS | TETO INVIOLÁVEL: ${maxWords} PALAVRAS)]:
+                    enhancedPrompt = `[GERAÇÃO DE PANORAMA BÍBLICO MAGNUM OPUS - ALVO RÍGIDO: ${wordCountTarget} PALAVRAS (${pages} PÁGINAS)]:
                     
                     SOLICITAÇÃO DE ESTUDO E DIRETRIZES DO PROFESSOR:
                     """
@@ -1438,18 +1405,14 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                     
                     DIRETRIZES FINAIS DE EXECUÇÃO:
                     1. Execute a exegese completa do capítulo solicitado (${book || ''} ${chapter || ''}) obedecendo estritamente a quaisquer instruções e ênfases fornecidas acima.
-                    2. Clareza Didática Absoluta: destrinche os versículos de forma profunda e cristalina, explicando a razão de cada detalhe com listas enumeradas concisas onde for didático. Nunca use rótulos de metalinguagem (como 'Ah! Entendi' ou 'Efeito Ah Entendi').
-                    3. ONOMÁSTICA E TOPONÍMIA CLICÁVEL (APENAS 1ª MENÇÃO): Sempre que mencionar pela primeira vez personagens bíblicos, cidades, aldeias, montes, vales, rios ou regiões, envolva o nome no formato clicável [[Nome ou Lugar | Significado etimológico no hebraico/grego e breve contexto (8 a 15 palavras)]], sem repetir o balão para o mesmo nome depois.
-                    4. PALAVRAS-CHAVE NOS ORIGINAIS (1 A 2 POR TÓPICO): Em TODOS os tópicos principais (##), apresente 1 a 2 palavras-chave decisivas no original (Hebraico, Aramaico ou Grego Koiné) transliteradas e clicáveis [[termo original | Significado conciso no original e impacto nos ouvintes originais (8 a 15 palavras)]], revelando de forma fluida o que o autor quis transmitir e como os ouvintes originais compreendiam aquilo.
-                    5. HERMENÊUTICA, CONTEXTO IMEDIATO/REMOTO E REFERÊNCIAS BÍBLICAS CRUZADAS: Embase cada afirmação com referências bíblicas no próprio parágrafo e conecte o estudo com outras passagens bíblicas que façam parte genuinamente do MESMO contexto teológico/histórico (a Bíblia explicando a própria Bíblia, respeitando contexto imediato e remoto, sem jamais forçar textos fora de contexto e garantindo total harmonia e não-contradição entre as Escrituras). Ilustre princípios com relatos bíblicos reais e concisos (2 a 3 linhas).
-                    6. Aplique o Glossário Interativo [[Termo|Explicação curta]] também para termos teológicos ou palavras difíceis (apenas na 1ª ocorrência).
-                    7. Insira 1 Pérola de Ouro concisa por tópico (1 a 2 frases em parágrafo próprio) no formato {{Autor ou Obra | Ref | Comando Oculto Cirúrgico}}.
-                    8. Arqueologia e História In-Loco: insira achados e costumes diretamente no parágrafo do versículo (a antiga seção de curiosidades no fim foi extinta). Aplicação prática deve vir 100% implícita e orgânica (proibido usar rótulos como 'Aplicação Pastoral:' ou 'Pergunta para a classe:'). Encerre a aula com um gancho reflexivo para o próximo capítulo e finalize exclusivamente com o apêndice "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" contendo entre 2 e 4 paralelos numerados (1. , 2. , 3. ), cada um com título e explicação concisa de 2 a 3 linhas (nunca texto corrido).
-                    9. ⚠️ ORÇAMENTO MATEMÁTICO ESTRITO (${pages} PÁGINAS = MÁXIMO ${maxWords} PALAVRAS):
-                       - Introdução: ${introRange} palavras.
-                       - Corpo: ${numTopicsLabel} tópicos principais (##), onde CADA tópico (##) inteiro (incluindo listas e Pérola de Ouro) tem obrigatoriamente ${paragraphsPerTopic} (${topicWordRange} palavras — proibido passar de ${wordsPerTopicMax} palavras por tópico!).
-                       - Tipologia final: ${closingRange} palavras.
-                       - TETO INVIOLÁVEL: Mantenha o tamanho RIGOROSAMENTE entre ${minWords} e ${maxWords} palavras (${pages} páginas). NUNCA ultrapasse ${maxWords} palavras sob nenhuma hipótese!`;
+                    2. Clareza Didática Absoluta: destrinche os versículos de forma tão profunda e cristalina que qualquer aluno compreenda a razão de cada detalhe, usando listas enumeradas (1., 2., 3...) quando houver sequências de versículos ou elementos. Nunca use rótulos de metalinguagem (como 'Ah! Entendi' ou 'Efeito Ah Entendi').
+                    3. ONOMÁSTICA E TOPONÍMIA CLICÁVEL (SIGNIFICADO DE NOMES E LUGARES): Sempre que mencionar personagens bíblicos, cidades, aldeias, montes, vales, rios, regiões ou povos, envolva o nome no formato clicável [[Nome ou Lugar | Significado etimológico no hebraico/grego e breve contexto geográfico/histórico]].
+                    4. PALAVRAS-CHAVE NOS ORIGINAIS (INTENÇÃO DO AUTOR E OUVINTES ORIGINAIS): Em TODOS os tópicos principais (##), apresente pelo menos 2 a 3 palavras-chave decisivas no original (Hebraico, Aramaico ou Grego Koiné) transliteradas e clicáveis [[termo original | Significado no original, intenção do autor e compreensão dos ouvintes originais]], revelando de forma fluida o que o autor quis transmitir e como os ouvintes originais compreendiam aquilo.
+                    5. HERMENÊUTICA, CONTEXTO IMEDIATO/REMOTO E REFERÊNCIAS BÍBLICAS CRUZADAS: Embase cada afirmação com referências bíblicas no próprio parágrafo e conecte o estudo com outras passagens bíblicas que façam parte genuinamente do MESMO contexto teológico/histórico (a Bíblia explicando a própria Bíblia, respeitando contexto imediato e remoto, sem jamais forçar textos fora de contexto e garantindo total harmonia e não-contradição entre as Escrituras). Ilustre princípios com relatos bíblicos reais.
+                    6. Aplique o Glossário Interativo [[Termo|Explicação simples]] para qualquer palavra difícil ou conceito teológico.
+                    7. Insira as Pérolas de Ouro concisas (1 a 2 frases curtas em parágrafo próprio) no formato {{Autor ou Obra | Ref | Comando Oculto Cirúrgico com o assunto exato da frase}} com checagem em fontes acadêmicas verificáveis.
+                    8. Arqueologia e História In-Loco: insira achados e costumes diretamente no parágrafo do versículo (a antiga seção de curiosidades no fim foi extinta). Aplicação prática deve vir 100% implícita e orgânica (proibido usar rótulos como 'Aplicação Pastoral:' ou 'Pergunta para a classe:'). Encerre a aula com um gancho reflexivo para o próximo capítulo e finalize exclusivamente com o apêndice "### TIPOLOGIA: CONEXÃO COM JESUS CRISTO" contendo entre 1 e 5 paralelos numerados (1. , 2. , 3. ), cada um com título e explicação concisa de 2 a 3 linhas (nunca texto corrido).
+                    9. ⚠️ TRAVA DE SEGURANÇA FINAL: Mantenha o tamanho RIGOROSAMENTE entre ${minWords} e ${maxWords} palavras (${pages} páginas: Introdução de ${introRange} palavras + ${numTopicsLabel} tópicos ## de ${topicWordRange} palavras cada + Tipologia de ${closingRange} palavras). NUNCA ultrapasse ${maxWords} palavras.`;
                 }
             }
 

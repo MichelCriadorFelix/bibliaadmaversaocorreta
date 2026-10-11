@@ -481,7 +481,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             const block = blocks[i];
             const wordsInBlock = countVisibleWords(block);
             
-            if (currentWordCount + wordsInBlock > (TARGET_WORDS_PER_PAGE * 1.15) && currentBuffer.length > 0) {
+            if (currentWordCount + wordsInBlock > (TARGET_WORDS_PER_PAGE * 1.18) && currentWordCount >= 480 && currentBuffer.length > 0) {
                 let headingsToMove: string[] = [];
                 while (currentBuffer.length > 1 && isHeading(currentBuffer[currentBuffer.length - 1])) {
                     headingsToMove.unshift(currentBuffer.pop()!);
@@ -507,7 +507,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
             }
         }
         if (currentBuffer.length > 0) {
-            if (finalPages.length > 0 && currentWordCount < 150) {
+            if (finalPages.length > 0 && currentWordCount < 220) {
                 finalPages[finalPages.length - 1] = `${finalPages[finalPages.length - 1]}\n\n${currentBuffer.join('\n\n')}`;
             } else {
                 finalPages.push(currentBuffer.join('\n\n'));
