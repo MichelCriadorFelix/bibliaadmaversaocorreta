@@ -50,10 +50,14 @@ try {
 } catch (e) {}
 
 type PresenceListener = (users: OnlineUser[]) => void;
+type QuizReleaseListener = (payload: { chapterKey?: string; targetUnit?: string; timestamp: number }) => void;
+type RankingUpdateListener = (payload: { email?: string; unit?: string; score?: number; timestamp: number }) => void;
 
 class PresenceManager {
     private channel: RealtimeChannel | null = null;
     private listeners: Set<PresenceListener> = new Set();
+    private quizReleaseListeners: Set<QuizReleaseListener> = new Set();
+    private rankingUpdateListeners: Set<RankingUpdateListener> = new Set();
     private onlineUsersMap: Map<string, OnlineUser> = new Map();
     private currentTrackData: any = null;
     private isSubscribed = false;
@@ -70,6 +74,14 @@ class PresenceManager {
                             this.addOrUpdateUser(user);
                             this.notifyListeners();
                         }
+                    } else if (event.data && event.data.type === 'QUIZ_RELEASED') {
+                        this.quizReleaseListeners.forEach(cb => {
+                            try { cb(event.data.payload); } catch (e) {}
+                        });
+                    } else if (event.data && event.data.type === 'RANKING_UPDATED') {
+                        this.rankingUpdateListeners.forEach(cb => {
+                            try { cb(event.data.payload); } catch (e) {}
+                        });
                     }
                 };
             }
@@ -183,6 +195,18 @@ class PresenceManager {
                             this.onlineUsersMap.delete(String(key).toLowerCase().trim());
                             this.notifyListeners();
                         }
+                    })
+                    .on('broadcast', { event: 'quiz_released' }, (event: any) => {
+                        const payload = event.payload || event;
+                        this.quizReleaseListeners.forEach(cb => {
+                            try { cb(payload); } catch (e) {}
+                        });
+                    })
+                    .on('broadcast', { event: 'ranking_updated' }, (event: any) => {
+                        const payload = event.payload || event;
+                        this.rankingUpdateListeners.forEach(cb => {
+                            try { cb(payload); } catch (e) {}
+                        });
                     })
                     .subscribe(async (status) => {
                         if (status === 'SUBSCRIBED') {
@@ -303,6 +327,50 @@ class PresenceManager {
         return result;
     }
 
+    public broadcastQuizRelease(payload: { chapterKey?: string; targetUnit?: string; timestamp: number }) {
+        if (localBus) {
+            try {
+                localBus.postMessage({ type: 'QUIZ_RELEASED', payload });
+            } catch (e) {}
+        }
+        if (this.channel && this.isSubscribed) {
+            this.channel.send({
+                type: 'broadcast',
+                event: 'quiz_released',
+                payload
+            }).catch(() => {});
+        }
+    }
+
+    public subscribeToQuizRelease(callback: QuizReleaseListener): () => void {
+        this.quizReleaseListeners.add(callback);
+        return () => {
+            this.quizReleaseListeners.delete(callback);
+        };
+    }
+
+    public broadcastRankingUpdate(payload: { email?: string; unit?: string; score?: number; timestamp: number }) {
+        if (localBus) {
+            try {
+                localBus.postMessage({ type: 'RANKING_UPDATED', payload });
+            } catch (e) {}
+        }
+        if (this.channel && this.isSubscribed) {
+            this.channel.send({
+                type: 'broadcast',
+                event: 'ranking_updated',
+                payload
+            }).catch(() => {});
+        }
+    }
+
+    public subscribeToRankingUpdate(callback: RankingUpdateListener): () => void {
+        this.rankingUpdateListeners.add(callback);
+        return () => {
+            this.rankingUpdateListeners.delete(callback);
+        };
+    }
+
     public destroy() {
         if (this.pingInterval) clearInterval(this.pingInterval);
         if (this.channel) {
@@ -312,6 +380,8 @@ class PresenceManager {
         }
         this.isSubscribed = false;
         this.listeners.clear();
+        this.quizReleaseListeners.clear();
+        this.rankingUpdateListeners.clear();
     }
 }
 

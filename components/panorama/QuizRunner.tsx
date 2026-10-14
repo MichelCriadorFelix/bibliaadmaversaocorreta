@@ -4,6 +4,7 @@ import { Quiz, UserProgress, QuizQuestion, QuizAttempt } from '../../types';
 import { db } from '../../services/database';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getQuizReleaseForUnit, getChurchUnitInfo } from '../../constants';
+import { presenceService } from '../../services/presenceService';
 
 interface Props {
     quiz: Quiz;
@@ -175,6 +176,10 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
 
     // Timer Effect (Contagem Regressiva do Prazo Global na Home - CRONÔMETRO 1)
     useEffect(() => {
+        if (!started) {
+            setTimeLeft((EFFECTIVE_TIME_LIMIT > 0 ? EFFECTIVE_TIME_LIMIT : DEFAULT_DURATION) * 60);
+        }
+
         // Atualiza imediatamente ao montar ou mudar released_at da unidade
         const initialStr = calculateTimeRemaining();
         setGlobalTimeRemaining(initialStr);
@@ -412,6 +417,12 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
             try {
                 const updated = await db.entities.ReadingProgress.update(userProgress.id, newPayload);
                 onProgressUpdate(newPayload);
+                presenceService.broadcastRankingUpdate({
+                    email: userProgress.user_email,
+                    unit: userChurchUnit,
+                    score,
+                    timestamp: Date.now()
+                });
                 if (updated._queued) {
                     onShowToast(`Quiz Finalizado! +${score} pontos no ranking da ${unitInfo.shortName}! (Salvo offline, sincronizando em breve)`, 'info');
                 } else {
@@ -569,6 +580,12 @@ export default function QuizRunner({ quiz, userProgress, onProgressUpdate, onSho
                     <p className="mt-3 text-center font-bold text-gray-500">
                         {isWaitingToStart ? `Aguarde o professor liberar o quiz para a sua congregação (${unitInfo.shortName}).` : 'Para pontuar no ranking, entregue a prova dentro do tempo.'}
                     </p>
+                    {isWaitingToStart && (
+                        <div className="mt-3 flex items-center justify-center gap-2 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 py-1.5 px-3 rounded-lg">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                            <span>Destravamento automático ativo (não precisa atualizar a página)</span>
+                        </div>
+                    )}
                 </div>
 
                 <button 

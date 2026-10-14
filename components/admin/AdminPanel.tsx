@@ -7,6 +7,7 @@ import { Type as GenType } from "@google/genai";
 import { ContentReport, AppConfig, UserProgress, Quiz } from '../../types';
 import AppBuilder from './AppBuilder';
 import { extractMainLessonContentForQuiz } from '../../utils/quizContentFilter';
+import { presenceService } from '../../services/presenceService';
 
 /**
  * PAINEL ADMINISTRATIVO ADMA - MOTOR DE EXEGESE SUPREMO v102.0
@@ -1176,9 +1177,17 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
           await db.entities.Quizzes.update(quiz.id, { 
               is_visible: visible,
               time_limit_minutes: minutes > 0 ? minutes : null,
-              released_at: visible ? now : null,
+              released_at: visible ? (targetUnit === 'praca_gil' ? (quiz.released_at || null) : now) : null,
               unit_releases: updatedReleases
           });
+
+          if (visible) {
+              presenceService.broadcastQuizRelease({
+                  chapterKey: quiz.chapter_key,
+                  targetUnit,
+                  timestamp: Date.now()
+              });
+          }
           
           if (generatedQuiz && generatedQuiz.chapter_key === quiz.chapter_key) {
               setGeneratedQuiz({ 
@@ -1271,10 +1280,16 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
               };
 
               await db.entities.Quizzes.update(q.id!, {
+                  is_visible: true,
                   unit_releases: updatedReleases
               });
               count++;
           }
+
+          presenceService.broadcastQuizRelease({
+              targetUnit: 'praca_gil',
+              timestamp: Date.now()
+          });
 
           onShowToast(`Sucesso! ${count} quizzes foram disponibilizados para a congregação Praça Gil!`, 'success');
       } catch (e: any) {

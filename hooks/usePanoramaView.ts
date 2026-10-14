@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BIBLE_BOOKS, generateChapterKey } from '../constants';
+import { BIBLE_BOOKS, generateChapterKey, getQuizReleaseForUnit, getChurchUnitInfo } from '../constants';
 import { useEbdData } from './useEbdData';
 import { useThematicData } from './useThematicData';
 import { usePanoramaAudio } from './usePanoramaAudio';
@@ -7,6 +7,7 @@ import { EBDContent, Quiz, ThematicTheme, ThematicLesson, ThematicFolder, UserPr
 import { db } from '../services/database';
 import { generateContent } from '../services/geminiService';
 import { extractMainLessonContentForQuiz } from '../utils/quizContentFilter';
+import { presenceService } from '../services/presenceService';
 
 interface UsePanoramaViewProps {
     initialBook: string;
@@ -107,24 +108,44 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     const [newFolderTitle, setNewFolderTitle] = useState('');
     const [newLessonTitle, setNewLessonTitle] = useState('');
 
-    const loadQuiz = useCallback(async (book: string, chapter: number) => {
-        setQuizLoading(true);
+    const loadQuiz = useCallback(async (book: string, chapter: number, silent: boolean = false) => {
+        if (!silent) setQuizLoading(true);
         const key = generateChapterKey(book, chapter);
         try {
             const quizzes = await db.entities.Quizzes.filter({ chapter_key: key, type: 'class' });
             if (quizzes.length > 0) {
                 const quiz = quizzes[0];
-                if (quiz.is_visible || quiz.released_at || isAdmin) setActiveQuiz(quiz);
-                else setActiveQuiz(null);
+                const hasAnyUnitRelease = Boolean(
+                    quiz.unit_releases?.sede?.is_visible ||
+                    quiz.unit_releases?.sede?.released_at ||
+                    quiz.unit_releases?.praca_gil?.is_visible ||
+                    quiz.unit_releases?.praca_gil?.released_at
+                );
+                if (quiz.is_visible || quiz.released_at || hasAnyUnitRelease || isAdmin) {
+                    setActiveQuiz(prev => {
+                        if (silent && !isAdmin) {
+                            const userUnit = userProgress?.church_unit || 'sede';
+                            const prevRelease = getQuizReleaseForUnit(prev, userUnit);
+                            const nextRelease = getQuizReleaseForUnit(quiz, userUnit);
+                            if (!prevRelease.released_at && nextRelease.released_at) {
+                                const unitInfo = getChurchUnitInfo(userUnit);
+                                onShowToast(`🎉 O professor acabou de liberar o Quiz para ${unitInfo.name}! Você já pode iniciar!`, 'success');
+                            }
+                        }
+                        return quiz;
+                    });
+                } else {
+                    setActiveQuiz(null);
+                }
             } else {
                 setActiveQuiz(null);
             }
         } catch (e) {
             console.error(e);
         } finally {
-            setQuizLoading(false);
+            if (!silent) setQuizLoading(false);
         }
-    }, [isAdmin]);
+    }, [isAdmin, userProgress?.church_unit, onShowToast]);
 
     const generateQuizFromContent = useCallback(async () => {
         if (!content || !content.student_content || content.student_content.length < 50) {
@@ -247,7 +268,40 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
 
     useEffect(() => {
         if (activeTab === 'thematic') loadThemes();
-    }, [activeTab, loadThemes]);
+        if (activeTab === 'quiz') {
+            loadQuiz(book, chapter, true);
+        }
+    }, [activeTab, book, chapter, loadThemes, loadQuiz]);
+
+    // Escuta em tempo real (Broadcast + Polling leve de fallback) para destravar o Quiz
+    // automaticamente assim que o professor clicar em "Liberar para Praça Gil" ou "Liberar para Sede"
+    const isQuizReleasedForUser = useMemo(() => {
+        if (!activeQuiz) return false;
+        const userUnit = userProgress?.church_unit || 'sede';
+        const release = getQuizReleaseForUnit(activeQuiz, userUnit);
+        return Boolean(release.released_at);
+    }, [activeQuiz, userProgress?.church_unit]);
+
+    useEffect(() => {
+        const currentKey = generateChapterKey(book, chapter);
+        const unsubscribe = presenceService.subscribeToQuizRelease((payload) => {
+            if (!payload?.chapterKey || payload.chapterKey === currentKey) {
+                loadQuiz(book, chapter, true);
+            }
+        });
+        return () => unsubscribe();
+    }, [book, chapter, loadQuiz]);
+
+    useEffect(() => {
+        if (activeTab !== 'quiz' || isQuizReleasedForUser) return;
+
+        const interval = setInterval(() => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            loadQuiz(book, chapter, true);
+        }, 4000);
+
+        return () => clearInterval(interval);
+    }, [activeTab, isQuizReleasedForUser, book, chapter, loadQuiz]);
 
     // Carrega (do cache) ou gera sob demanda a sugestão de pontos de atenção deste capítulo,
     // só quando o painel de admin de EBD/Panorama é relevante (student/teacher). Falha

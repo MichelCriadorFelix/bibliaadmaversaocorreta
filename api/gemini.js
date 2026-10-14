@@ -1416,7 +1416,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 }
             }
 
-            // Normalizador Seguro de ThinkingConfig para Gemini 3.6 Flash / 3.7 Flash
+            // Normalizador Seguro de ThinkingConfig para Gemini 3.8 Flash
             // IMPORTANTE (testado e confirmado): no Gemini 3, thinkingBudget (número de tokens) é
             // amplamente ignorado pelo modelo — forçar um teto baixo não reduz o "pensamento" real.
             // O parâmetro que de fato funciona é thinkingLevel (MINIMAL/LOW/MEDIUM/HIGH). Sem nenhum
@@ -1435,8 +1435,8 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 return { thinkingLevel: ThinkingLevel.MEDIUM };
             };
 
-            // Seleção de Modelo Primário: Gemini 3.6 Flash (Padrão Bíblia ADMA)
-            const modelToUse = 'gemini-3.6-flash';
+            // Seleção de Modelo Primário: Gemini 3.8 Flash (Padrão Bíblia ADMA)
+            const modelToUse = 'gemini-3.8-flash';
 
             const config = {
                 temperature: 0.3,
@@ -1511,9 +1511,9 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
 
     // Classificação inteligente de modelos para distribuir carga entre cotas independentes (evita exaustão prematura e 503 High Demand):
     // - Tarefas auxiliares/rápidas (fontes primárias, epígrafes/metadata, buscador rápido, sugestões de pontos de atenção em segundo plano):
-    //   usam 'gemini-3.1-flash-lite', que tem cota própria separada, latência ultrabaixa e preserva 100% da cota do 'gemini-3.6-flash' para as aulas e estudos principais!
+    //   usam 'gemini-3.1-flash-lite', que tem cota própria separada, latência ultrabaixa e preserva 100% da cota do 'gemini-3.8-flash' para as aulas e estudos principais!
     // - Tarefas teológicas principais (EBD Panorama, Guia do Mestre, Estudos Temáticos, Dicionário, Comentário, Devocional, Quiz):
-    //   usam 'gemini-3.6-flash' como motor titular e, se uma chave sofrer 503 High Demand no modelo principal, tenta fallback imediato antes de descartar a chave.
+    //   usam 'gemini-3.8-flash' como motor titular e, se uma chave sofrer 503 High Demand no modelo principal, tenta fallback imediato antes de descartar a chave.
     const isLiteTask = [
         'fetch_primary_source',
         'metadata',
@@ -1545,7 +1545,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 }
             });
             
-            const TARGET_MODEL = isLiteTask ? 'gemini-3.1-flash-lite' : 'gemini-3.6-flash';
+            const TARGET_MODEL = isLiteTask ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash';
 
             const generatePromise = ai.models.generateContent({
                 model: TARGET_MODEL,

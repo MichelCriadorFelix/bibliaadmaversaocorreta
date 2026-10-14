@@ -48,6 +48,7 @@ import { ThematicManager } from './ThematicManager';
 import { BibleReference } from './BibleReference';
 import { GlossaryTerm } from './GlossaryTerm';
 import { PrimarySource } from './PrimarySource';
+import { presenceService } from '../../services/presenceService';
 
 interface PanoramaProps {
     isAdmin: boolean;
@@ -800,13 +801,19 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
 
                                                 await db.entities.Quizzes.update(activeQuiz.id!, {
                                                     is_visible: true,
-                                                    released_at: targetUnit === 'praca_gil' ? (activeQuiz.released_at || now) : now,
+                                                    released_at: targetUnit === 'praca_gil' ? (activeQuiz.released_at || undefined) : now,
                                                     unit_releases: updatedReleases
                                                 });
 
+                                                presenceService.broadcastQuizRelease({
+                                                    chapterKey: activeQuiz.chapter_key || generateChapterKey(book, chapter),
+                                                    targetUnit,
+                                                    timestamp: Date.now()
+                                                });
+
                                                 const label = targetUnit === 'sede' ? 'ADMA Sede' : targetUnit === 'praca_gil' ? 'ADMA Praça Gil' : 'Todas as Unidades';
-                                                onShowToast(`Quiz liberado com sucesso para ${label}!`, 'success');
-                                                await loadQuiz(book, chapter);
+                                                onShowToast(`Quiz liberado em tempo real para ${label}!`, 'success');
+                                                await loadQuiz(book, chapter, true);
                                             } catch (e) {
                                                 console.error("Erro ao liberar quiz:", e);
                                                 onShowToast("Erro ao liberar quiz.", "error");
@@ -880,8 +887,12 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                             ) : (
                                 <div className="text-center py-20">
                                     <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-6 opacity-20" />
-                                    <h3 className="font-cinzel font-black text-2xl text-gray-400 uppercase tracking-widest">Nenhum Quiz Disponível</h3>
+                                    <h3 className="font-cinzel font-black text-2xl text-gray-400 uppercase tracking-widest">Aguardando Liberação do Quiz</h3>
                                     <p className="text-sm text-gray-500 mt-4">O professor ainda não liberou o quiz para este capítulo.</p>
+                                    <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                                        Sincronização ativa: destravará automaticamente assim que o professor liberar
+                                    </div>
                                     
                                     {isAdmin && (
                                         <div className="mt-8 flex justify-center">

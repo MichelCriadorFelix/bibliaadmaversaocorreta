@@ -84,27 +84,38 @@ export default async function handler(request, response) {
       }
   }
 
-  const { textoVersiculo, voiceName = 'Aoede' } = body || {};
+  const { textoVersiculo, voiceName = 'Kore' } = body || {};
   if (!textoVersiculo) return response.status(400).json({ error: 'O texto é obrigatório.' });
+
+  // Vozes válidas suportadas no Gemini 3.8 Flash Lite TTS: 'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'
+  const validVoices = ['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'];
+  const voiceToUse = validVoices.includes(voiceName) ? voiceName : 'Kore';
 
   let lastError = null;
 
   for (const apiKey of orderedKeysToTry) {
       try {
-          const ai = new GoogleGenAI({ apiKey: apiKey });
+          const ai = new GoogleGenAI({ 
+              apiKey: apiKey,
+              httpOptions: {
+                  headers: {
+                      'User-Agent': 'aistudio-build',
+                  }
+              }
+          });
 
-          // Usando o modelo TTS preview disponível
+          // Usando o modelo oficial Gemini 3.8 Flash Lite TTS
           const instructions = "Você é um narrador profissional de audiolivros bíblicos. Adote um tom solene, reverente e pausado. Responda APENAS com a leitura do texto recebido, sem comentários adicionais.\n\nTexto:\n";
           
           const aiResponse = await ai.models.generateContent({
-            model: 'gemini-3.1-flash-tts-preview',
+            model: 'gemini-3.8-flash-lite-tts',
             contents: instructions + textoVersiculo,
             config: {
               responseModalities: ["AUDIO"],
               speechConfig: {
                 voiceConfig: {
                   prebuiltVoiceConfig: {
-                    voiceName: voiceName
+                    voiceName: voiceToUse
                   }
                 }
               }
@@ -115,14 +126,19 @@ export default async function handler(request, response) {
           if (aiResponse?.candidates?.[0]?.content?.parts) {
             const inlineData = aiResponse.candidates[0].content.parts.find(p => p.inlineData)?.inlineData;
             if (inlineData && inlineData.data) {
-                // The data is base64 encoded raw PCM 16-bit 24kHz mono
-                const pcmBuffer = Buffer.from(inlineData.data, 'base64');
+                const audioBuffer = Buffer.from(inlineData.data, 'base64');
+                // No Gemini 3.8 TTS unary, a resposta por padrão já é um arquivo WAV completo (com cabeçalho RIFF de 44 bytes)
+                if (audioBuffer.length >= 4 && audioBuffer.toString('ascii', 0, 4) === 'RIFF') {
+                    return response.status(200).json({ audio: audioBuffer.toString('base64') });
+                }
+
+                // Fallback: caso venha PCM raw (16-bit 24kHz mono), encapsula com cabeçalho RIFF/WAVE
                 const sampleRate = 24000;
                 const numChannels = 1;
                 const bitsPerSample = 16;
                 const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
                 const blockAlign = numChannels * (bitsPerSample / 8);
-                const dataSize = pcmBuffer.length;
+                const dataSize = audioBuffer.length;
 
                 const wavBuffer = Buffer.alloc(44 + dataSize);
                 
@@ -146,7 +162,7 @@ export default async function handler(request, response) {
                 wavBuffer.writeUInt32LE(dataSize, 40);
                 
                 // Write PCM data
-                pcmBuffer.copy(wavBuffer, 44);
+                audioBuffer.copy(wavBuffer, 44);
 
                 return response.status(200).json({ audio: wavBuffer.toString('base64') });
             }

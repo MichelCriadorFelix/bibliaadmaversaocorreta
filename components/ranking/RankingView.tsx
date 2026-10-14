@@ -38,12 +38,18 @@ export default function RankingView({ onBack, userProgress, onStartDuel, onShowT
 
   useEffect(() => {
     loadData();
-    // OTIMIZAÇÃO PERFORMANCE: Polling aumentado para 30s (era 5s)
+    const unsubscribeRanking = presenceService.subscribeToRankingUpdate(() => {
+        loadData(true);
+    });
     const interval = setInterval(() => {
+        if (typeof document !== 'undefined' && document.hidden) return;
         loadData(true); 
-    }, 30000); 
+    }, 10000); 
 
-    return () => clearInterval(interval);
+    return () => {
+        unsubscribeRanking();
+        clearInterval(interval);
+    };
   }, [activeTab]);
 
   // Reseta página ao trocar de aba ou congregação
