@@ -1426,20 +1426,20 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
             // precisão de crítica textual e pode "atalhar" para Nestle-Aland em vez do Texto Majoritário
             // sob thinking reduzido — a aula cita versículos em português, não reconstrói o original).
             // Normalizador Seguro de ThinkingConfig para Gemini 2.5 Flash
-            // IMPORTANTE: No Gemini 2.5 Flash, o parâmetro suportado é thinkingBudget (número de tokens).
-            // Para tarefas de chat e busca rápida, thinkingBudget: 0 garante resposta instantânea sem demora.
-            // Para redação aprofundada de aulas e exegese, orçamos de 512 a 2048 tokens de raciocínio.
+            // O thinkingBudget define o teto de raciocínio interno (chain-of-thought) antes da resposta.
+            // Para respostas de até 300 palavras no Tira-Dúvidas e Comentário, 1024 tokens de reflexão
+            // garantem exegese apurada, verificação de originais e precisão hermenêutica sem alucinações.
             const getThinkingConfig = (lvl) => {
-                if (!lvl) return { thinkingBudget: 1024 };
+                if (!lvl) return { thinkingBudget: 2048 };
                 const s = String(lvl).toLowerCase().trim();
-                if (s === 'minimal' || s === 'minimo' || s === 'mínimo' || s === 'off') return { thinkingBudget: 0 };
-                if (s === 'low' || s === 'baixo') return { thinkingBudget: 512 };
-                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 1024 };
-                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 2048 };
-                return { thinkingBudget: 1024 };
+                if (s === 'minimal' || s === 'minimo' || s === 'mínimo' || s === 'off') return { thinkingBudget: 512 };
+                if (s === 'low' || s === 'baixo') return { thinkingBudget: 1024 };
+                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 2048 };
+                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 3072 };
+                return { thinkingBudget: 2048 };
             };
 
-            // Modelo Principal: Gemini 2.5 Flash (Ultra-rápido, estável e responsivo)
+            // Modelo Principal: Gemini 2.5 Flash (Ultra-rápido, estável e com alta capacidade de raciocínio)
             const modelToUse = 'gemini-2.5-flash';
 
             const config = {
@@ -1455,7 +1455,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 ]
             };
 
-            // Configuração precisa de thinkingConfig e maxOutputTokens para Gemini 2.5 Flash:
+            // Configuração compatível de thinkingConfig e maxOutputTokens para Gemini 2.5 Flash:
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 const { maxWords } = buildPageBudgetPlan(targetPages, 4);
                 const tc = getThinkingConfig(thinkingLevel);
@@ -1465,31 +1465,35 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 config.maxOutputTokens = Math.min(65536, Math.max(24576, calculatedTokens));
             } else if (taskType === 'quiz_gen') {
                 config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingBudget: 0 };
+                config.thinkingConfig = { thinkingBudget: 1024 }; // Verifica rigorosamente para não inventar perguntas fora da aula
             } else if (taskType === 'dictionary') {
                 config.maxOutputTokens = 32768; // Versículos longos (ex: Ester 8:9, Ap 20:4) exigem JSON extenso sem risco de corte
-                config.thinkingConfig = { thinkingBudget: 512 };
+                config.thinkingConfig = { thinkingBudget: 1024 }; // Exegese apurada de hebraico/grego
             } else if (taskType === 'commentary' || taskType === 'tira_duvidas') {
-                // Tira-Dúvidas / Chat com Professor: resposta ultra-rápida sem travar o usuário
+                // Tira-Dúvidas / Chat com Professor: 1024 tokens de thinking garantem precisão teológica
+                // e hermenêutica compatível com o tamanho da resposta (até 300 palavras)
                 config.maxOutputTokens = 4096;
-                config.thinkingConfig = { thinkingBudget: 0 };
+                config.thinkingConfig = { thinkingBudget: 1024 };
             } else if (taskType === 'chapter_focus_suggestion' || taskType === 'thematic_focus_suggestion') {
                 config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingBudget: 0 };
+                config.thinkingConfig = { thinkingBudget: 512 };
             } else if (taskType === 'fetch_primary_source') {
                 config.maxOutputTokens = 4096;
-                config.thinkingConfig = { thinkingBudget: 0 };
+                config.thinkingConfig = { thinkingBudget: 256 };
                 config.temperature = 0.2;
             } else if (taskType === 'metadata') {
                 config.maxOutputTokens = 2048;
-                config.thinkingConfig = { thinkingBudget: 0 };
+                config.thinkingConfig = { thinkingBudget: 128 };
                 config.temperature = 0.2;
-            } else if (taskType === 'assistente_chat' || taskType === 'devotional') {
+            } else if (taskType === 'assistente_chat') {
                 config.maxOutputTokens = 4096;
-                config.thinkingConfig = { thinkingBudget: 0 };
+                config.thinkingConfig = { thinkingBudget: 256 };
+            } else if (taskType === 'devotional') {
+                config.maxOutputTokens = 4096;
+                config.thinkingConfig = { thinkingBudget: 1024 };
             } else {
                 config.maxOutputTokens = 16384;
-                config.thinkingConfig = { thinkingBudget: 0 };
+                config.thinkingConfig = { thinkingBudget: 1024 };
             }
 
             if (schema) {
@@ -1503,7 +1507,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
     const failedHashes = [];
     const functionStartTime = Date.now();
 
-    // Tarefas interativas que precisam de feedback em tempo real e não podem demorar
+    // Tarefas interativas que precisam de resposta rápida com raciocínio balanceado
     const isInteractiveTask = [
         'fetch_primary_source',
         'metadata',
@@ -1513,8 +1517,8 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
         'chapter_focus_suggestion'
     ].includes(taskType);
     const isHeavyLessonTask = ['ebd', 'teacher_ebd', 'thematic_ebd', 'upgrade_ebd', 'upgrade_teacher_ebd', 'upgrade_thematic_ebd'].includes(taskType);
-    const perKeyTimeoutMs = isInteractiveTask ? 10000 : (isHeavyLessonTask ? 110000 : 35000);
-    const maxBatchTime = isInteractiveTask ? 35000 : 280000;
+    const perKeyTimeoutMs = isInteractiveTask ? 20000 : (isHeavyLessonTask ? 110000 : 35000);
+    const maxBatchTime = isInteractiveTask ? 55000 : 280000;
 
     for (const apiKey of keysToTryInThisInvocation) {
         const currentHash = hashKey(apiKey);

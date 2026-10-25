@@ -93,7 +93,7 @@ export const generateContent = async (
     
     const isInteractive = ['assistente_chat', 'tira_duvidas', 'commentary', 'fetch_primary_source', 'metadata'].includes(taskType);
     const maxClientCycles = isInteractive ? 3 : 10;
-    const cycleTimeoutMs = isInteractive ? 30000 : 295000;
+    const cycleTimeoutMs = isInteractive ? 55000 : 295000;
     let lastErrorMessage = "Falha na comunicação com o Professor Virtual.";
 
     onProgress?.({
