@@ -1425,18 +1425,22 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
             // risco encontrado no dicionário, que precisa reconstruir texto grego/hebraico original com
             // precisão de crítica textual e pode "atalhar" para Nestle-Aland em vez do Texto Majoritário
             // sob thinking reduzido — a aula cita versículos em português, não reconstrói o original).
+            // Normalizador Seguro de ThinkingConfig para Gemini 2.5 Flash
+            // IMPORTANTE: No Gemini 2.5 Flash, o parâmetro suportado é thinkingBudget (número de tokens).
+            // Para tarefas de chat e busca rápida, thinkingBudget: 0 garante resposta instantânea sem demora.
+            // Para redação aprofundada de aulas e exegese, orçamos de 512 a 2048 tokens de raciocínio.
             const getThinkingConfig = (lvl) => {
-                if (!lvl) return { thinkingLevel: ThinkingLevel.HIGH };
+                if (!lvl) return { thinkingBudget: 1024 };
                 const s = String(lvl).toLowerCase().trim();
-                if (s === 'minimal' || s === 'minimo' || s === 'mínimo' || s === 'off') return { thinkingLevel: ThinkingLevel.MINIMAL };
-                if (s === 'low' || s === 'baixo') return { thinkingLevel: ThinkingLevel.LOW };
-                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingLevel: ThinkingLevel.MEDIUM };
-                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingLevel: ThinkingLevel.HIGH };
-                return { thinkingLevel: ThinkingLevel.MEDIUM };
+                if (s === 'minimal' || s === 'minimo' || s === 'mínimo' || s === 'off') return { thinkingBudget: 0 };
+                if (s === 'low' || s === 'baixo') return { thinkingBudget: 512 };
+                if (s === 'medium' || s === 'medio' || s === 'médio' || s === 'padrao' || s === 'padrão') return { thinkingBudget: 1024 };
+                if (s === 'high' || s === 'maximo' || s === 'máximo' || s === 'profundo') return { thinkingBudget: 2048 };
+                return { thinkingBudget: 1024 };
             };
 
-            // Seleção de Modelo Primário: Gemini 3.8 Flash (Padrão Bíblia ADMA)
-            const modelToUse = 'gemini-3.8-flash';
+            // Modelo Principal: Gemini 2.5 Flash (Ultra-rápido, estável e responsivo)
+            const modelToUse = 'gemini-2.5-flash';
 
             const config = {
                 temperature: 0.3,
@@ -1451,50 +1455,41 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 ]
             };
 
-            // Configuração precisa de thinkingConfig e maxOutputTokens:
-            // IMPORTANTE: Nos modelos Gemini 3, os tokens de raciocínio interno ("thinking") são descontados
-            // dentro do próprio limite de maxOutputTokens! Portanto, o controle de tamanho do texto visível deve
-            // ser feito pelo prompt e pelo thinkingLevel, NUNCA estrangulando o maxOutputTokens (o que causaria
-            // corte abrupto da resposta no meio de uma frase ou JSON inválido).
+            // Configuração precisa de thinkingConfig e maxOutputTokens para Gemini 2.5 Flash:
             if (taskType === 'ebd' || taskType === 'teacher_ebd' || taskType === 'thematic_ebd' || taskType === 'upgrade_ebd' || taskType === 'upgrade_teacher_ebd' || taskType === 'upgrade_thematic_ebd') {
                 const { maxWords } = buildPageBudgetPlan(targetPages, 4);
                 const tc = getThinkingConfig(thinkingLevel);
                 if (tc) config.thinkingConfig = tc;
                 
-                // Folga ampla para o texto + markdown + glossários + pensamento profundo (HIGH):
-                // Garante que a apostila jamais seja cortada antes da conclusão/Tipologia.
                 const calculatedTokens = Math.round(maxWords * 2.5) + 12288;
                 config.maxOutputTokens = Math.min(65536, Math.max(24576, calculatedTokens));
             } else if (taskType === 'quiz_gen') {
                 config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+                config.thinkingConfig = { thinkingBudget: 0 };
             } else if (taskType === 'dictionary') {
                 config.maxOutputTokens = 32768; // Versículos longos (ex: Ester 8:9, Ap 20:4) exigem JSON extenso sem risco de corte
-                if (dictionaryGrounded || !isNewTestamentBook(book)) {
-                    config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
-                } else {
-                    config.thinkingConfig = { thinkingLevel: ThinkingLevel.MEDIUM };
-                }
-            } else if (taskType === 'commentary') {
-                config.maxOutputTokens = 8192; // Folga total para o raciocínio MEDIUM + os 3 parágrafos sem risco de truncamento
-                config.thinkingConfig = { thinkingLevel: ThinkingLevel.MEDIUM };
+                config.thinkingConfig = { thinkingBudget: 512 };
+            } else if (taskType === 'commentary' || taskType === 'tira_duvidas') {
+                // Tira-Dúvidas / Chat com Professor: resposta ultra-rápida sem travar o usuário
+                config.maxOutputTokens = 4096;
+                config.thinkingConfig = { thinkingBudget: 0 };
             } else if (taskType === 'chapter_focus_suggestion' || taskType === 'thematic_focus_suggestion') {
-                config.maxOutputTokens = 8192; // Necessário quando a aula temática já possui ementa extensa de tópicos ## e ###
-                config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+                config.maxOutputTokens = 8192;
+                config.thinkingConfig = { thinkingBudget: 0 };
             } else if (taskType === 'fetch_primary_source') {
-                config.maxOutputTokens = 4096; // Folga segura para citação + tradução em pt-BR + contexto histórico
-                config.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
+                config.maxOutputTokens = 4096;
+                config.thinkingConfig = { thinkingBudget: 0 };
                 config.temperature = 0.2;
             } else if (taskType === 'metadata') {
                 config.maxOutputTokens = 2048;
-                config.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
+                config.thinkingConfig = { thinkingBudget: 0 };
                 config.temperature = 0.2;
             } else if (taskType === 'assistente_chat' || taskType === 'devotional') {
-                config.maxOutputTokens = 8192;
-                config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+                config.maxOutputTokens = 4096;
+                config.thinkingConfig = { thinkingBudget: 0 };
             } else {
                 config.maxOutputTokens = 16384;
-                config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+                config.thinkingConfig = { thinkingBudget: 0 };
             }
 
             if (schema) {
@@ -1502,28 +1497,24 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 config.responseSchema = schema;
             }
 
-
     let lastError = null;
     let successResponse = null;
     const triedKeysLog = [];
     const failedHashes = [];
     const functionStartTime = Date.now();
 
-    // Classificação inteligente de modelos para distribuir carga entre cotas independentes (evita exaustão prematura e 503 High Demand):
-    // - Tarefas auxiliares/rápidas (fontes primárias, epígrafes/metadata, buscador rápido, sugestões de pontos de atenção em segundo plano):
-    //   usam 'gemini-3.1-flash-lite', que tem cota própria separada, latência ultrabaixa e preserva 100% da cota do 'gemini-3.8-flash' para as aulas e estudos principais!
-    // - Tarefas teológicas principais (EBD Panorama, Guia do Mestre, Estudos Temáticos, Dicionário, Comentário, Devocional, Quiz):
-    //   usam 'gemini-3.8-flash' como motor titular e, se uma chave sofrer 503 High Demand no modelo principal, tenta fallback imediato antes de descartar a chave.
-    const isLiteTask = [
+    // Tarefas interativas que precisam de feedback em tempo real e não podem demorar
+    const isInteractiveTask = [
         'fetch_primary_source',
         'metadata',
         'assistente_chat',
+        'tira_duvidas',
+        'commentary',
         'chapter_focus_suggestion'
     ].includes(taskType);
-    const isFastTask = taskType === 'fetch_primary_source' || taskType === 'metadata';
     const isHeavyLessonTask = ['ebd', 'teacher_ebd', 'thematic_ebd', 'upgrade_ebd', 'upgrade_teacher_ebd', 'upgrade_thematic_ebd'].includes(taskType);
-    const perKeyTimeoutMs = isFastTask ? 10000 : (isHeavyLessonTask ? 110000 : 45000);
-    const maxBatchTime = isFastTask ? 40000 : 280000;
+    const perKeyTimeoutMs = isInteractiveTask ? 10000 : (isHeavyLessonTask ? 110000 : 35000);
+    const maxBatchTime = isInteractiveTask ? 35000 : 280000;
 
     for (const apiKey of keysToTryInThisInvocation) {
         const currentHash = hashKey(apiKey);
@@ -1545,7 +1536,7 @@ INSTRUÇÕES FINAIS DE RENDERIZAÇÃO:
                 }
             });
             
-            const TARGET_MODEL = isLiteTask ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash';
+            const TARGET_MODEL = 'gemini-2.5-flash';
 
             const generatePromise = ai.models.generateContent({
                 model: TARGET_MODEL,

@@ -5,7 +5,7 @@
  */
 
 // Tipos de tarefas para seleção inteligente de modelo no servidor
-export type TaskType = 'commentary' | 'dictionary' | 'devotional' | 'ebd' | 'metadata' | 'general' | 'teacher_ebd' | 'quiz_gen' | 'thematic_ebd' | 'assistente_chat' | 'upgrade_ebd' | 'upgrade_teacher_ebd' | 'upgrade_thematic_ebd' | 'get_bible_verses' | 'chapter_focus_suggestion' | 'thematic_focus_suggestion' | 'fetch_primary_source';
+export type TaskType = 'commentary' | 'dictionary' | 'devotional' | 'ebd' | 'metadata' | 'general' | 'teacher_ebd' | 'quiz_gen' | 'thematic_ebd' | 'assistente_chat' | 'tira_duvidas' | 'upgrade_ebd' | 'upgrade_teacher_ebd' | 'upgrade_thematic_ebd' | 'get_bible_verses' | 'chapter_focus_suggestion' | 'thematic_focus_suggestion' | 'fetch_primary_source';
 
 export interface GenerationProgress {
   percent: number;
@@ -91,8 +91,9 @@ export const generateContent = async (
     const attemptedHashes = new Set<string>(cachedExhausted);
     const allRotationLogs: any[] = [];
     
-    // Com failover inteligente no servidor (5 chaves por ciclo), 10 ciclos cobrem com folga até 50 tentativas
-    const maxClientCycles = 10;
+    const isInteractive = ['assistente_chat', 'tira_duvidas', 'commentary', 'fetch_primary_source', 'metadata'].includes(taskType);
+    const maxClientCycles = isInteractive ? 3 : 10;
+    const cycleTimeoutMs = isInteractive ? 30000 : 295000;
     let lastErrorMessage = "Falha na comunicação com o Professor Virtual.";
 
     onProgress?.({
@@ -151,7 +152,7 @@ export const generateContent = async (
             }, 3500);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 295000); // 295s
+            const timeoutId = setTimeout(() => controller.abort(), cycleTimeoutMs);
             
             // Enviamos batchSize amplo (15 chaves por ciclo serverless) para o servidor rotacionar imediatamente entre todas as chaves disponíveis
             const response = await fetch('/api/gemini', {

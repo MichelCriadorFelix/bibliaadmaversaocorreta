@@ -253,7 +253,7 @@ export default function VersePanel({ isOpen, onClose, verse, verseNumber, book, 
   };
 
   const handleSendQuestion = async (text: string) => {
-      if (!text.trim()) return;
+      if (!text.trim() || isChatLoading) return;
       if (msgsUsed >= dailyQuota && !isAdmin) {
           onShowToast(`Limite diário atingido! Leia mais ${BONUS_CHAPTER_STEP} capítulos para ganhar +1 pergunta.`, 'error');
           return;
@@ -303,13 +303,21 @@ export default function VersePanel({ isOpen, onClose, verse, verseNumber, book, 
       `;
 
       try {
-          const response = await generateContent(prompt, null, false, 'commentary');
+          const response = await generateContent(prompt, null, false, 'tira_duvidas', {
+              book,
+              chapter,
+              verse: verseNumber
+          });
           setChatMessages(prev => [...prev, { role: 'model', text: response || "Desculpe, não consegui processar sua dúvida agora." }]);
           
           if (!isAdmin) incrementUsage();
           
-      } catch (error) {
-          setChatMessages(prev => [...prev, { role: 'model', text: "Erro de conexão com o Professor. Tente novamente." }]);
+      } catch (error: any) {
+          console.error("Erro no chat tira-dúvidas:", error);
+          setChatMessages(prev => [...prev, { 
+              role: 'model', 
+              text: "Tivemos uma pequena oscilação temporária de conexão com o servidor. Por favor, envie sua dúvida novamente." 
+          }]);
       } finally {
           setIsChatLoading(false);
       }
