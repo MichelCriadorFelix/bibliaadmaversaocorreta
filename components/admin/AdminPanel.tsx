@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ShieldCheck, RefreshCw, Loader2, Upload, Download, Server, HardDrive, Flag, CheckCircle, XCircle, MessageSquare, Languages, GraduationCap, Calendar, CloudUpload, Wand2, StopCircle, Trash2, AlertTriangle, Save, Lock, Unlock, KeyRound, Search, Cloud, Activity, Zap, Battery, UserX, Edit, Wifi, WifiOff, Brain, Eye, EyeOff, Wrench, LayoutGrid, Check, ClipboardList, UserCheck, Church } from 'lucide-react';
 import { generateContent } from '../../services/geminiService';
-import { BIBLE_BOOKS, generateChapterKey, generateVerseKey, TOTAL_CHAPTERS } from '../../constants';
+import { BIBLE_BOOKS, generateChapterKey, generateVerseKey, TOTAL_CHAPTERS, isSedeQuizTeacherEmail } from '../../constants';
 import { db, bibleStorage } from '../../services/database';
 import { Type as GenType } from "@google/genai";
 import { ContentReport, AppConfig, UserProgress, Quiz } from '../../types';
@@ -258,7 +258,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       try {
           const data = await db.entities.ReadingProgress.list(); 
           
-          // Auto-upgrade designated secretaries if needed
+          // Auto-upgrade designated secretaries and Sede EBD quiz leaders if needed
           const updatedList = (data || []).map((u: any) => {
               const emailLower = (u.user_email || '').toLowerCase().trim();
               const isSec = emailLower.includes('chelseano') || emailLower.includes('wendell') || emailLower.includes('nicole');
@@ -266,6 +266,11 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                   u.role = 'secretary';
                   if (u.id) {
                       db.entities.ReadingProgress.update(u.id, { role: 'secretary' }).catch(() => {});
+                  }
+              } else if (isSedeQuizTeacherEmail(u.user_email) && u.role !== 'teacher_sede' && u.role !== 'admin') {
+                  u.role = 'teacher_sede';
+                  if (u.id) {
+                      db.entities.ReadingProgress.update(u.id, { role: 'teacher_sede' }).catch(() => {});
                   }
               }
               return u;
@@ -297,6 +302,7 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
       const roleMap: Record<string, string> = {
           'user': 'Aluno',
           'secretary': 'Secretário(a)',
+          'teacher_sede': 'Prof. EBD (Quiz Sede)',
           'admin': 'Administrador'
       };
       
@@ -306,21 +312,25 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
           `Digite o número da nova função:\n` +
           `1 - Aluno\n` +
           `2 - Secretário(a)\n` +
-          `3 - Administrador`,
-          currentRole === 'secretary' ? '2' : currentRole === 'admin' ? '3' : '1'
+          `3 - Administrador\n` +
+          `4 - Prof. EBD (Liberar Quiz Sede)`,
+          currentRole === 'secretary' ? '2' : currentRole === 'admin' ? '3' : currentRole === 'teacher_sede' ? '4' : '1'
       );
 
       if (!choice) return; // Cancelou
 
       let targetRole = currentRole;
-      if (choice === '1' || choice.toLowerCase() === 'aluno' || choice.toLowerCase() === 'user') {
+      const cleanChoice = choice.trim().toLowerCase();
+      if (cleanChoice === '1' || cleanChoice === 'aluno' || cleanChoice === 'user') {
           targetRole = 'user';
-      } else if (choice === '2' || choice.toLowerCase().includes('secretar') || choice.toLowerCase() === 'secretary') {
+      } else if (cleanChoice === '2' || cleanChoice.includes('secretar') || cleanChoice === 'secretary') {
           targetRole = 'secretary';
-      } else if (choice === '3' || choice.toLowerCase().includes('admin')) {
+      } else if (cleanChoice === '3' || cleanChoice.includes('admin')) {
           targetRole = 'admin';
+      } else if (cleanChoice === '4' || cleanChoice.includes('prof') || cleanChoice.includes('sede') || cleanChoice === 'teacher_sede') {
+          targetRole = 'teacher_sede';
       } else {
-          onShowToast("Opção inválida. Digite 1, 2 ou 3.", "error");
+          onShowToast("Opção inválida. Digite 1, 2, 3 ou 4.", "error");
           return;
       }
 
@@ -1699,6 +1709,11 @@ export default function AdminPanel({ onBack, onShowToast }: { onBack: () => void
                                             {user.role === 'secretary' && (
                                                 <span className="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 text-[10px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
                                                     <ClipboardList className="w-3 h-3"/> Secretária
+                                                </span>
+                                            )}
+                                            {user.role === 'teacher_sede' && (
+                                                <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-[10px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
+                                                    <GraduationCap className="w-3 h-3"/> Prof. EBD (Sede)
                                                 </span>
                                             )}
                                         </div>

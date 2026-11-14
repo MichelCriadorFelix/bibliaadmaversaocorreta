@@ -21,6 +21,7 @@ import { db, syncManager } from './services/database';
 import { AppConfig, DynamicModule } from './types';
 import { DuelInvite, challengeService } from './services/challengeService';
 import { getSupabase } from './services/presenceService';
+import { isSedeQuizTeacherEmail } from './constants';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -379,6 +380,11 @@ export default function App() {
                 if (mergedProfile.id) {
                     await db.entities.ReadingProgress.update(mergedProfile.id, { role: 'secretary' });
                 }
+            } else if (isSedeQuizTeacherEmail(mergedProfile.user_email) && mergedProfile.role !== 'teacher_sede' && mergedProfile.role !== 'admin') {
+                mergedProfile.role = 'teacher_sede';
+                if (mergedProfile.id) {
+                    await db.entities.ReadingProgress.update(mergedProfile.id, { role: 'teacher_sede' });
+                }
             }
 
             setUserProgress(mergedProfile);
@@ -473,7 +479,7 @@ export default function App() {
                 active_plans: [],
                 ebd_read: [],
                 total_ebd_read: 0,
-                role: isSecEmail(email) ? 'secretary' : 'user'
+                role: isSecEmail(email) ? 'secretary' : isSedeQuizTeacherEmail(email) ? 'teacher_sede' : 'user'
             });
             setUserProgress(newUser);
         } else {
@@ -502,6 +508,11 @@ export default function App() {
                 existingUser.role = 'secretary';
                 if (existingUser.id) {
                     await db.entities.ReadingProgress.update(existingUser.id, { role: 'secretary' });
+                }
+            } else if (isSedeQuizTeacherEmail(existingUser.user_email) && existingUser.role !== 'teacher_sede' && existingUser.role !== 'admin') {
+                existingUser.role = 'teacher_sede';
+                if (existingUser.id) {
+                    await db.entities.ReadingProgress.update(existingUser.id, { role: 'teacher_sede' });
                 }
             }
 
@@ -618,6 +629,7 @@ export default function App() {
                 isAdmin={isAdmin} 
                 onShowToast={showToast}
                 userProgress={userProgress} 
+                userEmail={user?.user_email}
                 onProgressUpdate={setUserProgress} 
                 initialBook={navParams.book}
                 initialChapter={navParams.chapter}

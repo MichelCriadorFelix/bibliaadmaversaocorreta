@@ -13,12 +13,13 @@ interface UsePanoramaViewProps {
     initialBook: string;
     initialChapter: number;
     userProgress: UserProgress | null;
+    userEmail?: string | null;
     onProgressUpdate: (updated: UserProgress) => void;
     onShowToast: (msg: string, type: 'success' | 'error' | 'info') => void;
     isAdmin: boolean;
 }
 
-export function usePanoramaView({ initialBook, initialChapter, userProgress, onProgressUpdate, onShowToast, isAdmin }: UsePanoramaViewProps) {
+export function usePanoramaView({ initialBook, initialChapter, userProgress, userEmail, onProgressUpdate, onShowToast, isAdmin }: UsePanoramaViewProps) {
     const [book, setBook] = useState(initialBook || 'Gênesis');
     const [chapter, setChapter] = useState(initialChapter || 1);
     const [activeTab, setActiveTab] = useState<'student' | 'teacher' | 'quiz' | 'thematic'>('student');
@@ -108,7 +109,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     const [newFolderTitle, setNewFolderTitle] = useState('');
     const [newLessonTitle, setNewLessonTitle] = useState('');
 
-    const canReleaseSedeQuiz = canUserReleaseSedeQuiz(userProgress);
+    const canReleaseSedeQuiz = canUserReleaseSedeQuiz(userProgress, userEmail);
 
     const loadQuiz = useCallback(async (book: string, chapter: number, silent: boolean = false) => {
         if (!silent) setQuizLoading(true);

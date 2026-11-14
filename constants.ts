@@ -52,15 +52,23 @@ export const getChurchUnitInfo = (unit?: string | null): ChurchUnitInfo => {
   return CHURCH_UNITS.sede; // Contas antigas e padrão são Sede
 };
 
-export const canUserReleaseSedeQuiz = (userProgress?: Pick<UserProgress, 'user_email'> | null): boolean => {
-  if (!userProgress?.user_email) return false;
-  const normalized = userProgress.user_email.toLowerCase().trim();
+export const isSedeQuizTeacherEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  const normalized = email.toLowerCase().trim();
   const compact = normalized.replace(/\s+/g, '');
   return (
     normalized === 'anderson.carlos@adma.local' ||
     normalized === 'anderson .carlos @adma.local' ||
     compact === 'anderson.carlos@adma.local'
   );
+};
+
+export const canUserReleaseSedeQuiz = (
+  userProgress?: Pick<UserProgress, 'user_email' | 'role'> | null,
+  fallbackEmail?: string | null
+): boolean => {
+  if (userProgress?.role === 'teacher_sede') return true;
+  return isSedeQuizTeacherEmail(userProgress?.user_email || fallbackEmail);
 };
 
 export const getQuizReleaseForUnit = (quiz: Quiz | null | undefined, unit?: string | null): QuizUnitRelease => {

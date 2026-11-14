@@ -56,6 +56,7 @@ interface PanoramaProps {
     onBack: () => void;
     onNavigate: (view: string, params?: any) => void;
     userProgress: UserProgress | null;
+    userEmail?: string | null;
     onProgressUpdate: (updated: UserProgress) => void;
     initialBook?: string;
     initialChapter?: number;
@@ -188,7 +189,7 @@ const loadingStatusMessages = [
     "ATUALIZAÇÃO v116.0: Aplicando Design Imperial Gold..."
 ];
 
-export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate, userProgress, onProgressUpdate, initialBook, initialChapter }: PanoramaProps) {
+export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate, userProgress, userEmail, onProgressUpdate, initialBook, initialChapter }: PanoramaProps) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [scrolled, setScrolled] = React.useState(false);
     const [isMobile, setIsMobile] = React.useState(false);
@@ -242,6 +243,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
         initialBook: initialBook || 'Gênesis', 
         initialChapter: initialChapter || 1, 
         userProgress, 
+        userEmail,
         onProgressUpdate, 
         onShowToast, 
         isAdmin 
@@ -773,8 +775,8 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                                 </div>
                             ) : activeQuiz ? (
                                 <>
-                                    {(isAdmin || canUserReleaseSedeQuiz(userProgress)) && (() => {
-                                        const canReleaseSedeOnly = !isAdmin && canUserReleaseSedeQuiz(userProgress);
+                                    {(isAdmin || canUserReleaseSedeQuiz(userProgress, userEmail)) && (() => {
+                                        const canReleaseSedeOnly = !isAdmin && canUserReleaseSedeQuiz(userProgress, userEmail);
                                         const isReleasedForSede = Boolean(activeQuiz.unit_releases?.sede?.released_at || activeQuiz.released_at);
                                         const isReleasedForPracaGil = Boolean(activeQuiz.unit_releases?.praca_gil?.released_at);
 
@@ -898,16 +900,39 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                             ) : (
                                 <div className="text-center py-20">
                                     <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-6 opacity-20" />
-                                    <h3 className="font-cinzel font-black text-2xl text-gray-400 uppercase tracking-widest">Aguardando Liberação do Quiz</h3>
-                                    <p className="text-sm text-gray-500 mt-4">
-                                        {canUserReleaseSedeQuiz(userProgress) && !isAdmin
-                                            ? 'O quiz deste capítulo ainda não foi gerado pelo administrador.'
-                                            : 'O professor ainda não liberou o quiz para este capítulo.'}
-                                    </p>
-                                    <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                                        Sincronização ativa: destravará automaticamente assim que o professor liberar
-                                    </div>
+                                    {canUserReleaseSedeQuiz(userProgress, userEmail) && !isAdmin ? (
+                                        <>
+                                            <h3 className="font-cinzel font-black text-2xl text-amber-600 dark:text-[#C5A059] uppercase tracking-widest">
+                                                Controle de Quiz — ADMA Sede
+                                            </h3>
+                                            <p className="text-sm text-gray-500 dark:text-gray-300 mt-4 max-w-md mx-auto">
+                                                Nenhum quiz foi gerado/salvo ainda pelo administrador para <strong>{book} {chapter}</strong>. Assim que o administrador gerar o quiz deste capítulo, o botão <strong>Liberar para Sede</strong> aparecerá automaticamente aqui.
+                                            </p>
+                                            <div className="mt-6 flex flex-col items-center gap-3">
+                                                <button
+                                                    onClick={() => loadQuiz(book, chapter)}
+                                                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-blue-700 transition shadow-sm"
+                                                >
+                                                    <RefreshCw className="w-4 h-4" /> Verificar Quiz Novamente
+                                                </button>
+                                                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                                                    Atualização automática ativa
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h3 className="font-cinzel font-black text-2xl text-gray-400 uppercase tracking-widest">Aguardando Liberação do Quiz</h3>
+                                            <p className="text-sm text-gray-500 mt-4">
+                                                O professor ainda não liberou o quiz para este capítulo.
+                                            </p>
+                                            <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                                                Sincronização ativa: destravará automaticamente assim que o professor liberar
+                                            </div>
+                                        </>
+                                    )}
                                     
                                     {isAdmin && (
                                         <div className="mt-8 flex justify-center">
