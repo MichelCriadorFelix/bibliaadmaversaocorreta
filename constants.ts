@@ -1,4 +1,4 @@
-import { BibleBook, ReadingPlan, Quiz, QuizUnitRelease } from './types';
+import { BibleBook, ReadingPlan, Quiz, QuizUnitRelease, UserProgress } from './types';
 
 export const CHURCH_NAME = "Assembleia de Deus Ministério Ágape";
 export const CHURCH_INSTAGRAM = "@adma.vilardosteles";
@@ -50,6 +50,17 @@ export const CHURCH_UNITS: Record<ChurchUnit, ChurchUnitInfo> = {
 export const getChurchUnitInfo = (unit?: string | null): ChurchUnitInfo => {
   if (unit === 'praca_gil') return CHURCH_UNITS.praca_gil;
   return CHURCH_UNITS.sede; // Contas antigas e padrão são Sede
+};
+
+export const canUserReleaseSedeQuiz = (userProgress?: Pick<UserProgress, 'user_email'> | null): boolean => {
+  if (!userProgress?.user_email) return false;
+  const normalized = userProgress.user_email.toLowerCase().trim();
+  const compact = normalized.replace(/\s+/g, '');
+  return (
+    normalized === 'anderson.carlos@adma.local' ||
+    normalized === 'anderson .carlos @adma.local' ||
+    compact === 'anderson.carlos@adma.local'
+  );
 };
 
 export const getQuizReleaseForUnit = (quiz: Quiz | null | undefined, unit?: string | null): QuizUnitRelease => {

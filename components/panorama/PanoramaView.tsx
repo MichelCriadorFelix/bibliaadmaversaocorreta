@@ -35,7 +35,7 @@ import {
   Brain, FolderOpen, List, File, ArrowLeft, Star, ArrowUp, ArrowDown,
   Folder, FolderPlus, Unlock, Wand2, Video, Church
 } from 'lucide-react';
-import { BIBLE_BOOKS, generateChapterKey } from '../../constants';
+import { BIBLE_BOOKS, generateChapterKey, canUserReleaseSedeQuiz } from '../../constants';
 import { UserProgress, ThematicTheme, ThematicLesson, BibleBook } from '../../types';
 import { db } from '../../services/database';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -773,11 +773,16 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                                 </div>
                             ) : activeQuiz ? (
                                 <>
-                                    {isAdmin && (() => {
+                                    {(isAdmin || canUserReleaseSedeQuiz(userProgress)) && (() => {
+                                        const canReleaseSedeOnly = !isAdmin && canUserReleaseSedeQuiz(userProgress);
                                         const isReleasedForSede = Boolean(activeQuiz.unit_releases?.sede?.released_at || activeQuiz.released_at);
                                         const isReleasedForPracaGil = Boolean(activeQuiz.unit_releases?.praca_gil?.released_at);
 
                                         const handleReleaseQuiz = async (targetUnit: 'sede' | 'praca_gil' | 'both') => {
+                                            if (!isAdmin && targetUnit !== 'sede') {
+                                                onShowToast("Você tem permissão para liberar apenas para a ADMA Sede.", "error");
+                                                return;
+                                            }
                                             try {
                                                 const now = new Date().toISOString();
                                                 const currentReleases = activeQuiz.unit_releases || {};
@@ -824,7 +829,7 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                                             <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-[#C5A059]/40 flex flex-col gap-3">
                                                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#C5A059]/20 pb-2">
                                                     <span className="font-cinzel font-bold text-xs text-[#8B0000] dark:text-[#C5A059] flex items-center gap-1.5">
-                                                        <ShieldCheck className="w-4 h-4" /> Controle de Liberação por Congregação
+                                                        <ShieldCheck className="w-4 h-4" /> {canReleaseSedeOnly ? 'Controle de Liberação — ADMA Sede' : 'Controle de Liberação por Congregação'}
                                                     </span>
                                                     <div className="flex items-center gap-2 text-xs">
                                                         <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
@@ -832,11 +837,13 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                                                         }`}>
                                                             Sede: {isReleasedForSede ? 'Liberado' : 'Aguardando'}
                                                         </span>
-                                                        <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                                                            isReleasedForPracaGil ? 'bg-green-600/20 text-green-700 dark:text-green-400 border border-green-500/30' : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30'
-                                                        }`}>
-                                                            Praça Gil: {isReleasedForPracaGil ? 'Liberado' : 'Aguardando'}
-                                                        </span>
+                                                        {isAdmin && (
+                                                            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                                                                isReleasedForPracaGil ? 'bg-green-600/20 text-green-700 dark:text-green-400 border border-green-500/30' : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30'
+                                                            }`}>
+                                                                Praça Gil: {isReleasedForPracaGil ? 'Liberado' : 'Aguardando'}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -847,32 +854,36 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                                                     >
                                                         <Unlock className="w-3.5 h-3.5" /> Liberar para Sede
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleReleaseQuiz('praca_gil')}
-                                                        className="flex-1 min-w-[140px] py-2.5 px-3 bg-emerald-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition-all shadow-sm"
-                                                    >
-                                                        <Unlock className="w-3.5 h-3.5" /> Liberar para Praça Gil
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleReleaseQuiz('both')}
-                                                        className="flex-1 min-w-[140px] py-2.5 px-3 bg-[#8B0000] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#6b0000] transition-all shadow-sm"
-                                                    >
-                                                        <Globe className="w-3.5 h-3.5" /> Liberar para Ambas
-                                                    </button>
-                                                    <button
-                                                        onClick={async () => {
-                                                            const confirm = window.confirm("Deseja re-gerar este quiz? Isso irá apagar o quiz atual e gerar um novo baseado no Panorama.");
-                                                            if (confirm) {
-                                                                await db.entities.Quizzes.delete(activeQuiz.id!);
-                                                                await generateQuizFromContent();
-                                                                await loadQuiz(book, chapter);
-                                                            }
-                                                        }}
-                                                        className="py-2.5 px-3 bg-gray-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-gray-800 transition-all shadow-sm"
-                                                        title="Regerar perguntas do quiz com IA"
-                                                    >
-                                                        <Wand2 className="w-3.5 h-3.5" /> Re-gerar IA
-                                                    </button>
+                                                    {isAdmin && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleReleaseQuiz('praca_gil')}
+                                                                className="flex-1 min-w-[140px] py-2.5 px-3 bg-emerald-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition-all shadow-sm"
+                                                            >
+                                                                <Unlock className="w-3.5 h-3.5" /> Liberar para Praça Gil
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleReleaseQuiz('both')}
+                                                                className="flex-1 min-w-[140px] py-2.5 px-3 bg-[#8B0000] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#6b0000] transition-all shadow-sm"
+                                                            >
+                                                                <Globe className="w-3.5 h-3.5" /> Liberar para Ambas
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const confirm = window.confirm("Deseja re-gerar este quiz? Isso irá apagar o quiz atual e gerar um novo baseado no Panorama.");
+                                                                    if (confirm) {
+                                                                        await db.entities.Quizzes.delete(activeQuiz.id!);
+                                                                        await generateQuizFromContent();
+                                                                        await loadQuiz(book, chapter);
+                                                                    }
+                                                                }}
+                                                                className="py-2.5 px-3 bg-gray-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-gray-800 transition-all shadow-sm"
+                                                                title="Regerar perguntas do quiz com IA"
+                                                            >
+                                                                <Wand2 className="w-3.5 h-3.5" /> Re-gerar IA
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -888,7 +899,11 @@ export default function PanoramaView({ isAdmin, onShowToast, onBack, onNavigate,
                                 <div className="text-center py-20">
                                     <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-6 opacity-20" />
                                     <h3 className="font-cinzel font-black text-2xl text-gray-400 uppercase tracking-widest">Aguardando Liberação do Quiz</h3>
-                                    <p className="text-sm text-gray-500 mt-4">O professor ainda não liberou o quiz para este capítulo.</p>
+                                    <p className="text-sm text-gray-500 mt-4">
+                                        {canUserReleaseSedeQuiz(userProgress) && !isAdmin
+                                            ? 'O quiz deste capítulo ainda não foi gerado pelo administrador.'
+                                            : 'O professor ainda não liberou o quiz para este capítulo.'}
+                                    </p>
                                     <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
                                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                                         Sincronização ativa: destravará automaticamente assim que o professor liberar

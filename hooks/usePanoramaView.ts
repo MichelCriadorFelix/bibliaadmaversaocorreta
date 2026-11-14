@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BIBLE_BOOKS, generateChapterKey, getQuizReleaseForUnit, getChurchUnitInfo } from '../constants';
+import { BIBLE_BOOKS, generateChapterKey, getQuizReleaseForUnit, getChurchUnitInfo, canUserReleaseSedeQuiz } from '../constants';
 import { useEbdData } from './useEbdData';
 import { useThematicData } from './useThematicData';
 import { usePanoramaAudio } from './usePanoramaAudio';
@@ -108,6 +108,8 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
     const [newFolderTitle, setNewFolderTitle] = useState('');
     const [newLessonTitle, setNewLessonTitle] = useState('');
 
+    const canReleaseSedeQuiz = canUserReleaseSedeQuiz(userProgress);
+
     const loadQuiz = useCallback(async (book: string, chapter: number, silent: boolean = false) => {
         if (!silent) setQuizLoading(true);
         const key = generateChapterKey(book, chapter);
@@ -121,9 +123,9 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
                     quiz.unit_releases?.praca_gil?.is_visible ||
                     quiz.unit_releases?.praca_gil?.released_at
                 );
-                if (quiz.is_visible || quiz.released_at || hasAnyUnitRelease || isAdmin) {
+                if (quiz.is_visible || quiz.released_at || hasAnyUnitRelease || isAdmin || canReleaseSedeQuiz) {
                     setActiveQuiz(prev => {
-                        if (silent && !isAdmin) {
+                        if (silent && !isAdmin && !canReleaseSedeQuiz) {
                             const userUnit = userProgress?.church_unit || 'sede';
                             const prevRelease = getQuizReleaseForUnit(prev, userUnit);
                             const nextRelease = getQuizReleaseForUnit(quiz, userUnit);
@@ -145,7 +147,7 @@ export function usePanoramaView({ initialBook, initialChapter, userProgress, onP
         } finally {
             if (!silent) setQuizLoading(false);
         }
-    }, [isAdmin, userProgress?.church_unit, onShowToast]);
+    }, [isAdmin, canReleaseSedeQuiz, userProgress?.church_unit, onShowToast]);
 
     const generateQuizFromContent = useCallback(async () => {
         if (!content || !content.student_content || content.student_content.length < 50) {
